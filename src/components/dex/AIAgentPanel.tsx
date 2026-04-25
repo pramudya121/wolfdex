@@ -283,7 +283,8 @@ export default function AIAgentPanel() {
         if (tc.function.name === 'propose_action') {
           const proposal: ActionProposal = {
             kind: args.kind, fromToken: args.fromToken, toToken: args.toToken,
-            amount: args.amount, recipient: args.recipient, poolId: args.poolId,
+            amount: args.amount, amountB: args.amountB, percent: args.percent,
+            recipient: args.recipient, poolId: args.poolId,
             summary: args.summary || 'Proposed action',
           };
           // Tool result: tell the model proposal was surfaced
