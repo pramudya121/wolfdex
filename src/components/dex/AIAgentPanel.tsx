@@ -174,6 +174,57 @@ export default function AIAgentPanel() {
     } catch (e: any) { return JSON.stringify({ error: e.message }); }
   };
 
+  const execListPools = async (): Promise<string> => {
+    try {
+      const pairs = await dex.getAllPairs();
+      const rows = (pairs || []).slice(0, 25).map((p: any) => ({
+        pair: `${p.token0Symbol ?? p.symbol0 ?? '?'}-${p.token1Symbol ?? p.symbol1 ?? '?'}`,
+        address: p.address ?? p.pairAddress,
+        reserve0: p.reserve0,
+        reserve1: p.reserve1,
+      }));
+      return JSON.stringify({ count: rows.length, pools: rows });
+    } catch (e: any) { return JSON.stringify({ error: e.message }); }
+  };
+
+  const execGetLpPosition = async (tokenASym: string, tokenBSym: string): Promise<string> => {
+    if (!wallet.address || !wallet.signer) return JSON.stringify({ error: 'wallet not connected' });
+    const tokenA = getTokenBySymbol(tokenASym);
+    const tokenB = getTokenBySymbol(tokenBSym);
+    if (!tokenA || !tokenB) return JSON.stringify({ error: 'unknown token symbol' });
+    try {
+      const pairAddress = await dex.getPairAddress(tokenA.address, tokenB.address);
+      if (!pairAddress || /^0x0+$/.test(pairAddress)) {
+        return JSON.stringify({ pairExists: false, tokenA: tokenA.symbol, tokenB: tokenB.symbol, message: 'Pool does not exist yet — add_liquidity will create it.' });
+      }
+      const info: any = await dex.getPairInfo(pairAddress);
+      const erc = new ethers.Contract(pairAddress, ERC20_ABI, wallet.signer);
+      const [lpBal, totalSupply] = await Promise.all([
+        erc.balanceOf(wallet.address),
+        erc.totalSupply(),
+      ]);
+      const lpBalStr = ethers.utils.formatEther(lpBal);
+      const totalStr = ethers.utils.formatEther(totalSupply);
+      const sharePct = totalSupply.isZero() ? 0 : (parseFloat(lpBalStr) / parseFloat(totalStr)) * 100;
+      // Derive underlying amounts the user would receive
+      const r0 = info?.reserve0 ? parseFloat(info.reserve0) : 0;
+      const r1 = info?.reserve1 ? parseFloat(info.reserve1) : 0;
+      const underlyingA = (sharePct / 100) * r0;
+      const underlyingB = (sharePct / 100) * r1;
+      return JSON.stringify({
+        pairExists: true,
+        pairAddress,
+        tokenA: tokenA.symbol,
+        tokenB: tokenB.symbol,
+        lpBalance: lpBalStr,
+        sharePct: sharePct.toFixed(4),
+        underlyingA: underlyingA.toFixed(6),
+        underlyingB: underlyingB.toFixed(6),
+        ratio: r0 > 0 ? (r1 / r0).toFixed(8) : null,
+      });
+    } catch (e: any) { return JSON.stringify({ error: e.message }); }
+  };
+
   // Run conversation turn (one round-trip; auto-loops if model returns tool calls)
   const sendTurn = useCallback(async (newMessages: ChatMessage[]) => {
     setBusy(true); setThinking(true);
