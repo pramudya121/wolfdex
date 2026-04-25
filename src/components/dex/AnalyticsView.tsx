@@ -5,25 +5,11 @@ import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContai
 import { useDexContext } from '@/context/DexContext';
 import PairChart from './PairChart';
 import { AnimatePresence } from 'framer-motion';
+import { useHistoricalAnalytics, type Bucket } from '@/hooks/useHistoricalAnalytics';
 
 interface PoolData {
   symbol0: string; symbol1: string; reserve0: string; reserve1: string;
   logo0: string; logo1: string; tvl: number; address: string;
-}
-
-// Generate mock chart data based on real TVL
-function generateChartData(tvl: number, days: number) {
-  const data = [];
-  for (let i = days; i >= 0; i--) {
-    const d = new Date(); d.setDate(d.getDate() - i);
-    const noise = 0.8 + Math.random() * 0.4;
-    data.push({
-      date: d.toLocaleDateString('en', { month: 'short', day: 'numeric' }),
-      tvl: +(tvl * noise).toFixed(2),
-      volume: +(tvl * 0.1 * Math.random()).toFixed(2),
-    });
-  }
-  return data;
 }
 
 export default function AnalyticsView() {
