@@ -151,6 +151,8 @@ const TOOLS = [
                 fromToken: { type: 'string' },
                 toToken: { type: 'string' },
                 amount: { type: 'string', description: 'Decimal string. Omit if useOutputFromPrev=true.' },
+                amountB: { type: 'string', description: 'Only for add_liquidity step (amount of tokenB).' },
+                percent: { type: 'number', description: 'Only for remove_liquidity step (1-100).' },
                 recipient: { type: 'string' },
                 poolId: { type: 'number' },
                 summary: { type: 'string' },
