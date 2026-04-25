@@ -63,8 +63,8 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
       cache.pairs.forEach((addr, i) => {
         const info = cache.infos[addr];
         if (!info) return;
-        const t0 = getTokenByAddress(info.token0);
-        const t1 = getTokenByAddress(info.token1);
+        const t0 = resolve(info.token0);
+        const t1 = resolve(info.token1);
         const r0 = parseFloat(info.reserve0);
         const r1 = parseFloat(info.reserve1);
         const tvl = r0 + r1;
@@ -80,10 +80,10 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
           address: addr,
           token0: info.token0,
           token1: info.token1,
-          symbol0: t0?.symbol || info.token0.slice(0, 8),
-          symbol1: t1?.symbol || info.token1.slice(0, 8),
-          logo0: t0?.logo || '/images/wdex-logo.png',
-          logo1: t1?.logo || '/images/wdex-logo.png',
+          symbol0: t0.symbol,
+          symbol1: t1.symbol,
+          logo0: t0.logo,
+          logo1: t1.logo,
           reserve0: r0.toString(),
           reserve1: r1.toString(),
           totalSupply: info.totalSupply,
