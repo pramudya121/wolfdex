@@ -140,7 +140,7 @@ export default function LimitOrderCard({
               Limit Order
               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-wolf-pink/20 text-wolf-pink font-medium">BETA</span>
             </h2>
-            <span className="text-[10px] text-muted-foreground">Auto-fills every 15s</span>
+            <span className="text-[10px] text-muted-foreground">⛓ Settled on-chain · LimitOrderDEX</span>
           </div>
 
           {/* You sell */}
