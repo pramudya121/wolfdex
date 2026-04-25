@@ -10,6 +10,7 @@ import BorderBeam from './ui/BorderBeam';
 import NumberTicker from './ui/NumberTicker';
 import SendTokenModal from './SendTokenModal';
 import { WolfSkeleton, WolfSkeletonOrb, WolfSkeletonCard } from './ui/WolfSkeleton';
+import { usePortfolioPnL } from '@/hooks/usePortfolioPnL';
 
 interface TokenBalance {
   token: TokenInfo;
@@ -141,10 +142,19 @@ export default function PortfolioView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const historyData = Array.from({ length: 14 }, (_, i) => {
-    const d = new Date(); d.setDate(d.getDate() - (13 - i));
-    return { date: d.toLocaleDateString('en', { month: 'short', day: 'numeric' }), value: totalValue * (0.8 + Math.random() * 0.4) };
-  });
+  const pnl = usePortfolioPnL(address);
+  // Real equity history derived from on-chain swap tx history. Falls back
+  // to a flat baseline at totalValue when the user has no swaps yet so the
+  // chart still renders cleanly.
+  const historyData = useMemo(() => {
+    if (pnl.equityHistory.length > 0) {
+      return pnl.equityHistory.map(p => ({ date: p.date, value: +(totalValue + p.value).toFixed(4) }));
+    }
+    return Array.from({ length: 14 }, (_, i) => {
+      const d = new Date(); d.setDate(d.getDate() - (13 - i));
+      return { date: d.toLocaleDateString('en', { month: 'short', day: 'numeric' }), value: +totalValue.toFixed(4) };
+    });
+  }, [pnl.equityHistory, totalValue]);
 
   const tokenPieData = balances.map(b => ({ name: b.token.symbol, value: b.value }));
   const lpPieData = lpPositions.map(lp => ({ name: `${lp.symbol0}/${lp.symbol1}`, value: parseFloat(lp.lpBalance) }));
@@ -213,15 +223,15 @@ export default function PortfolioView({
         </BorderBeam>
         {[
           { icon: '🪙', label: 'Tokens', num: balances.length, isNum: true },
-          { icon: '💎', label: 'Staking', num: 0, value: '$0.00' },
+          { icon: '📈', label: `PnL (${pnl.tradeCount} trades)`, num: pnl.realizedTotal, isNum: true, signed: true },
           { icon: '🌾', label: 'Farming', num: 0, value: '$0.00' },
         ].map(s => (
           <BorderBeam key={s.label} rounded="rounded-xl">
             <div className="wolf-stat-card rounded-xl p-4">
               <div className="text-xl mb-1">{s.icon}</div>
               <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{s.label}</div>
-              <div className="text-lg font-bold mt-0.5">
-                {s.isNum ? <NumberTicker value={s.num} /> : s.value}
+              <div className={`text-lg font-bold mt-0.5 ${s.signed ? (s.num > 0 ? 'text-wolf-green' : s.num < 0 ? 'text-destructive' : '') : ''}`}>
+                {s.isNum ? <NumberTicker value={s.num} prefix={s.signed && s.num > 0 ? '+' : ''} decimals={s.signed ? 4 : 0} /> : s.value}
               </div>
             </div>
           </BorderBeam>
