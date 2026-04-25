@@ -250,14 +250,14 @@ export default function LimitOrderCard({
 
           <button
             onClick={handleCreate}
-            disabled={isConnected && (!amountIn || !targetRate)}
+            disabled={submitting || (isConnected && (!amountIn || !targetRate))}
             className="w-full mt-4 py-4 rounded-2xl font-bold text-base transition-all wolf-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {!isConnected ? 'Connect Wallet' : 'Place Limit Order'}
+            {!isConnected ? 'Connect Wallet' : submitting ? 'Placing on-chain…' : 'Place Limit Order'}
           </button>
 
           <p className="text-[10px] text-muted-foreground mt-2 text-center">
-            Order auto-executes when market price crosses your target. Slippage: {slippage}%.
+            Order is escrowed by LimitOrderDEX and fills when a taker calls fillOrder. Native zkLTC is auto-wrapped to WETH. Slippage: {slippage}%.
           </p>
         </motion.div>
       </div>
