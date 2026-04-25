@@ -13,7 +13,16 @@ interface Props {
   isConnected: boolean;
   account: string | null;
   onConnectClick: () => void;
-  onCreate: (order: Omit<LimitOrder, 'id' | 'createdAt' | 'status'>) => LimitOrder;
+  /** Place a real on-chain limit order. */
+  onCreate: (order: {
+    account: string;
+    fromToken: TokenInfo;
+    toToken: TokenInfo;
+    amountIn: string;
+    targetRate: string;
+    side: 'sell' | 'buy';
+    expiresAt: number;
+  }) => Promise<LimitOrder>;
 }
 
 const EXPIRY_OPTIONS = [
