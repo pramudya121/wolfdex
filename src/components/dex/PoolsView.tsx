@@ -101,6 +101,16 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
 
   useEffect(() => { loadPools(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // After first load, retry resolution after 1.5s so on-chain ERC20 symbol
+  // lookups (fired by the resolver in the background) get reflected in the UI.
+  useEffect(() => {
+    if (pools.length === 0) return;
+    const hasUnknown = pools.some(p => p.symbol0.includes('…') || p.symbol1.includes('…') || p.symbol0.startsWith('0x') || p.symbol1.startsWith('0x'));
+    if (!hasUnknown) return;
+    const t = setTimeout(() => loadPools(false), 1500);
+    return () => clearTimeout(t);
+  }, [pools, loadPools]);
+
   const totalTVL = useMemo(() => pools.reduce((s, p) => s + p.tvl, 0), [pools]);
   const totalVol = useMemo(() => pools.reduce((s, p) => s + p.vol24h, 0), [pools]);
   const totalFees = useMemo(() => pools.reduce((s, p) => s + p.fees24h, 0), [pools]);
