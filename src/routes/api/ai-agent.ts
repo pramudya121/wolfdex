@@ -147,7 +147,7 @@ const TOOLS = [
             items: {
               type: 'object',
               properties: {
-                kind: { type: 'string', enum: ['swap', 'send', 'stake', 'unstake', 'harvest'] },
+                kind: { type: 'string', enum: ['swap', 'send', 'stake', 'unstake', 'harvest', 'add_liquidity', 'remove_liquidity'] },
                 fromToken: { type: 'string' },
                 toToken: { type: 'string' },
                 amount: { type: 'string', description: 'Decimal string. Omit if useOutputFromPrev=true.' },
