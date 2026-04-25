@@ -30,10 +30,14 @@ interface ChatMessage {
 }
 
 interface ActionProposal {
-  kind: 'swap' | 'send' | 'stake' | 'unstake' | 'harvest';
+  kind: 'swap' | 'send' | 'stake' | 'unstake' | 'harvest' | 'add_liquidity' | 'remove_liquidity';
   fromToken?: string;
   toToken?: string;
   amount?: string;
+  /** Only for add_liquidity = amount of tokenB */
+  amountB?: string;
+  /** Only for remove_liquidity (1-100) */
+  percent?: number;
   recipient?: string;
   poolId?: number;
   summary: string;
@@ -71,8 +75,9 @@ interface ResultCard {
 const SUGGESTIONS_NORMAL = [
   '💰 Check all my balances',
   '🚀 Swap 1 zkLTC to WDEX',
+  '➕💧 Add 1 zkLTC + 50 WDEX liquidity',
+  '➖💧 Remove 50% of my zkLTC/WDEX LP',
   '🌾 Show me all farms',
-  '📊 What\'s the best route for ETH→WDEX?',
   '🪙 Harvest my farm rewards',
 ];
 
@@ -80,7 +85,7 @@ const SUGGESTIONS_AUTOTRADE = [
   '🎯 Plan: rebalance 50% of my zkLTC into WDEX + ETH',
   '🌾 Plan: swap zkLTC→WDEX then stake into best farm',
   '🪙 Plan: harvest all farms then compound into WDEX',
-  '⚡ Plan: split 1 zkLTC equally across BNB, MON, HYPE',
+  '➕💧 Plan: swap half my zkLTC to WDEX then add as liquidity',
 ];
 
 export default function AIAgentPanel() {
@@ -88,7 +93,7 @@ export default function AIAgentPanel() {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
-      content: '🐺 **WOLF AI online.** I\'m your autonomous trading copilot on WolfDex. Ask me to check balances, fetch quotes, swap, send, stake, or harvest farms — I\'ll handle the on-chain plumbing. What\'s the play?',
+      content: '🐺 **WOLF AI online.** I\'m your autonomous trading copilot on WolfDex. Ask me to check balances, swap, send, stake, harvest farms, or **add/remove liquidity** — I\'ll handle the on-chain plumbing. What\'s the play?',
     },
   ]);
   const [input, setInput] = useState('');
@@ -170,6 +175,57 @@ export default function AIAgentPanel() {
     } catch (e: any) { return JSON.stringify({ error: e.message }); }
   };
 
+  const execListPools = async (): Promise<string> => {
+    try {
+      const pairs = await dex.getAllPairs();
+      const rows = (pairs || []).slice(0, 25).map((p: any) => ({
+        pair: `${p.token0Symbol ?? p.symbol0 ?? '?'}-${p.token1Symbol ?? p.symbol1 ?? '?'}`,
+        address: p.address ?? p.pairAddress,
+        reserve0: p.reserve0,
+        reserve1: p.reserve1,
+      }));
+      return JSON.stringify({ count: rows.length, pools: rows });
+    } catch (e: any) { return JSON.stringify({ error: e.message }); }
+  };
+
+  const execGetLpPosition = async (tokenASym: string, tokenBSym: string): Promise<string> => {
+    if (!wallet.address || !wallet.signer) return JSON.stringify({ error: 'wallet not connected' });
+    const tokenA = getTokenBySymbol(tokenASym);
+    const tokenB = getTokenBySymbol(tokenBSym);
+    if (!tokenA || !tokenB) return JSON.stringify({ error: 'unknown token symbol' });
+    try {
+      const pairAddress = await dex.getPairAddress(tokenA.address, tokenB.address);
+      if (!pairAddress || /^0x0+$/.test(pairAddress)) {
+        return JSON.stringify({ pairExists: false, tokenA: tokenA.symbol, tokenB: tokenB.symbol, message: 'Pool does not exist yet — add_liquidity will create it.' });
+      }
+      const info: any = await dex.getPairInfo(pairAddress);
+      const erc = new ethers.Contract(pairAddress, ERC20_ABI, wallet.signer);
+      const [lpBal, totalSupply] = await Promise.all([
+        erc.balanceOf(wallet.address),
+        erc.totalSupply(),
+      ]);
+      const lpBalStr = ethers.utils.formatEther(lpBal);
+      const totalStr = ethers.utils.formatEther(totalSupply);
+      const sharePct = totalSupply.isZero() ? 0 : (parseFloat(lpBalStr) / parseFloat(totalStr)) * 100;
+      // Derive underlying amounts the user would receive
+      const r0 = info?.reserve0 ? parseFloat(info.reserve0) : 0;
+      const r1 = info?.reserve1 ? parseFloat(info.reserve1) : 0;
+      const underlyingA = (sharePct / 100) * r0;
+      const underlyingB = (sharePct / 100) * r1;
+      return JSON.stringify({
+        pairExists: true,
+        pairAddress,
+        tokenA: tokenA.symbol,
+        tokenB: tokenB.symbol,
+        lpBalance: lpBalStr,
+        sharePct: sharePct.toFixed(4),
+        underlyingA: underlyingA.toFixed(6),
+        underlyingB: underlyingB.toFixed(6),
+        ratio: r0 > 0 ? (r1 / r0).toFixed(8) : null,
+      });
+    } catch (e: any) { return JSON.stringify({ error: e.message }); }
+  };
+
   // Run conversation turn (one round-trip; auto-loops if model returns tool calls)
   const sendTurn = useCallback(async (newMessages: ChatMessage[]) => {
     setBusy(true); setThinking(true);
@@ -228,7 +284,8 @@ export default function AIAgentPanel() {
         if (tc.function.name === 'propose_action') {
           const proposal: ActionProposal = {
             kind: args.kind, fromToken: args.fromToken, toToken: args.toToken,
-            amount: args.amount, recipient: args.recipient, poolId: args.poolId,
+            amount: args.amount, amountB: args.amountB, percent: args.percent,
+            recipient: args.recipient, poolId: args.poolId,
             summary: args.summary || 'Proposed action',
           };
           // Tool result: tell the model proposal was surfaced
@@ -246,7 +303,8 @@ export default function AIAgentPanel() {
           const steps: PlanStep[] = rawSteps.map((s: any) => ({
             kind: s.kind,
             fromToken: s.fromToken, toToken: s.toToken,
-            amount: s.amount, recipient: s.recipient, poolId: s.poolId,
+            amount: s.amount, amountB: s.amountB, percent: s.percent,
+            recipient: s.recipient, poolId: s.poolId,
             summary: s.summary || `${s.kind}`,
             useOutputFromPrev: !!s.useOutputFromPrev,
             status: 'pending' as StepStatus,
@@ -270,6 +328,8 @@ export default function AIAgentPanel() {
         else if (tc.function.name === 'list_balances') result = await execListBalances();
         else if (tc.function.name === 'get_quote') result = await execGetQuote(args.fromToken, args.toToken, args.amount);
         else if (tc.function.name === 'list_farms') result = await execListFarms();
+        else if (tc.function.name === 'list_pools') result = await execListPools();
+        else if (tc.function.name === 'get_lp_position') result = await execGetLpPosition(args.tokenA, args.tokenB);
         else result = JSON.stringify({ error: `unknown tool ${tc.function.name}` });
 
         toolResultMessages.push({ role: 'tool', tool_call_id: tc.id, content: result });
@@ -390,6 +450,50 @@ export default function AIAgentPanel() {
           { label: 'TX', value: `${hash.slice(0, 10)}…${hash.slice(-8)}` },
         ],
       };
+    } else if (p.kind === 'add_liquidity') {
+      const tokenA = getTokenBySymbol(p.fromToken!);
+      const tokenB = getTokenBySymbol(p.toToken!);
+      if (!tokenA || !tokenB) throw new Error('invalid token pair');
+      const amtA = p.amount && parseFloat(p.amount) > 0 ? p.amount : '';
+      const amtB = p.amountB && parseFloat(p.amountB) > 0 ? p.amountB : '';
+      if (!amtA || !amtB) throw new Error('add_liquidity needs both amounts');
+      hash = await dex.addLiquidity(tokenA, tokenB, amtA, amtB);
+      output = amtA;
+      card = {
+        title: '✅ Liquidity Added',
+        rows: [
+          { label: 'Pair', value: `${tokenA.symbol} / ${tokenB.symbol}` },
+          { label: tokenA.symbol, value: amtA, accent: true },
+          { label: tokenB.symbol, value: amtB, accent: true },
+          { label: 'TX', value: `${hash.slice(0, 10)}…${hash.slice(-8)}` },
+        ],
+      };
+    } else if (p.kind === 'remove_liquidity') {
+      const tokenA = getTokenBySymbol(p.fromToken!);
+      const tokenB = getTokenBySymbol(p.toToken!);
+      if (!tokenA || !tokenB) throw new Error('invalid token pair');
+      const pairAddress = await dex.getPairAddress(tokenA.address, tokenB.address);
+      if (!pairAddress || /^0x0+$/.test(pairAddress)) throw new Error('pool does not exist');
+      // Resolve LP amount: explicit `amount`, or `percent` of current LP balance
+      let lpAmount = p.amount && parseFloat(p.amount) > 0 ? p.amount : '';
+      if (!lpAmount && p.percent && p.percent > 0 && p.percent <= 100) {
+        const erc = new ethers.Contract(pairAddress, ERC20_ABI, wallet.signer);
+        const bal: ethers.BigNumber = await erc.balanceOf(wallet.address);
+        const portion = bal.mul(Math.round(p.percent * 100)).div(10000);
+        lpAmount = ethers.utils.formatEther(portion);
+      }
+      if (!lpAmount || parseFloat(lpAmount) <= 0) throw new Error('invalid LP amount or percent');
+      hash = await dex.removeLiquidity(tokenA, tokenB, lpAmount, pairAddress);
+      output = lpAmount;
+      card = {
+        title: '✅ Liquidity Removed',
+        rows: [
+          { label: 'Pair', value: `${tokenA.symbol} / ${tokenB.symbol}` },
+          { label: 'LP burned', value: parseFloat(lpAmount).toFixed(6), accent: true },
+          ...(p.percent ? [{ label: 'Portion', value: `${p.percent}%` }] : []),
+          { label: 'TX', value: `${hash.slice(0, 10)}…${hash.slice(-8)}` },
+        ],
+      };
     } else {
       throw new Error(`unknown action kind: ${(p as any).kind}`);
     }
@@ -402,7 +506,7 @@ export default function AIAgentPanel() {
     if (!wallet.isConnected || !wallet.signer) { toast.error('Connect wallet'); return; }
     setBusy(true);
     const pendingId = `pending-agent-${Date.now()}`;
-    const label = p.kind.toUpperCase();
+    const label = p.kind.replace(/_/g, ' ').toUpperCase();
     txHistory.add({
       hash: pendingId, kind: 'agent', status: 'pending',
       summary: `🤖 ${p.summary}`, account: wallet.address || '', chainId: CHAIN_CONFIG.chainId,
@@ -724,6 +828,7 @@ function ProposalCard({ proposal, busy, onExecute, onCancel }: {
 }) {
   const KIND_ICON: Record<ActionProposal['kind'], string> = {
     swap: '🔁', send: '📤', stake: '🌾', unstake: '🪺', harvest: '🪙',
+    add_liquidity: '➕💧', remove_liquidity: '➖💧',
   };
   return (
     <motion.div initial={{ opacity: 0, y: 12, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -740,9 +845,41 @@ function ProposalCard({ proposal, busy, onExecute, onCancel }: {
         </div>
         <p className="text-sm font-bold mb-3 leading-snug">{proposal.summary}</p>
         <div className="grid grid-cols-2 gap-2 mb-3 text-[11px]">
-          {proposal.fromToken && <Field label={proposal.kind === 'send' ? 'Token' : 'From'} value={proposal.fromToken} />}
-          {proposal.toToken && <Field label="To" value={proposal.toToken} />}
-          {proposal.amount && <Field label="Amount" value={proposal.amount} accent />}
+          {proposal.fromToken && (
+            <Field
+              label={
+                proposal.kind === 'send' ? 'Token'
+                : proposal.kind === 'add_liquidity' || proposal.kind === 'remove_liquidity' ? 'Token A'
+                : 'From'
+              }
+              value={proposal.fromToken}
+            />
+          )}
+          {proposal.toToken && (
+            <Field
+              label={
+                proposal.kind === 'add_liquidity' || proposal.kind === 'remove_liquidity' ? 'Token B' : 'To'
+              }
+              value={proposal.toToken}
+            />
+          )}
+          {proposal.amount && (
+            <Field
+              label={
+                proposal.kind === 'add_liquidity' ? `Amount ${proposal.fromToken ?? 'A'}`
+                : proposal.kind === 'remove_liquidity' ? 'LP Amount'
+                : 'Amount'
+              }
+              value={proposal.amount}
+              accent
+            />
+          )}
+          {proposal.amountB && proposal.kind === 'add_liquidity' && (
+            <Field label={`Amount ${proposal.toToken ?? 'B'}`} value={proposal.amountB} accent />
+          )}
+          {proposal.percent !== undefined && proposal.kind === 'remove_liquidity' && (
+            <Field label="Portion" value={`${proposal.percent}%`} accent />
+          )}
           {proposal.recipient && <Field label="Recipient" value={`${proposal.recipient.slice(0, 6)}…${proposal.recipient.slice(-4)}`} />}
           {proposal.poolId !== undefined && <Field label="Pool" value={`#${proposal.poolId}`} />}
         </div>
@@ -802,6 +939,7 @@ function PlanCard({ plan, busy, onExecute, onAbort, onCancel }: {
 }) {
   const KIND_ICON: Record<ActionProposal['kind'], string> = {
     swap: '🔁', send: '📤', stake: '🌾', unstake: '🪺', harvest: '🪙',
+    add_liquidity: '➕💧', remove_liquidity: '➖💧',
   };
   const STATUS_STYLE: Record<StepStatus, { dot: string; text: string; icon: string }> = {
     pending:  { dot: 'bg-muted-foreground/40',           text: 'text-muted-foreground', icon: '○' },

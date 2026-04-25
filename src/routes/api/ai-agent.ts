@@ -30,7 +30,12 @@ Voice mode notes:
 - When the user is in voice mode (you'll see [VOICE_MODE] in the context), keep responses conversational, short (2-4 sentences), and avoid long markdown lists — they sound awkward when spoken aloud. Numbers should be readable (say "1.5 WDEX" not "1.50000000 WDEX").
 
 Supported tokens: zkLTC (native), wzkLTC, BNB, MON, HYPE, ETH, LITVM, WDEX.
-Supported actions: swap, send, stake, unstake, harvest, get_balance, list_balances, get_quote, list_farms.
+Supported actions: swap, send, stake, unstake, harvest, add_liquidity, remove_liquidity, get_balance, list_balances, get_quote, list_farms, list_pools, get_lp_position.
+
+Liquidity guidance:
+- For add_liquidity: require both tokenA & tokenB symbols and BOTH amountA & amountB. If user only supplies one amount and the pool exists, call get_lp_position first to compute the matching ratio, then propose with both amounts.
+- For remove_liquidity: require tokenA, tokenB, and either an explicit LP amount OR a percent (1-100). Always call get_lp_position first to show the user their current LP balance and what they'll receive.
+- Warn the user about impermanent loss in the summary for add_liquidity.
 
 Be the trader the user wishes they were. Now answer.`;
 
@@ -84,15 +89,40 @@ const TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'list_pools',
+      description: 'List all liquidity pools (pairs) on WolfDex with reserves, TVL estimate, and LP token address. Use before proposing add/remove liquidity.',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_lp_position',
+      description: "Read the user's LP balance for a given token pair plus the share of pool & current underlying amounts they'd receive on full withdrawal. Always call this BEFORE proposing remove_liquidity, and before add_liquidity if the pool already exists (to derive the matching ratio).",
+      parameters: {
+        type: 'object',
+        properties: {
+          tokenA: { type: 'string' },
+          tokenB: { type: 'string' },
+        },
+        required: ['tokenA', 'tokenB'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'propose_action',
       description: 'Surface a single structured action proposal to the user as a confirmation card. Use this BEFORE executing any single on-chain write in NORMAL mode.',
       parameters: {
         type: 'object',
         properties: {
-          kind: { type: 'string', enum: ['swap', 'send', 'stake', 'unstake', 'harvest'] },
-          fromToken: { type: 'string', description: 'For swap/send/stake/unstake' },
-          toToken: { type: 'string', description: 'For swap/send' },
-          amount: { type: 'string', description: 'Decimal string' },
+          kind: { type: 'string', enum: ['swap', 'send', 'stake', 'unstake', 'harvest', 'add_liquidity', 'remove_liquidity'] },
+          fromToken: { type: 'string', description: 'For swap/send/stake/unstake — also used as tokenA for add_liquidity/remove_liquidity' },
+          toToken: { type: 'string', description: 'For swap/send — also used as tokenB for add_liquidity/remove_liquidity' },
+          amount: { type: 'string', description: 'Decimal string. For add_liquidity = amount of tokenA. For remove_liquidity = LP token amount (omit if percent given).' },
+          amountB: { type: 'string', description: 'Decimal string. Only for add_liquidity = amount of tokenB.' },
+          percent: { type: 'number', description: 'Only for remove_liquidity (1-100). Removes that percent of the user\'s LP balance.' },
           recipient: { type: 'string', description: 'For send only' },
           poolId: { type: 'number', description: 'For stake/unstake/harvest' },
           summary: { type: 'string', description: 'One-line plain-English description' },
@@ -117,10 +147,12 @@ const TOOLS = [
             items: {
               type: 'object',
               properties: {
-                kind: { type: 'string', enum: ['swap', 'send', 'stake', 'unstake', 'harvest'] },
+                kind: { type: 'string', enum: ['swap', 'send', 'stake', 'unstake', 'harvest', 'add_liquidity', 'remove_liquidity'] },
                 fromToken: { type: 'string' },
                 toToken: { type: 'string' },
                 amount: { type: 'string', description: 'Decimal string. Omit if useOutputFromPrev=true.' },
+                amountB: { type: 'string', description: 'Only for add_liquidity step (amount of tokenB).' },
+                percent: { type: 'number', description: 'Only for remove_liquidity step (1-100).' },
                 recipient: { type: 'string' },
                 poolId: { type: 'number' },
                 summary: { type: 'string' },
