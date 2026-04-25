@@ -10,6 +10,7 @@ import BorderBeam from './ui/BorderBeam';
 import NumberTicker from './ui/NumberTicker';
 import SendTokenModal from './SendTokenModal';
 import { WolfSkeleton, WolfSkeletonOrb, WolfSkeletonCard } from './ui/WolfSkeleton';
+import { usePortfolioPnL } from '@/hooks/usePortfolioPnL';
 
 interface TokenBalance {
   token: TokenInfo;
