@@ -946,7 +946,7 @@ function PlanCard({ plan, busy, onExecute, onAbort, onCancel }: {
 }) {
   const KIND_ICON: Record<ActionProposal['kind'], string> = {
     swap: '🔁', send: '📤', stake: '🌾', unstake: '🪺', harvest: '🪙',
-    add_liquidity: '➕💧', remove_liquidity: '➖💧',
+    add_liquidity: '➕💧', remove_liquidity: '➖💧', limit_order: '🎯',
   };
   const STATUS_STYLE: Record<StepStatus, { dot: string; text: string; icon: string }> = {
     pending:  { dot: 'bg-muted-foreground/40',           text: 'text-muted-foreground', icon: '○' },
