@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useDexContext } from '@/context/DexContext';
 import { useCasino } from '@/hooks/useCasino';
 import { useCasinoHistory } from '@/hooks/useCasinoHistory';
-import {
+import { effectiveMinBet,
   GameShell, BetInput, PlayButton, ResultBanner, Confetti,
   REEL_TOKENS, TxPanel, SwapTxPanel, ZebraExplainerPanel, PendingOverlay, decodeByte, autoSwapPayout,
   MultiplierPicker, applyMultiplier, getBetError, friendlyError,
@@ -51,7 +51,7 @@ export default function SpinToWinGame() {
   const [swapTx, setSwapTx] = useState<{ hash: string | null; status: 'idle' | 'pending' | 'confirmed' | 'failed' | 'skipped'; token?: TokenInfo | null; amount?: string; verifiedAmount?: string | null; expectedAmount?: number | null }>({ hash: null, status: 'idle' });
 
   useEffect(() => {
-    if (!bet && parseFloat(casino.stats.minBet) > 0) setBet(casino.stats.minBet);
+    if (!bet && parseFloat(casino.stats.minBet) > 0) setBet(effectiveMinBet(casino.stats.minBet));
   }, [casino.stats.minBet, bet]);
 
   const betError = getBetError(bet, mult, casino.stats.minBet, casino.stats.maxBet);

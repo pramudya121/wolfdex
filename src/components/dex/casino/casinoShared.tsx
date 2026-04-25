@@ -160,13 +160,23 @@ export function GameShell({
 }
 
 /**
+ * UI-enforced minimum bet for ALL casino games.
+ * Even if the on-chain minBet is lower, the interface refuses anything below
+ * this value to keep stakes meaningful and avoid dust amounts in the UX.
+ */
+export const UI_MIN_BET_ZK = 0.01;
+export const UI_MIN_BET_STR = '0.01';
+
+/** Effective minimum to enforce in the UI = max(on-chain min, UI floor). */
+export function effectiveMinBet(chainMin: string): string {
+  const c = parseFloat(chainMin || '0');
+  return (isFinite(c) && c > UI_MIN_BET_ZK ? c : UI_MIN_BET_ZK).toString();
+}
+
+/**
  * Validate the FINAL bet (after multiplier) against the on-chain
- * minBet/maxBet bounds. Returns a user-friendly error string, or null when
- * the bet is valid. We compare in BigNumber wei to avoid float drift.
- *
- * IMPORTANT: this is the same check the smart contract performs — if it
- * passes here, the contract should accept it (barring contract paused or
- * bankroll exhaustion, which we surface separately).
+ * minBet/maxBet bounds plus the UI-enforced 0.01 zkLTC floor.
+ * Returns a user-friendly error string, or null when the bet is valid.
  */
 export function getBetError(
   bet: string,
@@ -182,10 +192,13 @@ export function getBetError(
     return 'Invalid bet number';
   }
   if (wei.isZero()) return 'Bet must be greater than 0';
+  // Apply UI floor — never allow anything below 0.01 zkLTC
+  const uiMinW = ethers.utils.parseEther(UI_MIN_BET_STR);
+  if (wei.lt(uiMinW)) return `Minimum bet is ${UI_MIN_BET_STR} zkLTC`;
   try {
     const minW = ethers.utils.parseEther(min || '0');
     const maxW = ethers.utils.parseEther(max || '0');
-    if (!minW.isZero() && wei.lt(minW)) return `Below min bet (${parseFloat(min).toFixed(6)} zkLTC)`;
+    if (!minW.isZero() && wei.lt(minW)) return `Below min bet (${parseFloat(min).toFixed(4)} zkLTC)`;
     if (!maxW.isZero() && wei.gt(maxW)) return `Above max bet (${parseFloat(max).toFixed(4)} zkLTC)`;
   } catch { /* min/max not loaded yet */ }
   return null;
@@ -350,8 +363,8 @@ export function notifyResult(opts: {
  *   LITVM : 0.88
  */
 export const WHEEL_REWARD_AMOUNT: Record<string, number> = {
-  zkLTC:  0.00001,
-  wzkLTC: 0.00002,
+  zkLTC:  0.01,
+  wzkLTC: 0.02,
   ETH:    0.5,
   MON:    0.9,
   BNB:    0.6,
@@ -363,7 +376,7 @@ export const WHEEL_REWARD_AMOUNT: Record<string, number> = {
 /** Pre-spin segment label (target reward, NOT realized). */
 export function rewardLabelFor(symbol: string): string {
   const amt = WHEEL_REWARD_AMOUNT[symbol] ?? 0.1;
-  const str = amt < 0.001 ? amt.toFixed(5) : amt.toFixed(2);
+  const str = amt < 0.01 ? amt.toFixed(4) : amt.toFixed(2);
   return `${parseFloat(str)} ${symbol}`;
 }
 
@@ -374,7 +387,7 @@ export function rewardLabelFor(symbol: string): string {
  */
 export function realizedRewardLabel(payoutZk: string, symbol: string): string {
   const v = parseFloat(payoutZk || '0');
-  const formatted = v < 0.0001 ? v.toExponential(2) : v.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
+  const formatted = v.toFixed(4).replace(/0+$/, '').replace(/\.$/, '') || '0';
   return `${formatted} zkLTC → ${symbol}`;
 }
 
@@ -486,15 +499,21 @@ export function BetInput({
   multiplier?: number;
   error?: string | null;
 }) {
-  const UI_MIN = min && parseFloat(min) > 0 ? min : '0.00001';
-  // Build presets from the actual chain min so users always pick a valid amount.
-  const minF = parseFloat(min || '0') || 0.00001;
+  // Apply UI floor: minimum bet is always >= 0.01 zkLTC, regardless of chain min.
+  const minF = Math.max(parseFloat(min || '0') || 0, UI_MIN_BET_ZK);
   const maxF = parseFloat(max || '0') || 1;
+  const UI_MIN = minF.toString();
+  // Build presets from the effective floor so users always pick a valid amount.
+  const fmtPreset = (v: number) => {
+    const clamped = Math.min(Math.max(v, minF), maxF);
+    // Trim trailing zeros, keep at most 4 decimals
+    return clamped.toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
+  };
   const presets = Array.from(new Set([
-    minF.toFixed(6).replace(/0+$/, '').replace(/\.$/, ''),
-    (minF * 5).toFixed(6).replace(/0+$/, '').replace(/\.$/, ''),
-    (Math.min(maxF, minF * 50)).toFixed(6).replace(/0+$/, '').replace(/\.$/, ''),
-    (Math.min(maxF, minF * 500)).toFixed(6).replace(/0+$/, '').replace(/\.$/, ''),
+    fmtPreset(minF),
+    fmtPreset(minF * 5),
+    fmtPreset(minF * 25),
+    fmtPreset(minF * 100),
   ])).slice(0, 4);
   let effective = bet;
   try { effective = ethers.utils.formatEther(ethers.utils.parseEther(bet || '0').mul(multiplier)); } catch { /* keep */ }
@@ -504,14 +523,14 @@ export function BetInput({
       <div className="flex items-center justify-between text-xs">
         <span className="text-muted-foreground">Bet (zkLTC)</span>
         <span className="text-muted-foreground">
-          min {parseFloat(min || '0').toFixed(6)} • max {parseFloat(max || '0').toFixed(4)}
+          min {minF.toFixed(4).replace(/0+$/, '').replace(/\.$/, '')} • max {maxF.toFixed(4)}
         </span>
       </div>
       <div className={`flex items-center gap-2 px-3 py-2 rounded-xl bg-wolf-surface border transition-colors ${
         hasError ? 'border-wolf-red/60 focus-within:border-wolf-red' : 'border-wolf-border/40 focus-within:border-wolf-pink/60'
       }`}>
         <input
-          type="number" step="0.000001" min={UI_MIN} max={max}
+          type="number" step="0.01" min={UI_MIN} max={max}
           value={bet} disabled={disabled}
           onChange={e => setBet(e.target.value)}
           className="bg-transparent outline-none flex-1 font-mono text-base"
@@ -521,7 +540,7 @@ export function BetInput({
       {multiplier > 1 && (
         <div className="text-[11px] text-muted-foreground flex items-center justify-between">
           <span>Effective bet (×{multiplier})</span>
-          <span className="font-mono text-wolf-gold">{parseFloat(effective).toFixed(6)} zkLTC</span>
+          <span className="font-mono text-wolf-gold">{parseFloat(effective).toFixed(4)} zkLTC</span>
         </div>
       )}
       {hasError && (

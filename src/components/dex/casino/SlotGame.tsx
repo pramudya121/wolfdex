@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useDexContext } from '@/context/DexContext';
 import { useCasino } from '@/hooks/useCasino';
 import { useCasinoHistory } from '@/hooks/useCasinoHistory';
-import { GameShell, PlayButton, BetInput, ResultBanner, Confetti, REEL_TOKENS, TOKEN_TIER, TxPanel, PendingOverlay, decodeByte, autoSwapPayout, MultiplierPicker, applyMultiplier, getBetError, friendlyError, notifyResult, playSpinSound, ReplayButton, type BetMultiplier, type TxStatus } from './casinoShared';
+import { effectiveMinBet, GameShell, PlayButton, BetInput, ResultBanner, Confetti, REEL_TOKENS, TOKEN_TIER, TxPanel, PendingOverlay, decodeByte, autoSwapPayout, MultiplierPicker, applyMultiplier, getBetError, friendlyError, notifyResult, playSpinSound, ReplayButton, type BetMultiplier, type TxStatus } from './casinoShared';
 import { toast } from 'sonner';
 
 const ROW_H = 96;
@@ -34,7 +34,7 @@ export default function SlotGame() {
   const [tx, setTx] = useState<{ hash: string | null; status: TxStatus }>({ hash: null, status: 'idle' });
 
   useEffect(() => {
-    if (!bet && parseFloat(casino.stats.minBet) > 0) setBet(casino.stats.minBet);
+    if (!bet && parseFloat(casino.stats.minBet) > 0) setBet(effectiveMinBet(casino.stats.minBet));
   }, [casino.stats.minBet, bet]);
 
   const betError = getBetError(bet, mult, casino.stats.minBet, casino.stats.maxBet);
