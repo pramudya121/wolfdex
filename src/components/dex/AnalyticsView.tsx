@@ -100,9 +100,18 @@ export default function AnalyticsView() {
             </button>
           ))}
         </div>
-        <button onClick={() => { invalidatePairsCache(); load(true); }} className="px-3 py-2 rounded-lg text-xs font-medium bg-wolf-surface border border-wolf-border/30 hover:border-wolf-pink/40 transition-all">
-          🔄 Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1 p-1 rounded-lg bg-wolf-surface border border-wolf-border/30">
+            {(['day', 'week'] as const).map(b => (
+              <button key={b} onClick={() => setChartBucket(b)}
+                className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-all ${chartBucket === b ? 'bg-wolf-pink/20 text-wolf-pink' : 'text-muted-foreground hover:text-foreground'}`}
+              >{b === 'day' ? '1D' : '1W'}</button>
+            ))}
+          </div>
+          <button onClick={() => { invalidatePairsCache(); load(true); refreshHistory(); }} className="px-3 py-2 rounded-lg text-xs font-medium bg-wolf-surface border border-wolf-border/30 hover:border-wolf-pink/40 transition-all">
+            {historyLoading ? '⏳ Indexing…' : '🔄 Refresh'}
+          </button>
+        </div>
       </div>
 
       {showSkeleton ? (
