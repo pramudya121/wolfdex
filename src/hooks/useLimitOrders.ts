@@ -327,9 +327,13 @@ interface CreateInput {
   amountOut?: string;
 }
 
-export function useLimitOrders(account?: string | null) {
+export function useLimitOrders(account?: string | null, signer?: ethers.Signer | null) {
   const [list, setList] = useState<LimitOrder[]>(cache);
-  const signerRef = useRef<ethers.Signer | null>(null);
+  const signerRef = useRef<ethers.Signer | null>(signer ?? null);
+
+  // Keep signer ref in sync — DexContext re-renders pass a fresh signer when
+  // the wallet (re)connects.
+  useEffect(() => { signerRef.current = signer ?? null; }, [signer]);
 
   useEffect(() => {
     const onChange = (next: LimitOrder[]) => setList(next);
@@ -339,9 +343,9 @@ export function useLimitOrders(account?: string | null) {
     return () => { listeners.delete(onChange); window.clearInterval(id); };
   }, []);
 
-  /** Set the active signer (called from DexContext when wallet connects). */
-  const attachSigner = useCallback((signer: ethers.Signer | null) => {
-    signerRef.current = signer;
+  /** Set the active signer (also exposed for advanced consumers). */
+  const attachSigner = useCallback((s: ethers.Signer | null) => {
+    signerRef.current = s;
   }, []);
 
   const filtered = useMemo(() => {
