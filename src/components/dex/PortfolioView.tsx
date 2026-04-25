@@ -142,10 +142,19 @@ export default function PortfolioView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const historyData = Array.from({ length: 14 }, (_, i) => {
-    const d = new Date(); d.setDate(d.getDate() - (13 - i));
-    return { date: d.toLocaleDateString('en', { month: 'short', day: 'numeric' }), value: totalValue * (0.8 + Math.random() * 0.4) };
-  });
+  const pnl = usePortfolioPnL(address);
+  // Real equity history derived from on-chain swap tx history. Falls back
+  // to a flat baseline at totalValue when the user has no swaps yet so the
+  // chart still renders cleanly.
+  const historyData = useMemo(() => {
+    if (pnl.equityHistory.length > 0) {
+      return pnl.equityHistory.map(p => ({ date: p.date, value: +(totalValue + p.value).toFixed(4) }));
+    }
+    return Array.from({ length: 14 }, (_, i) => {
+      const d = new Date(); d.setDate(d.getDate() - (13 - i));
+      return { date: d.toLocaleDateString('en', { month: 'short', day: 'numeric' }), value: +totalValue.toFixed(4) };
+    });
+  }, [pnl.equityHistory, totalValue]);
 
   const tokenPieData = balances.map(b => ({ name: b.token.symbol, value: b.value }));
   const lpPieData = lpPositions.map(lp => ({ name: `${lp.symbol0}/${lp.symbol1}`, value: parseFloat(lp.lpBalance) }));
