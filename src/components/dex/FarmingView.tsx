@@ -102,9 +102,16 @@ function FarmCard({ pool, farming, allPools }: { pool: FarmPool; farming: Farmin
               <div className="text-[11px] text-muted-foreground">Earn {pool.rewardSymbol} · #{pool.pid}</div>
             </div>
           </div>
-          <span className="px-2 py-1 rounded-md bg-wolf-green/15 text-wolf-green text-[10px] font-bold uppercase tracking-wider">
-            🔥 Live
-          </span>
+          <div className="flex items-center gap-1.5">
+            {boostTier && (
+              <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${boostTier.bg} ${boostTier.color}`}>
+                {boostTier.label}
+              </span>
+            )}
+            <span className="px-2 py-1 rounded-md bg-wolf-green/15 text-wolf-green text-[10px] font-bold uppercase tracking-wider">
+              🔥 Live
+            </span>
+          </div>
         </div>
 
         {/* Stats */}
