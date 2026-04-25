@@ -223,15 +223,15 @@ export default function PortfolioView({
         </BorderBeam>
         {[
           { icon: '🪙', label: 'Tokens', num: balances.length, isNum: true },
-          { icon: '💎', label: 'Staking', num: 0, value: '$0.00' },
+          { icon: '📈', label: `PnL (${pnl.tradeCount} trades)`, num: pnl.realizedTotal, isNum: true, signed: true },
           { icon: '🌾', label: 'Farming', num: 0, value: '$0.00' },
         ].map(s => (
           <BorderBeam key={s.label} rounded="rounded-xl">
             <div className="wolf-stat-card rounded-xl p-4">
               <div className="text-xl mb-1">{s.icon}</div>
               <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{s.label}</div>
-              <div className="text-lg font-bold mt-0.5">
-                {s.isNum ? <NumberTicker value={s.num} /> : s.value}
+              <div className={`text-lg font-bold mt-0.5 ${s.signed ? (s.num > 0 ? 'text-wolf-green' : s.num < 0 ? 'text-destructive' : '') : ''}`}>
+                {s.isNum ? <NumberTicker value={s.num} prefix={s.signed && s.num > 0 ? '+' : ''} decimals={s.signed ? 4 : 0} /> : s.value}
               </div>
             </div>
           </BorderBeam>
