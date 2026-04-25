@@ -357,6 +357,9 @@ async function handle(request: Request) {
       messages: [{ role: 'system', content: SYSTEM_PROMPT + ctxNote + modeNote + voiceNote + langNote }, ...messages],
       tools: TOOLS,
       tool_choice: 'auto',
+      // Autotrade plans need deeper reasoning to compose multi-step strategies.
+      // Voice mode keeps it minimal so the response stays snappy.
+      reasoning: { effort: voiceMode ? 'minimal' : (mode === 'autotrade' ? 'high' : 'medium') },
     }),
   });
 
