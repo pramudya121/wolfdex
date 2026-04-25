@@ -25,7 +25,7 @@ type Tab = 'swap' | 'limit';
 
 function SwapPage() {
   const { wallet, dex, txHistory } = useDexContext();
-  const limitOrders = useLimitOrders(wallet.address);
+  const limitOrders = useLimitOrders(wallet.address, wallet.signer);
   const [tab, setTab] = useState<Tab>('swap');
 
   // Wrap swap to record into the global TX history.
