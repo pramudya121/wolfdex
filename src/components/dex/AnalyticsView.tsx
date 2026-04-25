@@ -55,11 +55,13 @@ export default function AnalyticsView() {
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalTVL = useMemo(() => pools.reduce((s, p) => s + p.tvl, 0), [pools]);
-  const totalVolume = totalTVL * 0.12;
+  const totalVolume = useMemo(() => {
+    if (historySeries.length === 0) return totalTVL * 0.12;
+    const last = historySeries[historySeries.length - 1];
+    return last?.volume ?? 0;
+  }, [historySeries, totalTVL]);
   const totalFees = totalVolume * 0.003;
-  const days = chartPeriod === '7d' ? 7 : chartPeriod === '30d' ? 30 : 90;
-  // Memoize chart data so changing tabs / hovering doesn't regenerate noise.
-  const chartData = useMemo(() => generateChartData(totalTVL, days), [totalTVL, days]);
+  const chartData = historySeries;
 
   const topTokens = useMemo(() => TOKENS.filter(t => !t.isNative).slice(0, 6).map((t) => ({
     ...t, price: (Math.random() * 1000).toFixed(2), change: ((Math.random() - 0.3) * 10).toFixed(2),
