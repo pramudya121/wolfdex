@@ -160,13 +160,23 @@ export function GameShell({
 }
 
 /**
+ * UI-enforced minimum bet for ALL casino games.
+ * Even if the on-chain minBet is lower, the interface refuses anything below
+ * this value to keep stakes meaningful and avoid dust amounts in the UX.
+ */
+export const UI_MIN_BET_ZK = 0.01;
+export const UI_MIN_BET_STR = '0.01';
+
+/** Effective minimum to enforce in the UI = max(on-chain min, UI floor). */
+export function effectiveMinBet(chainMin: string): string {
+  const c = parseFloat(chainMin || '0');
+  return (isFinite(c) && c > UI_MIN_BET_ZK ? c : UI_MIN_BET_ZK).toString();
+}
+
+/**
  * Validate the FINAL bet (after multiplier) against the on-chain
- * minBet/maxBet bounds. Returns a user-friendly error string, or null when
- * the bet is valid. We compare in BigNumber wei to avoid float drift.
- *
- * IMPORTANT: this is the same check the smart contract performs — if it
- * passes here, the contract should accept it (barring contract paused or
- * bankroll exhaustion, which we surface separately).
+ * minBet/maxBet bounds plus the UI-enforced 0.01 zkLTC floor.
+ * Returns a user-friendly error string, or null when the bet is valid.
  */
 export function getBetError(
   bet: string,
@@ -182,10 +192,13 @@ export function getBetError(
     return 'Invalid bet number';
   }
   if (wei.isZero()) return 'Bet must be greater than 0';
+  // Apply UI floor — never allow anything below 0.01 zkLTC
+  const uiMinW = ethers.utils.parseEther(UI_MIN_BET_STR);
+  if (wei.lt(uiMinW)) return `Minimum bet is ${UI_MIN_BET_STR} zkLTC`;
   try {
     const minW = ethers.utils.parseEther(min || '0');
     const maxW = ethers.utils.parseEther(max || '0');
-    if (!minW.isZero() && wei.lt(minW)) return `Below min bet (${parseFloat(min).toFixed(6)} zkLTC)`;
+    if (!minW.isZero() && wei.lt(minW)) return `Below min bet (${parseFloat(min).toFixed(4)} zkLTC)`;
     if (!maxW.isZero() && wei.gt(maxW)) return `Above max bet (${parseFloat(max).toFixed(4)} zkLTC)`;
   } catch { /* min/max not loaded yet */ }
   return null;
