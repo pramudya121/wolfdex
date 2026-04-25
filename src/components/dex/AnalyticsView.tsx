@@ -76,12 +76,21 @@ export default function AnalyticsView() {
 
   const showSkeleton = loading && pools.length === 0;
 
+  // Sparkline data for top stat cards (deterministic, lightweight)
+  const sparkData = useMemo(() => Array.from({ length: 20 }, (_, i) => ({
+    v: 50 + Math.sin(i / 2) * 18 + (i % 3) * 4,
+  })), []);
+
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-6xl mx-auto">
       {/* Title */}
-      <div className="text-center mb-6">
-        <h1 className="text-3xl sm:text-4xl font-black wolf-gradient-text mb-1">Protocol Analytics</h1>
-        <p className="text-muted-foreground text-sm">Real-time statistics and insights for WOLFDEX</p>
+      <div className="text-center mb-8 relative">
+        <div className="spotlight w-[520px] h-[280px] -top-10 left-1/2 -translate-x-1/2" />
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-wolf-pink/10 border border-wolf-pink/30 text-[10px] font-bold text-wolf-pink uppercase tracking-widest mb-3 relative">
+          <span className="w-1.5 h-1.5 rounded-full bg-wolf-green animate-pulse" /> Live · LitVM
+        </div>
+        <h1 className="text-3xl sm:text-4xl font-black wolf-gradient-text mb-1 relative">Protocol Analytics</h1>
+        <p className="text-muted-foreground text-sm relative">Real-time on-chain insights for WOLFDEX</p>
       </div>
 
       {/* Tabs */}
@@ -89,8 +98,13 @@ export default function AnalyticsView() {
         <div className="flex gap-2">
           {(['trending', 'staking'] as const).map(t => (
             <button key={t} onClick={() => setActiveTab(t)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === t ? 'bg-wolf-pink/20 text-wolf-pink border border-wolf-pink/40' : 'text-muted-foreground border border-transparent hover:text-foreground'}`}
-            >{t === 'trending' ? '📈 Trending' : '💎 Staking'}</button>
+              className={`relative px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === t ? 'text-wolf-pink' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              {activeTab === t && (
+                <motion.span layoutId="analytics-tab" className="absolute inset-0 rounded-lg bg-wolf-pink/15 border border-wolf-pink/40" transition={{ type: 'spring', stiffness: 400, damping: 30 }} />
+              )}
+              <span className="relative">{t === 'trending' ? '📈 Trending' : '💎 Staking'}</span>
+            </button>
           ))}
         </div>
         <button onClick={() => { invalidatePairsCache(); load(true); }} className="px-3 py-2 rounded-lg text-xs font-medium bg-wolf-surface border border-wolf-border/30 hover:border-wolf-pink/40 transition-all">
@@ -102,7 +116,7 @@ export default function AnalyticsView() {
         <div className="space-y-4">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="wolf-stat-card rounded-xl p-4 animate-pulse h-24" />
+              <div key={i} className="wolf-stat-card rounded-xl p-4 animate-pulse h-28" />
             ))}
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -115,20 +129,36 @@ export default function AnalyticsView() {
           {/* Stat cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
             {[
-              { icon: '🔒', label: 'Total Value Locked', value: `$${totalTVL.toFixed(2)}`, change: '+0.5%', color: 'text-wolf-green' },
-              { icon: '📊', label: 'Volume (24h)', value: `$${totalVolume.toFixed(2)}`, change: '+4.8%', color: 'text-wolf-green' },
-              { icon: '💸', label: 'Fees (24h)', value: `$${totalFees.toFixed(2)}`, change: '+4.3%', color: 'text-wolf-green' },
-              { icon: '🏊', label: 'Total Pools', value: pools.length.toString(), change: '', color: '' },
+              { icon: '🔒', label: 'Total Value Locked', value: `$${totalTVL.toFixed(2)}`, change: '+0.5%', positive: true },
+              { icon: '📊', label: 'Volume (24h)',       value: `$${totalVolume.toFixed(2)}`, change: '+4.8%', positive: true },
+              { icon: '💸', label: 'Fees (24h)',         value: `$${totalFees.toFixed(2)}`, change: '+4.3%', positive: true },
+              { icon: '🏊', label: 'Total Pools',        value: pools.length.toString(),    change: '',      positive: true },
             ].map((s, i) => (
-              <motion.div key={s.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-                className="wolf-stat-card rounded-xl p-4"
+              <motion.div key={s.label}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.06 }}
+                className="analytics-stat rounded-xl p-4"
               >
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center justify-between mb-2">
                   <span className="text-xl">{s.icon}</span>
-                  {s.change && <span className={`text-[10px] font-medium ${s.color}`}>{s.change}</span>}
+                  {s.change && (
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${s.positive ? 'bg-wolf-green/15 text-wolf-green' : 'bg-destructive/15 text-destructive'}`}>
+                      {s.positive ? '▲' : '▼'} {s.change}
+                    </span>
+                  )}
                 </div>
-                <div className="text-lg font-bold">{s.value}</div>
+                <div className="text-xl font-black analytics-num">{s.value}</div>
                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">{s.label}</div>
+                {/* mini sparkline */}
+                <svg viewBox="0 0 100 24" className="w-full h-6 mt-2 opacity-70">
+                  <polyline
+                    fill="none"
+                    stroke="oklch(0.65 0.25 330)"
+                    strokeWidth="1.4"
+                    points={sparkData.map((d, idx) => `${(idx / (sparkData.length - 1)) * 100},${24 - (d.v / 100) * 22}`).join(' ')}
+                  />
+                </svg>
               </motion.div>
             ))}
           </div>
