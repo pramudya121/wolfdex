@@ -100,7 +100,7 @@ const SUGGESTIONS_AUTOTRADE = [
 
 export default function AIAgentPanel() {
   const { wallet, dex, farming, showAgent, setShowAgent, txHistory } = useDexContext();
-  const limitOrders = useLimitOrders(wallet.address);
+  const limitOrders = useLimitOrders(wallet.address, wallet.signer);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
