@@ -7,6 +7,7 @@ import CreatePairModal from './CreatePairModal';
 import { WolfSkeleton, WolfSkeletonText } from './ui/WolfSkeleton';
 import PairChart from './PairChart';
 import { ethers } from 'ethers';
+import { useTokenResolver } from '@/hooks/useTokenResolver';
 
 interface PoolInfo {
   address: string;
@@ -41,6 +42,7 @@ function hashToFloat(s: string, salt: number) {
 
 export default function PoolsView({ isConnected }: { isConnected: boolean }) {
   const { wallet, dex, getCachedPairsWithInfo, invalidatePairsCache } = useDexContext();
+  const { resolve } = useTokenResolver();
   const [pools, setPools] = useState<PoolInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -61,8 +63,8 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
       cache.pairs.forEach((addr, i) => {
         const info = cache.infos[addr];
         if (!info) return;
-        const t0 = getTokenByAddress(info.token0);
-        const t1 = getTokenByAddress(info.token1);
+        const t0 = resolve(info.token0);
+        const t1 = resolve(info.token1);
         const r0 = parseFloat(info.reserve0);
         const r1 = parseFloat(info.reserve1);
         const tvl = r0 + r1;
@@ -78,10 +80,10 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
           address: addr,
           token0: info.token0,
           token1: info.token1,
-          symbol0: t0?.symbol || info.token0.slice(0, 8),
-          symbol1: t1?.symbol || info.token1.slice(0, 8),
-          logo0: t0?.logo || '/images/wdex-logo.png',
-          logo1: t1?.logo || '/images/wdex-logo.png',
+          symbol0: t0.symbol,
+          symbol1: t1.symbol,
+          logo0: t0.logo,
+          logo1: t1.logo,
           reserve0: r0.toString(),
           reserve1: r1.toString(),
           totalSupply: info.totalSupply,
@@ -95,9 +97,19 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
       });
       setPools(out);
     } catch {} finally { setLoading(false); }
-  }, [getCachedPairsWithInfo, dex, wallet.address, pools.length]);
+  }, [getCachedPairsWithInfo, dex, wallet.address, pools.length, resolve]);
 
   useEffect(() => { loadPools(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // After first load, retry resolution after 1.5s so on-chain ERC20 symbol
+  // lookups (fired by the resolver in the background) get reflected in the UI.
+  useEffect(() => {
+    if (pools.length === 0) return;
+    const hasUnknown = pools.some(p => p.symbol0.includes('…') || p.symbol1.includes('…') || p.symbol0.startsWith('0x') || p.symbol1.startsWith('0x'));
+    if (!hasUnknown) return;
+    const t = setTimeout(() => loadPools(false), 1500);
+    return () => clearTimeout(t);
+  }, [pools, loadPools]);
 
   const totalTVL = useMemo(() => pools.reduce((s, p) => s + p.tvl, 0), [pools]);
   const totalVol = useMemo(() => pools.reduce((s, p) => s + p.vol24h, 0), [pools]);
