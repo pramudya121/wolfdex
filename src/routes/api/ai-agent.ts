@@ -89,15 +89,40 @@ const TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'list_pools',
+      description: 'List all liquidity pools (pairs) on WolfDex with reserves, TVL estimate, and LP token address. Use before proposing add/remove liquidity.',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_lp_position',
+      description: "Read the user's LP balance for a given token pair plus the share of pool & current underlying amounts they'd receive on full withdrawal. Always call this BEFORE proposing remove_liquidity, and before add_liquidity if the pool already exists (to derive the matching ratio).",
+      parameters: {
+        type: 'object',
+        properties: {
+          tokenA: { type: 'string' },
+          tokenB: { type: 'string' },
+        },
+        required: ['tokenA', 'tokenB'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'propose_action',
       description: 'Surface a single structured action proposal to the user as a confirmation card. Use this BEFORE executing any single on-chain write in NORMAL mode.',
       parameters: {
         type: 'object',
         properties: {
-          kind: { type: 'string', enum: ['swap', 'send', 'stake', 'unstake', 'harvest'] },
-          fromToken: { type: 'string', description: 'For swap/send/stake/unstake' },
-          toToken: { type: 'string', description: 'For swap/send' },
-          amount: { type: 'string', description: 'Decimal string' },
+          kind: { type: 'string', enum: ['swap', 'send', 'stake', 'unstake', 'harvest', 'add_liquidity', 'remove_liquidity'] },
+          fromToken: { type: 'string', description: 'For swap/send/stake/unstake — also used as tokenA for add_liquidity/remove_liquidity' },
+          toToken: { type: 'string', description: 'For swap/send — also used as tokenB for add_liquidity/remove_liquidity' },
+          amount: { type: 'string', description: 'Decimal string. For add_liquidity = amount of tokenA. For remove_liquidity = LP token amount (omit if percent given).' },
+          amountB: { type: 'string', description: 'Decimal string. Only for add_liquidity = amount of tokenB.' },
+          percent: { type: 'number', description: 'Only for remove_liquidity (1-100). Removes that percent of the user\'s LP balance.' },
           recipient: { type: 'string', description: 'For send only' },
           poolId: { type: 'number', description: 'For stake/unstake/harvest' },
           summary: { type: 'string', description: 'One-line plain-English description' },
