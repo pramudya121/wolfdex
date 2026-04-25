@@ -256,11 +256,15 @@ export default function AIAgentPanel() {
 
   const execCancelLimitOrder = async (id: string): Promise<string> => {
     if (!wallet.address) return JSON.stringify({ error: 'wallet not connected' });
-    const found = limitOrders.list.find(o => o.id === id);
+    const found = limitOrders.list.find(o => o.id.toLowerCase() === id.toLowerCase());
     if (!found) return JSON.stringify({ error: `order ${id} not found` });
     if (found.status !== 'open') return JSON.stringify({ error: `order is ${found.status}, can only cancel open` });
-    limitOrders.cancel(id);
-    return JSON.stringify({ ok: true, id, message: 'order cancelled' });
+    try {
+      const txHash = await limitOrders.cancel(id);
+      return JSON.stringify({ ok: true, id, txHash, message: 'on-chain cancelOrder() submitted' });
+    } catch (e: any) {
+      return JSON.stringify({ error: e?.reason || e?.message || 'cancel failed' });
+    }
   };
 
   // Run conversation turn (one round-trip; auto-loops if model returns tool calls)
