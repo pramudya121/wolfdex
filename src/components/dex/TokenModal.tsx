@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TOKENS, type TokenInfo } from '@/config/contracts';
 import { useCustomTokens } from '@/hooks/useCustomTokens';
+import { useDexContext } from '@/context/DexContext';
 import { toast } from 'sonner';
 
 interface TokenModalProps {
@@ -15,15 +16,51 @@ export default function TokenModal({ isOpen, onClose, onSelect, excludeAddress }
   const [search, setSearch] = useState('');
   const [importing, setImporting] = useState(false);
   const { customTokens, importToken, removeToken } = useCustomTokens();
+  const { wallet, dex } = useDexContext();
+  const [balances, setBalances] = useState<Record<string, string>>({});
+  const [loadingBalances, setLoadingBalances] = useState(false);
 
-  const allTokens = [...TOKENS, ...customTokens];
+  const allTokens = useMemo(() => [...TOKENS, ...customTokens], [customTokens]);
+
+  // Fetch balances for ALL tokens in a single multicall whenever modal opens
+  useEffect(() => {
+    if (!isOpen || !wallet.address) return;
+    let cancelled = false;
+    setLoadingBalances(true);
+    (async () => {
+      try {
+        const addrs = allTokens.map(t => t.address);
+        const bals = await dex.getMultipleBalances(addrs);
+        if (cancelled) return;
+        const map: Record<string, string> = {};
+        addrs.forEach((a, i) => { map[a.toLowerCase()] = bals[i] || '0'; });
+        setBalances(map);
+      } catch { /* leave empty */ }
+      finally { if (!cancelled) setLoadingBalances(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [isOpen, wallet.address, allTokens, dex]);
+
+  const balanceFor = (addr: string) => parseFloat(balances[addr.toLowerCase()] || '0');
+
   const trimmed = search.trim();
-  const filtered = allTokens.filter(t =>
-    t.address !== excludeAddress &&
-    (t.symbol.toLowerCase().includes(trimmed.toLowerCase()) ||
-     t.name.toLowerCase().includes(trimmed.toLowerCase()) ||
-     t.address.toLowerCase() === trimmed.toLowerCase())
-  );
+  const filtered = useMemo(() => {
+    const q = trimmed.toLowerCase();
+    const list = allTokens.filter(t =>
+      t.address !== excludeAddress &&
+      (t.symbol.toLowerCase().includes(q) ||
+       t.name.toLowerCase().includes(q) ||
+       t.address.toLowerCase() === q)
+    );
+    // Sort by balance desc, then alphabetically
+    return list.sort((a, b) => {
+      const ba = balanceFor(a.address);
+      const bb = balanceFor(b.address);
+      if (bb !== ba) return bb - ba;
+      return a.symbol.localeCompare(b.symbol);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allTokens, trimmed, excludeAddress, balances]);
 
   const isAddress = /^0x[a-fA-F0-9]{40}$/.test(trimmed);
   const showImport = isAddress && filtered.length === 0;
@@ -39,6 +76,14 @@ export default function TokenModal({ isOpen, onClose, onSelect, excludeAddress }
     } finally { setImporting(false); }
   };
 
+  const fmtBal = (n: number) => {
+    if (n === 0) return '0';
+    if (n < 0.0001) return '<0.0001';
+    if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + 'M';
+    if (n >= 1_000) return (n / 1_000).toFixed(2) + 'K';
+    return n.toLocaleString(undefined, { maximumFractionDigits: 4 });
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -50,7 +95,14 @@ export default function TokenModal({ isOpen, onClose, onSelect, excludeAddress }
             className="wolf-card rounded-2xl p-5 w-full max-w-md max-h-[75vh] flex flex-col" onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold">Select Token</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-bold">Select Token</h3>
+                {wallet.address && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-wolf-pink/10 text-wolf-pink border border-wolf-pink/20 uppercase tracking-wider">
+                    {loadingBalances ? 'Loading…' : 'Balances live'}
+                  </span>
+                )}
+              </div>
               <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-xl">&times;</button>
             </div>
             <input
@@ -59,14 +111,20 @@ export default function TokenModal({ isOpen, onClose, onSelect, excludeAddress }
               className="wolf-input w-full px-4 py-2.5 rounded-xl text-sm mb-4"
             />
             <div className="flex flex-wrap gap-2 mb-4">
-              {TOKENS.slice(0, 6).filter(t => t.address !== excludeAddress).map(t => (
-                <button key={t.address} onClick={() => { onSelect(t); onClose(); setSearch(''); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-wolf-surface hover:bg-wolf-surface-hover border border-wolf-border/30 text-sm transition-all"
-                >
-                  <img src={t.logo} alt={t.symbol} className="w-5 h-5 rounded-full" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                  {t.symbol}
-                </button>
-              ))}
+              {TOKENS.slice(0, 6).filter(t => t.address !== excludeAddress).map(t => {
+                const bal = balanceFor(t.address);
+                return (
+                  <button key={t.address} onClick={() => { onSelect(t); onClose(); setSearch(''); }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-wolf-surface hover:bg-wolf-surface-hover border border-wolf-border/30 text-sm transition-all"
+                  >
+                    <img src={t.logo} alt={t.symbol} className="w-5 h-5 rounded-full" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    <span>{t.symbol}</span>
+                    {bal > 0 && (
+                      <span className="text-[10px] text-wolf-gold font-bold">{fmtBal(bal)}</span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
 
             {showImport && (
@@ -82,6 +140,7 @@ export default function TokenModal({ isOpen, onClose, onSelect, excludeAddress }
             <div className="overflow-y-auto flex-1 space-y-1">
               {filtered.map(t => {
                 const isCustom = customTokens.some(c => c.address === t.address);
+                const bal = balanceFor(t.address);
                 return (
                   <div key={t.address} className="group flex items-center gap-2">
                     <button onClick={() => { onSelect(t); onClose(); setSearch(''); }}
@@ -94,6 +153,14 @@ export default function TokenModal({ isOpen, onClose, onSelect, excludeAddress }
                           {isCustom && <span className="text-[9px] px-1.5 py-0.5 rounded bg-wolf-purple/20 text-wolf-purple uppercase tracking-wider">Custom</span>}
                         </div>
                         <div className="text-xs text-muted-foreground truncate">{t.name}</div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className={`text-sm font-bold tabular-nums ${bal > 0 ? 'text-foreground' : 'text-muted-foreground/50'}`}>
+                          {fmtBal(bal)}
+                        </div>
+                        {bal > 0 && (
+                          <div className="text-[9px] text-muted-foreground uppercase tracking-wider">balance</div>
+                        )}
                       </div>
                     </button>
                     {isCustom && (
