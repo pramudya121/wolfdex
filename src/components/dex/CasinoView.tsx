@@ -154,7 +154,7 @@ export default function CasinoView() {
 
       {/* Stats bar */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-        <StatTile label="Min Bet"  value={`${parseFloat(casino.stats.minBet).toFixed(4)} zkLTC`} />
+        <StatTile label="Min Bet"  value={`${UI_MIN_BET_STR} zkLTC`} />
         <StatTile label="Max Bet"  value={`${parseFloat(casino.stats.maxBet).toFixed(2)} zkLTC`} />
         <StatTile label="House Edge" value={`${(casino.stats.houseEdgeBP / 100).toFixed(2)}%`} />
         <StatTile label="Bankroll" value={`${parseFloat(casino.stats.bankroll).toFixed(2)} zkLTC`} highlight />
