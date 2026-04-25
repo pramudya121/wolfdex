@@ -507,7 +507,7 @@ export default function FarmingView(_: Props) {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {farming.pools.map(pool => (
-            <FarmCard key={pool.pid} pool={pool} farming={farming} />
+            <FarmCard key={pool.pid} pool={pool} farming={farming} allPools={farming.pools} />
           ))}
         </div>
       )}
