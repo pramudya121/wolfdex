@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-export type TxKind = 'swap' | 'add-liquidity' | 'remove-liquidity' | 'wrap' | 'unwrap' | 'approve' | 'farm-stake' | 'farm-unstake' | 'farm-harvest' | 'farm-emergency' | 'farm-admin' | 'send' | 'agent';
+export type TxKind = 'swap' | 'add-liquidity' | 'remove-liquidity' | 'wrap' | 'unwrap' | 'approve' | 'farm-stake' | 'farm-unstake' | 'farm-harvest' | 'farm-emergency' | 'farm-compound' | 'farm-admin' | 'send' | 'agent';
 export type TxStatus = 'pending' | 'success' | 'failed';
 
 export interface TxRecord {
