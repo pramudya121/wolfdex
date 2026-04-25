@@ -93,7 +93,7 @@ export default function AIAgentPanel() {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
-      content: '🐺 **WOLF AI online.** I\'m your autonomous trading copilot on WolfDex. Ask me to check balances, fetch quotes, swap, send, stake, or harvest farms — I\'ll handle the on-chain plumbing. What\'s the play?',
+      content: '🐺 **WOLF AI online.** I\'m your autonomous trading copilot on WolfDex. Ask me to check balances, swap, send, stake, harvest farms, or **add/remove liquidity** — I\'ll handle the on-chain plumbing. What\'s the play?',
     },
   ]);
   const [input, setInput] = useState('');
