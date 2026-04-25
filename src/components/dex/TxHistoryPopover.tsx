@@ -15,6 +15,7 @@ const KIND_META: Record<TxKind, { icon: string; label: string }> = {
   'farm-unstake':      { icon: '🪺', label: 'Unstake' },
   'farm-harvest':      { icon: '🪙', label: 'Harvest' },
   'farm-emergency':    { icon: '⚠️', label: 'Emergency' },
+  'farm-compound':     { icon: '🔄', label: 'Compound' },
   'farm-admin':        { icon: '⚙️', label: 'Farm Admin' },
   'send':              { icon: '📤', label: 'Send' },
   'agent':             { icon: '🤖', label: 'AI Agent' },

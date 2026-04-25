@@ -320,6 +320,48 @@ export function useFarming(signer: ethers.Signer | null, address: string | null)
     } finally { setActionPending(false); }
   }, [requireSigner, loadPools, loadUserInfo]);
 
+  /**
+   * Auto-compound: claims pending reward and re-stakes it.
+   * Only works when rewardToken === stakingToken (single-token compound).
+   * For dual-token pools, the UI should fall back to a manual harvest+swap flow.
+   */
+  const autoCompound = useCallback(async (pool: FarmPool): Promise<string> => {
+    if (pool.stakingToken.toLowerCase() !== pool.rewardToken.toLowerCase()) {
+      throw new Error('Auto-compound only available when reward token equals staking token');
+    }
+    const s = requireSigner();
+    if (!address) throw new Error('Wallet not connected');
+    setActionPending(true); setError(null);
+    try {
+      const contract = new ethers.Contract(CONTRACTS.FARMING, FARMING_ABI, s);
+      // 1. harvest (deposit 0 claims pending)
+      const tx1 = await contract.deposit(pool.pid, 0);
+      await tx1.wait();
+      // 2. read fresh wallet balance of staking token
+      const erc = new ethers.Contract(pool.stakingToken, ERC20_ABI, s);
+      const bal: ethers.BigNumber = await erc.balanceOf(address);
+      if (bal.isZero()) {
+        await loadUserInfo(pools);
+        return tx1.hash as string;
+      }
+      // 3. ensure allowance, then deposit the entire balance
+      const allowance: ethers.BigNumber = await erc.allowance(address, CONTRACTS.FARMING);
+      if (allowance.lt(bal)) {
+        const apTx = await erc.approve(CONTRACTS.FARMING, ethers.constants.MaxUint256);
+        await apTx.wait();
+      }
+      const tx2 = await contract.deposit(pool.pid, bal);
+      await tx2.wait();
+      cacheRef.current = null;
+      const fresh = await loadPools(true);
+      await loadUserInfo(fresh);
+      return tx2.hash as string;
+    } catch (e: any) {
+      setError(e.reason || e.message || 'Auto-compound failed');
+      throw e;
+    } finally { setActionPending(false); }
+  }, [requireSigner, address, loadPools, loadUserInfo, pools]);
+
   // ===== ADMIN ACTIONS =====
   const isOwner = !!(owner && address && owner.toLowerCase() === address.toLowerCase());
 
@@ -382,7 +424,7 @@ export function useFarming(signer: ethers.Signer | null, address: string | null)
     pools, userInfos, owner, isOwner,
     loadingPools, loadingUser, actionPending, error,
     refresh: () => { cacheRef.current = null; return loadPools(true).then(p => loadUserInfo(p)); },
-    approve, deposit, withdraw, harvest, emergencyWithdraw,
+    approve, deposit, withdraw, harvest, emergencyWithdraw, autoCompound,
     addPool, updateRewardPerBlock, massUpdate,
     /** Increment pause counter. Returns a disposer that decrements it. */
     pausePolling: () => {

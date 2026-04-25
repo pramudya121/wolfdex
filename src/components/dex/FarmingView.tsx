@@ -20,12 +20,12 @@ function formatNum(s: string, max = 6) {
   return n.toLocaleString(undefined, { maximumFractionDigits: max });
 }
 
-function FarmCard({ pool, farming }: { pool: FarmPool; farming: FarmingApi }) {
+function FarmCard({ pool, farming, allPools }: { pool: FarmPool; farming: FarmingApi; allPools: FarmPool[] }) {
   const { wallet, txHistory } = useDexContext();
   const user = farming.userInfos[pool.pid];
   const [amount, setAmount] = useState('');
   const [mode, setMode] = useState<'stake' | 'unstake'>('stake');
-  const [busy, setBusy] = useState<null | 'approve' | 'deposit' | 'withdraw' | 'harvest' | 'emergency'>(null);
+  const [busy, setBusy] = useState<null | 'approve' | 'deposit' | 'withdraw' | 'harvest' | 'emergency' | 'compound'>(null);
 
   const amountRaw = (() => {
     try {
@@ -38,15 +38,28 @@ function FarmCard({ pool, farming }: { pool: FarmPool; farming: FarmingApi }) {
   const walletBN = ethers.BigNumber.from(user?.walletBalanceRaw ?? '0');
   const needsApprove = mode === 'stake' && amountRaw.gt(allowanceBN) && amountRaw.gt(0);
 
+  // Boost multiplier — relative to median APR across all live pools
+  const aprList = allPools.map(p => p.apr).filter(a => a > 0 && isFinite(a)).sort((a, b) => a - b);
+  const median = aprList.length > 0 ? aprList[Math.floor(aprList.length / 2)] : 0;
+  const boost = median > 0 && pool.apr > 0 ? pool.apr / median : 1;
+  const boostTier = boost >= 2 ? { label: '🔥🔥 2x+', color: 'text-wolf-pink', bg: 'bg-wolf-pink/15 border-wolf-pink/40' }
+                  : boost >= 1.3 ? { label: '🔥 BOOST', color: 'text-wolf-gold', bg: 'bg-wolf-gold/15 border-wolf-gold/40' }
+                  : null;
+
+  // Auto-compound is single-click only when reward token === staking token
+  const canAutoCompound = pool.stakingToken.toLowerCase() === pool.rewardToken.toLowerCase()
+                          && stakedBN.gt(0)
+                          && parseFloat(user?.pending ?? '0') > 0;
+
   const max = () => {
     if (mode === 'stake') setAmount(user?.walletBalance ?? '0');
     else setAmount(user?.amount ?? '0');
   };
 
   type RunKind = NonNullable<typeof busy>;
-  const KIND_TO_HISTORY: Record<RunKind, 'farm-stake' | 'farm-unstake' | 'farm-harvest' | 'farm-emergency' | 'approve'> = {
+  const KIND_TO_HISTORY: Record<RunKind, 'farm-stake' | 'farm-unstake' | 'farm-harvest' | 'farm-emergency' | 'approve' | 'farm-compound'> = {
     approve: 'approve', deposit: 'farm-stake', withdraw: 'farm-unstake',
-    harvest: 'farm-harvest', emergency: 'farm-emergency',
+    harvest: 'farm-harvest', emergency: 'farm-emergency', compound: 'farm-compound',
   };
 
   const run = async (op: () => Promise<string>, label: string, kind: RunKind, summary: string) => {
@@ -89,9 +102,16 @@ function FarmCard({ pool, farming }: { pool: FarmPool; farming: FarmingApi }) {
               <div className="text-[11px] text-muted-foreground">Earn {pool.rewardSymbol} · #{pool.pid}</div>
             </div>
           </div>
-          <span className="px-2 py-1 rounded-md bg-wolf-green/15 text-wolf-green text-[10px] font-bold uppercase tracking-wider">
-            🔥 Live
-          </span>
+          <div className="flex items-center gap-1.5">
+            {boostTier && (
+              <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${boostTier.bg} ${boostTier.color}`}>
+                {boostTier.label}
+              </span>
+            )}
+            <span className="px-2 py-1 rounded-md bg-wolf-green/15 text-wolf-green text-[10px] font-bold uppercase tracking-wider">
+              🔥 Live
+            </span>
+          </div>
         </div>
 
         {/* Stats */}
@@ -145,13 +165,25 @@ function FarmCard({ pool, farming }: { pool: FarmPool; farming: FarmingApi }) {
                 {formatNum(user?.pending ?? '0', 8)} {pool.rewardSymbol}
               </div>
             </div>
-            <button
-              disabled={!wallet.isConnected || busy !== null || ethers.BigNumber.from(user?.pendingRaw ?? '0').isZero()}
-              onClick={() => run(() => farming.harvest(pool), 'Harvest', 'harvest', `${formatNum(user?.pending ?? '0', 6)} ${pool.rewardSymbol}`)}
-              className="wolf-btn-primary px-4 py-2 rounded-lg text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {busy === 'harvest' ? '...' : '🪙 Harvest'}
-            </button>
+            <div className="flex gap-2">
+              {canAutoCompound && (
+                <button
+                  disabled={!wallet.isConnected || busy !== null}
+                  onClick={() => run(() => farming.autoCompound(pool), 'Auto-Compound', 'compound', `${formatNum(user?.pending ?? '0', 6)} ${pool.rewardSymbol}`)}
+                  title="Harvest pending reward and re-stake it in one click"
+                  className="px-3 py-2 rounded-lg text-xs font-bold border border-wolf-gold/40 bg-wolf-gold/10 text-wolf-gold hover:bg-wolf-gold/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  {busy === 'compound' ? '...' : '🔄 Compound'}
+                </button>
+              )}
+              <button
+                disabled={!wallet.isConnected || busy !== null || ethers.BigNumber.from(user?.pendingRaw ?? '0').isZero()}
+                onClick={() => run(() => farming.harvest(pool), 'Harvest', 'harvest', `${formatNum(user?.pending ?? '0', 6)} ${pool.rewardSymbol}`)}
+                className="wolf-btn-primary px-4 py-2 rounded-lg text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {busy === 'harvest' ? '...' : '🪙 Harvest'}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -494,7 +526,7 @@ export default function FarmingView(_: Props) {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {farming.pools.map(pool => (
-            <FarmCard key={pool.pid} pool={pool} farming={farming} />
+            <FarmCard key={pool.pid} pool={pool} farming={farming} allPools={farming.pools} />
           ))}
         </div>
       )}

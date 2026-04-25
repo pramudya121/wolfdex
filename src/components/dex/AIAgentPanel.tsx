@@ -6,6 +6,7 @@ import { useDexContext } from '@/context/DexContext';
 import { TOKENS, NATIVE_TOKEN, CHAIN_CONFIG, getTokenBySymbol, isNativeToken } from '@/config/contracts';
 import { ERC20_ABI } from '@/config/abis';
 import { useWolfVoice, guessLanguage } from '@/hooks/useWolfVoice';
+import { useLimitOrders, type LimitOrderSide } from '@/hooks/useLimitOrders';
 import { WolfSpinner } from './ui/WolfSkeleton';
 
 type Role = 'user' | 'assistant' | 'tool' | 'system';
@@ -30,7 +31,7 @@ interface ChatMessage {
 }
 
 interface ActionProposal {
-  kind: 'swap' | 'send' | 'stake' | 'unstake' | 'harvest' | 'add_liquidity' | 'remove_liquidity';
+  kind: 'swap' | 'send' | 'stake' | 'unstake' | 'harvest' | 'add_liquidity' | 'remove_liquidity' | 'limit_order';
   fromToken?: string;
   toToken?: string;
   amount?: string;
@@ -38,6 +39,12 @@ interface ActionProposal {
   amountB?: string;
   /** Only for remove_liquidity (1-100) */
   percent?: number;
+  /** Only for limit_order — toToken-per-fromToken */
+  targetRate?: string;
+  /** Only for limit_order — UI hint */
+  side?: 'buy' | 'sell';
+  /** Only for limit_order — hours until expiry, 0 = never */
+  expiresInHours?: number;
   recipient?: string;
   poolId?: number;
   summary: string;
@@ -77,6 +84,9 @@ const SUGGESTIONS_NORMAL = [
   '🚀 Swap 1 zkLTC to WDEX',
   '➕💧 Add 1 zkLTC + 50 WDEX liquidity',
   '➖💧 Remove 50% of my zkLTC/WDEX LP',
+  '🎯 Buy WDEX when 1 zkLTC ≥ 60 WDEX',
+  '🛑 Stop-loss: sell my WDEX if rate drops',
+  '📋 Show my limit orders',
   '🌾 Show me all farms',
   '🪙 Harvest my farm rewards',
 ];
@@ -90,10 +100,11 @@ const SUGGESTIONS_AUTOTRADE = [
 
 export default function AIAgentPanel() {
   const { wallet, dex, farming, showAgent, setShowAgent, txHistory } = useDexContext();
+  const limitOrders = useLimitOrders(wallet.address);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
-      content: '🐺 **WOLF AI online.** I\'m your autonomous trading copilot on WolfDex. Ask me to check balances, swap, send, stake, harvest farms, or **add/remove liquidity** — I\'ll handle the on-chain plumbing. What\'s the play?',
+      content: '🐺 **WOLF AI online.** I\'m your autonomous trading copilot on WolfDex. Ask me to check balances, swap, send, stake, harvest farms, **add/remove liquidity**, or **place limit orders / stop-loss**. What\'s the play?',
     },
   ]);
   const [input, setInput] = useState('');
@@ -226,6 +237,32 @@ export default function AIAgentPanel() {
     } catch (e: any) { return JSON.stringify({ error: e.message }); }
   };
 
+  const execListLimitOrders = async (): Promise<string> => {
+    if (!wallet.address) return JSON.stringify({ error: 'wallet not connected' });
+    const rows = limitOrders.list.slice(0, 25).map(o => ({
+      id: o.id,
+      pair: `${o.fromToken.symbol} → ${o.toToken.symbol}`,
+      amountIn: o.amountIn,
+      targetRate: o.targetRate,
+      side: o.side,
+      status: o.status,
+      lastQuoteOut: o.lastQuoteOut ?? null,
+      expiresAt: o.expiresAt ? new Date(o.expiresAt).toISOString() : 'never',
+      createdAt: new Date(o.createdAt).toISOString(),
+      txHash: o.txHash ?? null,
+    }));
+    return JSON.stringify({ count: rows.length, openCount: limitOrders.openCount, orders: rows });
+  };
+
+  const execCancelLimitOrder = async (id: string): Promise<string> => {
+    if (!wallet.address) return JSON.stringify({ error: 'wallet not connected' });
+    const found = limitOrders.list.find(o => o.id === id);
+    if (!found) return JSON.stringify({ error: `order ${id} not found` });
+    if (found.status !== 'open') return JSON.stringify({ error: `order is ${found.status}, can only cancel open` });
+    limitOrders.cancel(id);
+    return JSON.stringify({ ok: true, id, message: 'order cancelled' });
+  };
+
   // Run conversation turn (one round-trip; auto-loops if model returns tool calls)
   const sendTurn = useCallback(async (newMessages: ChatMessage[]) => {
     setBusy(true); setThinking(true);
@@ -330,6 +367,8 @@ export default function AIAgentPanel() {
         else if (tc.function.name === 'list_farms') result = await execListFarms();
         else if (tc.function.name === 'list_pools') result = await execListPools();
         else if (tc.function.name === 'get_lp_position') result = await execGetLpPosition(args.tokenA, args.tokenB);
+        else if (tc.function.name === 'list_limit_orders') result = await execListLimitOrders();
+        else if (tc.function.name === 'cancel_limit_order') result = await execCancelLimitOrder(args.id);
         else result = JSON.stringify({ error: `unknown tool ${tc.function.name}` });
 
         toolResultMessages.push({ role: 'tool', tool_call_id: tc.id, content: result });
@@ -494,12 +533,44 @@ export default function AIAgentPanel() {
           { label: 'TX', value: `${hash.slice(0, 10)}…${hash.slice(-8)}` },
         ],
       };
+    } else if (p.kind === 'limit_order') {
+      // "Local" action: doesn't broadcast a tx — registers a watched limit order.
+      const from = getTokenBySymbol(p.fromToken!);
+      const to = getTokenBySymbol(p.toToken!);
+      if (!from || !to) throw new Error('invalid limit order tokens');
+      const amt = p.amount && parseFloat(p.amount) > 0 ? p.amount : '';
+      const target = p.targetRate && parseFloat(p.targetRate) > 0 ? p.targetRate : '';
+      if (!amt || !target) throw new Error('limit order needs amount & targetRate');
+      const expiresInHours = p.expiresInHours == null ? 168 : Math.max(0, p.expiresInHours);
+      const expiresAt = expiresInHours > 0 ? Date.now() + expiresInHours * 3600_000 : 0;
+      const order = limitOrders.create({
+        account: wallet.address!,
+        fromToken: from,
+        toToken: to,
+        amountIn: amt,
+        targetRate: target,
+        side: (p.side as LimitOrderSide) ?? 'sell',
+        expiresAt,
+      });
+      hash = order.id; // not a tx hash — store the order id for traceability
+      output = amt;
+      card = {
+        title: '🎯 Limit Order Created',
+        rows: [
+          { label: 'Pair', value: `${from.symbol} → ${to.symbol}` },
+          { label: 'Amount In', value: `${amt} ${from.symbol}`, accent: true },
+          { label: 'Target Rate', value: `≥ ${target} ${to.symbol} per ${from.symbol}`, accent: true },
+          { label: 'Side', value: (p.side ?? 'sell').toUpperCase() },
+          { label: 'Expires', value: expiresAt ? new Date(expiresAt).toLocaleString() : 'never' },
+          { label: 'Order ID', value: order.id },
+        ],
+      };
     } else {
       throw new Error(`unknown action kind: ${(p as any).kind}`);
     }
 
     return { hash, card, output };
-  }, [wallet, dex, farming]);
+  }, [wallet, dex, farming, limitOrders]);
 
   // ===== EXECUTE PROPOSED ACTION (single) =====
   const executeProposal = async (idx: number, p: ActionProposal) => {
@@ -828,7 +899,7 @@ function ProposalCard({ proposal, busy, onExecute, onCancel }: {
 }) {
   const KIND_ICON: Record<ActionProposal['kind'], string> = {
     swap: '🔁', send: '📤', stake: '🌾', unstake: '🪺', harvest: '🪙',
-    add_liquidity: '➕💧', remove_liquidity: '➖💧',
+    add_liquidity: '➕💧', remove_liquidity: '➖💧', limit_order: '🎯',
   };
   return (
     <motion.div initial={{ opacity: 0, y: 12, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -879,6 +950,15 @@ function ProposalCard({ proposal, busy, onExecute, onCancel }: {
           )}
           {proposal.percent !== undefined && proposal.kind === 'remove_liquidity' && (
             <Field label="Portion" value={`${proposal.percent}%`} accent />
+          )}
+          {proposal.kind === 'limit_order' && proposal.targetRate && (
+            <Field label="Target Rate" value={`≥ ${proposal.targetRate} ${proposal.toToken ?? ''}/${proposal.fromToken ?? ''}`} accent />
+          )}
+          {proposal.kind === 'limit_order' && proposal.side && (
+            <Field label="Side" value={proposal.side.toUpperCase()} />
+          )}
+          {proposal.kind === 'limit_order' && proposal.expiresInHours !== undefined && (
+            <Field label="Expires" value={proposal.expiresInHours === 0 ? 'never' : `${proposal.expiresInHours}h`} />
           )}
           {proposal.recipient && <Field label="Recipient" value={`${proposal.recipient.slice(0, 6)}…${proposal.recipient.slice(-4)}`} />}
           {proposal.poolId !== undefined && <Field label="Pool" value={`#${proposal.poolId}`} />}
@@ -939,7 +1019,7 @@ function PlanCard({ plan, busy, onExecute, onAbort, onCancel }: {
 }) {
   const KIND_ICON: Record<ActionProposal['kind'], string> = {
     swap: '🔁', send: '📤', stake: '🌾', unstake: '🪺', harvest: '🪙',
-    add_liquidity: '➕💧', remove_liquidity: '➖💧',
+    add_liquidity: '➕💧', remove_liquidity: '➖💧', limit_order: '🎯',
   };
   const STATUS_STYLE: Record<StepStatus, { dot: string; text: string; icon: string }> = {
     pending:  { dot: 'bg-muted-foreground/40',           text: 'text-muted-foreground', icon: '○' },
