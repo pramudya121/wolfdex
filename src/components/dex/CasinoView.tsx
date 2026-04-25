@@ -264,3 +264,45 @@ function Row({ k, v }: { k: string; v: string }) {
     </div>
   );
 }
+
+/**
+ * LivePlaysTicker — horizontal feed of last 10 plays from local history.
+ * Auto-scrolls via CSS marquee when there are enough entries.
+ */
+function LivePlaysTicker() {
+  const history = useCasinoHistory();
+  const recent = history.entries.slice(0, 10);
+  if (recent.length === 0) return null;
+  return (
+    <div className="mb-6 wolf-card rounded-xl px-4 py-3 overflow-hidden">
+      <div className="flex items-center gap-3">
+        <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-wolf-pink font-bold shrink-0">
+          <span className="w-1.5 h-1.5 rounded-full bg-wolf-pink animate-pulse" /> Live Plays
+        </span>
+        <div className="flex-1 overflow-hidden">
+          <div className="flex gap-3 animate-[marquee_38s_linear_infinite] whitespace-nowrap">
+            {[...recent, ...recent].map((e, i) => (
+              <a
+                key={`${e.id}-${i}`}
+                href={`${CHAIN_CONFIG.blockExplorer}/tx/${e.txHash}`}
+                target="_blank" rel="noreferrer"
+                className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-semibold border transition-all hover:scale-105 ${
+                  e.win
+                    ? 'bg-wolf-green/10 text-wolf-green border-wolf-green/30 hover:border-wolf-green/60'
+                    : 'bg-destructive/10 text-destructive/80 border-destructive/20 hover:border-destructive/40'
+                }`}
+              >
+                <span>{e.win ? '🏆' : '🎲'}</span>
+                <span>{e.game}</span>
+                <span className="opacity-70">·</span>
+                <span className="font-mono">
+                  {e.win ? `+${parseFloat(e.payout).toFixed(4)}` : `-${parseFloat(e.bet).toFixed(4)}`} zkLTC
+                </span>
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
