@@ -165,13 +165,25 @@ function FarmCard({ pool, farming, allPools }: { pool: FarmPool; farming: Farmin
                 {formatNum(user?.pending ?? '0', 8)} {pool.rewardSymbol}
               </div>
             </div>
-            <button
-              disabled={!wallet.isConnected || busy !== null || ethers.BigNumber.from(user?.pendingRaw ?? '0').isZero()}
-              onClick={() => run(() => farming.harvest(pool), 'Harvest', 'harvest', `${formatNum(user?.pending ?? '0', 6)} ${pool.rewardSymbol}`)}
-              className="wolf-btn-primary px-4 py-2 rounded-lg text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {busy === 'harvest' ? '...' : '🪙 Harvest'}
-            </button>
+            <div className="flex gap-2">
+              {canAutoCompound && (
+                <button
+                  disabled={!wallet.isConnected || busy !== null}
+                  onClick={() => run(() => farming.autoCompound(pool), 'Auto-Compound', 'compound', `${formatNum(user?.pending ?? '0', 6)} ${pool.rewardSymbol}`)}
+                  title="Harvest pending reward and re-stake it in one click"
+                  className="px-3 py-2 rounded-lg text-xs font-bold border border-wolf-gold/40 bg-wolf-gold/10 text-wolf-gold hover:bg-wolf-gold/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  {busy === 'compound' ? '...' : '🔄 Compound'}
+                </button>
+              )}
+              <button
+                disabled={!wallet.isConnected || busy !== null || ethers.BigNumber.from(user?.pendingRaw ?? '0').isZero()}
+                onClick={() => run(() => farming.harvest(pool), 'Harvest', 'harvest', `${formatNum(user?.pending ?? '0', 6)} ${pool.rewardSymbol}`)}
+                className="wolf-btn-primary px-4 py-2 rounded-lg text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {busy === 'harvest' ? '...' : '🪙 Harvest'}
+              </button>
+            </div>
           </div>
         </div>
 
