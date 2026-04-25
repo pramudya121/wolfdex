@@ -387,7 +387,7 @@ export function rewardLabelFor(symbol: string): string {
  */
 export function realizedRewardLabel(payoutZk: string, symbol: string): string {
   const v = parseFloat(payoutZk || '0');
-  const formatted = v < 0.0001 ? v.toExponential(2) : v.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
+  const formatted = v.toFixed(4).replace(/0+$/, '').replace(/\.$/, '') || '0';
   return `${formatted} zkLTC → ${symbol}`;
 }
 
