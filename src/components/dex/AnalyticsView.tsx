@@ -5,25 +5,11 @@ import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContai
 import { useDexContext } from '@/context/DexContext';
 import PairChart from './PairChart';
 import { AnimatePresence } from 'framer-motion';
+import { useHistoricalAnalytics, type Bucket } from '@/hooks/useHistoricalAnalytics';
 
 interface PoolData {
   symbol0: string; symbol1: string; reserve0: string; reserve1: string;
   logo0: string; logo1: string; tvl: number; address: string;
-}
-
-// Generate mock chart data based on real TVL
-function generateChartData(tvl: number, days: number) {
-  const data = [];
-  for (let i = days; i >= 0; i--) {
-    const d = new Date(); d.setDate(d.getDate() - i);
-    const noise = 0.8 + Math.random() * 0.4;
-    data.push({
-      date: d.toLocaleDateString('en', { month: 'short', day: 'numeric' }),
-      tvl: +(tvl * noise).toFixed(2),
-      volume: +(tvl * 0.1 * Math.random()).toFixed(2),
-    });
-  }
-  return data;
 }
 
 export default function AnalyticsView() {
@@ -32,7 +18,12 @@ export default function AnalyticsView() {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'trending' | 'staking'>('trending');
   const [chartPeriod, setChartPeriod] = useState<'7d' | '30d' | '90d'>('30d');
+  const [chartBucket, setChartBucket] = useState<Bucket>('day');
   const [selectedPair, setSelectedPair] = useState<PoolData | null>(null);
+
+  const windowDays = chartPeriod === '7d' ? 7 : chartPeriod === '30d' ? 30 : 90;
+  const { series: historySeries, loading: historyLoading, refresh: refreshHistory } =
+    useHistoricalAnalytics({ bucket: chartBucket, windowDays });
 
   const load = useCallback(async (force = false) => {
     setLoading(prev => prev || pools.length === 0);
@@ -64,11 +55,13 @@ export default function AnalyticsView() {
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalTVL = useMemo(() => pools.reduce((s, p) => s + p.tvl, 0), [pools]);
-  const totalVolume = totalTVL * 0.12;
+  const totalVolume = useMemo(() => {
+    if (historySeries.length === 0) return totalTVL * 0.12;
+    const last = historySeries[historySeries.length - 1];
+    return last?.volume ?? 0;
+  }, [historySeries, totalTVL]);
   const totalFees = totalVolume * 0.003;
-  const days = chartPeriod === '7d' ? 7 : chartPeriod === '30d' ? 30 : 90;
-  // Memoize chart data so changing tabs / hovering doesn't regenerate noise.
-  const chartData = useMemo(() => generateChartData(totalTVL, days), [totalTVL, days]);
+  const chartData = historySeries;
 
   const topTokens = useMemo(() => TOKENS.filter(t => !t.isNative).slice(0, 6).map((t) => ({
     ...t, price: (Math.random() * 1000).toFixed(2), change: ((Math.random() - 0.3) * 10).toFixed(2),
@@ -107,9 +100,18 @@ export default function AnalyticsView() {
             </button>
           ))}
         </div>
-        <button onClick={() => { invalidatePairsCache(); load(true); }} className="px-3 py-2 rounded-lg text-xs font-medium bg-wolf-surface border border-wolf-border/30 hover:border-wolf-pink/40 transition-all">
-          🔄 Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1 p-1 rounded-lg bg-wolf-surface border border-wolf-border/30">
+            {(['day', 'week'] as const).map(b => (
+              <button key={b} onClick={() => setChartBucket(b)}
+                className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-all ${chartBucket === b ? 'bg-wolf-pink/20 text-wolf-pink' : 'text-muted-foreground hover:text-foreground'}`}
+              >{b === 'day' ? '1D' : '1W'}</button>
+            ))}
+          </div>
+          <button onClick={() => { invalidatePairsCache(); load(true); refreshHistory(); }} className="px-3 py-2 rounded-lg text-xs font-medium bg-wolf-surface border border-wolf-border/30 hover:border-wolf-pink/40 transition-all">
+            {historyLoading ? '⏳ Indexing…' : '🔄 Refresh'}
+          </button>
+        </div>
       </div>
 
       {showSkeleton ? (
