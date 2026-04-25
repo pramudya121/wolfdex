@@ -13,8 +13,9 @@ import LuckyWheelGame from './casino/LuckyWheelGame';
 import SpinToWinGame from './casino/SpinToWinGame';
 import { toast } from 'sonner';
 import { CHAIN_CONFIG, CONTRACTS } from '@/config/contracts';
-import { isCasinoMuted, setCasinoMuted } from './casino/casinoShared';
+import { isCasinoMuted, setCasinoMuted, UI_MIN_BET_STR } from './casino/casinoShared';
 import { startCasinoMusic, stopCasinoMusic, syncCasinoMusicMute } from './casino/casinoMusic';
+import { useCasinoHistory } from '@/hooks/useCasinoHistory';
 
 const GAMES = [
   { id: 'coinflip',   label: 'Coinflip',     icon: '🪙', accent: 'gold'  },
