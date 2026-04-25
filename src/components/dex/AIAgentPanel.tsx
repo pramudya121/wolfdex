@@ -844,9 +844,41 @@ function ProposalCard({ proposal, busy, onExecute, onCancel }: {
         </div>
         <p className="text-sm font-bold mb-3 leading-snug">{proposal.summary}</p>
         <div className="grid grid-cols-2 gap-2 mb-3 text-[11px]">
-          {proposal.fromToken && <Field label={proposal.kind === 'send' ? 'Token' : 'From'} value={proposal.fromToken} />}
-          {proposal.toToken && <Field label="To" value={proposal.toToken} />}
-          {proposal.amount && <Field label="Amount" value={proposal.amount} accent />}
+          {proposal.fromToken && (
+            <Field
+              label={
+                proposal.kind === 'send' ? 'Token'
+                : proposal.kind === 'add_liquidity' || proposal.kind === 'remove_liquidity' ? 'Token A'
+                : 'From'
+              }
+              value={proposal.fromToken}
+            />
+          )}
+          {proposal.toToken && (
+            <Field
+              label={
+                proposal.kind === 'add_liquidity' || proposal.kind === 'remove_liquidity' ? 'Token B' : 'To'
+              }
+              value={proposal.toToken}
+            />
+          )}
+          {proposal.amount && (
+            <Field
+              label={
+                proposal.kind === 'add_liquidity' ? `Amount ${proposal.fromToken ?? 'A'}`
+                : proposal.kind === 'remove_liquidity' ? 'LP Amount'
+                : 'Amount'
+              }
+              value={proposal.amount}
+              accent
+            />
+          )}
+          {proposal.amountB && proposal.kind === 'add_liquidity' && (
+            <Field label={`Amount ${proposal.toToken ?? 'B'}`} value={proposal.amountB} accent />
+          )}
+          {proposal.percent !== undefined && proposal.kind === 'remove_liquidity' && (
+            <Field label="Portion" value={`${proposal.percent}%`} accent />
+          )}
           {proposal.recipient && <Field label="Recipient" value={`${proposal.recipient.slice(0, 6)}…${proposal.recipient.slice(-4)}`} />}
           {proposal.poolId !== undefined && <Field label="Pool" value={`#${proposal.poolId}`} />}
         </div>
