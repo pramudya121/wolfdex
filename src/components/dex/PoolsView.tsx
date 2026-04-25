@@ -97,7 +97,7 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
       });
       setPools(out);
     } catch {} finally { setLoading(false); }
-  }, [getCachedPairsWithInfo, dex, wallet.address, pools.length]);
+  }, [getCachedPairsWithInfo, dex, wallet.address, pools.length, resolve]);
 
   useEffect(() => { loadPools(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
