@@ -367,6 +367,8 @@ export default function AIAgentPanel() {
         else if (tc.function.name === 'list_farms') result = await execListFarms();
         else if (tc.function.name === 'list_pools') result = await execListPools();
         else if (tc.function.name === 'get_lp_position') result = await execGetLpPosition(args.tokenA, args.tokenB);
+        else if (tc.function.name === 'list_limit_orders') result = await execListLimitOrders();
+        else if (tc.function.name === 'cancel_limit_order') result = await execCancelLimitOrder(args.id);
         else result = JSON.stringify({ error: `unknown tool ${tc.function.name}` });
 
         toolResultMessages.push({ role: 'tool', tool_call_id: tc.id, content: result });
