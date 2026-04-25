@@ -75,8 +75,9 @@ interface ResultCard {
 const SUGGESTIONS_NORMAL = [
   '💰 Check all my balances',
   '🚀 Swap 1 zkLTC to WDEX',
+  '➕💧 Add 1 zkLTC + 50 WDEX liquidity',
+  '➖💧 Remove 50% of my zkLTC/WDEX LP',
   '🌾 Show me all farms',
-  '📊 What\'s the best route for ETH→WDEX?',
   '🪙 Harvest my farm rewards',
 ];
 
@@ -84,7 +85,7 @@ const SUGGESTIONS_AUTOTRADE = [
   '🎯 Plan: rebalance 50% of my zkLTC into WDEX + ETH',
   '🌾 Plan: swap zkLTC→WDEX then stake into best farm',
   '🪙 Plan: harvest all farms then compound into WDEX',
-  '⚡ Plan: split 1 zkLTC equally across BNB, MON, HYPE',
+  '➕💧 Plan: swap half my zkLTC to WDEX then add as liquidity',
 ];
 
 export default function AIAgentPanel() {
