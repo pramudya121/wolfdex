@@ -237,6 +237,32 @@ export default function AIAgentPanel() {
     } catch (e: any) { return JSON.stringify({ error: e.message }); }
   };
 
+  const execListLimitOrders = async (): Promise<string> => {
+    if (!wallet.address) return JSON.stringify({ error: 'wallet not connected' });
+    const rows = limitOrders.list.slice(0, 25).map(o => ({
+      id: o.id,
+      pair: `${o.fromToken.symbol} → ${o.toToken.symbol}`,
+      amountIn: o.amountIn,
+      targetRate: o.targetRate,
+      side: o.side,
+      status: o.status,
+      lastQuoteOut: o.lastQuoteOut ?? null,
+      expiresAt: o.expiresAt ? new Date(o.expiresAt).toISOString() : 'never',
+      createdAt: new Date(o.createdAt).toISOString(),
+      txHash: o.txHash ?? null,
+    }));
+    return JSON.stringify({ count: rows.length, openCount: limitOrders.openCount, orders: rows });
+  };
+
+  const execCancelLimitOrder = async (id: string): Promise<string> => {
+    if (!wallet.address) return JSON.stringify({ error: 'wallet not connected' });
+    const found = limitOrders.list.find(o => o.id === id);
+    if (!found) return JSON.stringify({ error: `order ${id} not found` });
+    if (found.status !== 'open') return JSON.stringify({ error: `order is ${found.status}, can only cancel open` });
+    limitOrders.cancel(id);
+    return JSON.stringify({ ok: true, id, message: 'order cancelled' });
+  };
+
   // Run conversation turn (one round-trip; auto-loops if model returns tool calls)
   const sendTurn = useCallback(async (newMessages: ChatMessage[]) => {
     setBusy(true); setThinking(true);
