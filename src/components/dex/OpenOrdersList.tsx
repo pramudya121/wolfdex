@@ -1,11 +1,19 @@
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 import { CHAIN_CONFIG } from '@/config/contracts';
 import type { LimitOrder } from '@/hooks/useLimitOrders';
 
 interface Props {
   orders: LimitOrder[];
-  onCancel: (id: string) => void;
-  onRemove: (id: string) => void;
+  /** On-chain cancelOrder — returns the cancel tx hash. */
+  onCancel: (id: string) => Promise<string>;
+  /** Optional taker fill — present in advanced UIs. */
+  onFill?: (id: string) => Promise<string>;
+  /** Local hide (no-op for on-chain rows). */
+  onRemove?: (id: string) => void;
+  /** Connected wallet — used to decide if "Fill" is shown for foreign orders. */
+  account?: string | null;
 }
 
 function timeLeft(expiresAt: number): string {
@@ -27,7 +35,36 @@ const STATUS_STYLES: Record<LimitOrder['status'], string> = {
   expired:   'bg-yellow-500/15 text-yellow-500',
 };
 
-export default function OpenOrdersList({ orders, onCancel, onRemove }: Props) {
+export default function OpenOrdersList({ orders, onCancel, onFill, account }: Props) {
+  const [pending, setPending] = useState<Record<string, 'cancel' | 'fill' | undefined>>({});
+
+  const handleCancel = async (id: string) => {
+    setPending(p => ({ ...p, [id]: 'cancel' }));
+    const t = toast.loading('Cancelling on-chain…');
+    try {
+      const hash = await onCancel(id);
+      toast.success('Order cancelled', { id: t, description: `TX: ${hash.slice(0, 12)}…` });
+    } catch (e: any) {
+      toast.error('Cancel failed', { id: t, description: (e?.reason || e?.message || '').slice(0, 120) });
+    } finally {
+      setPending(p => ({ ...p, [id]: undefined }));
+    }
+  };
+
+  const handleFill = async (id: string) => {
+    if (!onFill) return;
+    setPending(p => ({ ...p, [id]: 'fill' }));
+    const t = toast.loading('Filling order on-chain…');
+    try {
+      const hash = await onFill(id);
+      toast.success('Order filled', { id: t, description: `TX: ${hash.slice(0, 12)}…` });
+    } catch (e: any) {
+      toast.error('Fill failed', { id: t, description: (e?.reason || e?.message || '').slice(0, 120) });
+    } finally {
+      setPending(p => ({ ...p, [id]: undefined }));
+    }
+  };
+
   if (orders.length === 0) {
     return (
       <div className="text-center py-12 text-sm text-muted-foreground">
@@ -37,8 +74,8 @@ export default function OpenOrdersList({ orders, onCancel, onRemove }: Props) {
           <circle cx="12" cy="12" r="10"/>
           <path d="M12 6v6l4 2"/>
         </svg>
-        <p>No limit orders yet.</p>
-        <p className="text-xs mt-1 opacity-70">Place an order above — it'll auto-fill when your target hits.</p>
+        <p>No on-chain limit orders yet.</p>
+        <p className="text-xs mt-1 opacity-70">Place an order — it'll be escrowed by LimitOrderDEX and visible across all devices.</p>
       </div>
     );
   }
@@ -52,6 +89,8 @@ export default function OpenOrdersList({ orders, onCancel, onRemove }: Props) {
           const liveRate = amt > 0 && liveOut > 0 ? liveOut / amt : 0;
           const target = parseFloat(o.targetRate);
           const distance = target > 0 && liveRate > 0 ? ((liveRate / target - 1) * 100) : null;
+          const isMine = account && o.account.toLowerCase() === account.toLowerCase();
+          const busy = pending[o.id];
 
           return (
             <motion.div key={o.id}
@@ -69,7 +108,7 @@ export default function OpenOrdersList({ orders, onCancel, onRemove }: Props) {
                   </div>
                 </div>
                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium uppercase tracking-wide ${STATUS_STYLES[o.status]}`}>
-                  {o.status}
+                  ⛓ {o.status}
                 </span>
               </div>
 
@@ -79,15 +118,8 @@ export default function OpenOrdersList({ orders, onCancel, onRemove }: Props) {
                   <div className="text-foreground font-medium">{parseFloat(o.targetRate).toFixed(6)} {o.toToken.symbol}</div>
                 </div>
                 <div>
-                  <div className="opacity-70">Live</div>
-                  <div className="font-medium">
-                    {liveRate > 0 ? `${liveRate.toFixed(6)}` : '—'}
-                    {distance != null && (
-                      <span className={`ml-1 ${distance >= 0 ? 'text-wolf-green' : 'text-yellow-400'}`}>
-                        ({distance >= 0 ? '+' : ''}{distance.toFixed(2)}%)
-                      </span>
-                    )}
-                  </div>
+                  <div className="opacity-70">Receive</div>
+                  <div className="text-foreground font-medium">{parseFloat(o.amountOut).toFixed(6)} {o.toToken.symbol}</div>
                 </div>
                 <div>
                   <div className="opacity-70">Expires</div>
@@ -95,29 +127,48 @@ export default function OpenOrdersList({ orders, onCancel, onRemove }: Props) {
                 </div>
                 <div>
                   <div className="opacity-70">Created</div>
-                  <div className="text-foreground font-medium">{new Date(o.createdAt).toLocaleTimeString()}</div>
+                  <div className="text-foreground font-medium">{new Date(o.createdAt).toLocaleString()}</div>
                 </div>
+                {distance != null && (
+                  <div className="col-span-2">
+                    <div className="opacity-70">Live market vs target</div>
+                    <div className={`font-medium ${distance >= 0 ? 'text-wolf-green' : 'text-yellow-400'}`}>
+                      {distance >= 0 ? '+' : ''}{distance.toFixed(2)}% (≈ {liveRate.toFixed(6)})
+                    </div>
+                  </div>
+                )}
               </div>
 
               {o.errorMessage && (
                 <div className="mt-2 text-[10px] text-destructive truncate">⚠ {o.errorMessage}</div>
               )}
 
-              <div className="flex items-center justify-end gap-2 mt-2">
-                {o.txHash && (
-                  <a href={`${CHAIN_CONFIG.blockExplorer}/tx/${o.txHash}`} target="_blank" rel="noreferrer"
-                    className="text-[11px] text-wolf-gold hover:underline"
-                  >View TX →</a>
-                )}
-                {o.status === 'open' ? (
-                  <button onClick={() => onCancel(o.id)}
-                    className="text-[11px] px-2 py-1 rounded-md bg-destructive/10 text-destructive hover:bg-destructive/20 transition-all"
-                  >Cancel</button>
-                ) : (
-                  <button onClick={() => onRemove(o.id)}
-                    className="text-[11px] px-2 py-1 rounded-md bg-wolf-surface text-muted-foreground hover:bg-wolf-surface-hover transition-all"
-                  >Clear</button>
-                )}
+              <div className="flex items-center justify-between gap-2 mt-2">
+                <div className="text-[10px] font-mono text-muted-foreground/70 truncate">
+                  {o.id.slice(0, 12)}…{o.id.slice(-8)}
+                </div>
+                <div className="flex items-center gap-2">
+                  {o.placeTxHash && (
+                    <a href={`${CHAIN_CONFIG.blockExplorer}/tx/${o.placeTxHash}`} target="_blank" rel="noreferrer"
+                      className="text-[11px] text-muted-foreground hover:text-wolf-gold hover:underline"
+                    >Place TX ↗</a>
+                  )}
+                  {o.txHash && (
+                    <a href={`${CHAIN_CONFIG.blockExplorer}/tx/${o.txHash}`} target="_blank" rel="noreferrer"
+                      className="text-[11px] text-wolf-gold hover:underline"
+                    >Fill TX ↗</a>
+                  )}
+                  {o.status === 'open' && isMine && (
+                    <button onClick={() => handleCancel(o.id)} disabled={!!busy}
+                      className="text-[11px] px-2 py-1 rounded-md bg-destructive/10 text-destructive hover:bg-destructive/20 transition-all disabled:opacity-50"
+                    >{busy === 'cancel' ? 'Cancelling…' : 'Cancel'}</button>
+                  )}
+                  {o.status === 'open' && !isMine && onFill && (
+                    <button onClick={() => handleFill(o.id)} disabled={!!busy}
+                      className="text-[11px] px-2 py-1 rounded-md bg-wolf-green/10 text-wolf-green hover:bg-wolf-green/20 transition-all disabled:opacity-50"
+                    >{busy === 'fill' ? 'Filling…' : 'Fill'}</button>
+                  )}
+                </div>
               </div>
             </motion.div>
           );
