@@ -424,7 +424,7 @@ export function useFarming(signer: ethers.Signer | null, address: string | null)
     pools, userInfos, owner, isOwner,
     loadingPools, loadingUser, actionPending, error,
     refresh: () => { cacheRef.current = null; return loadPools(true).then(p => loadUserInfo(p)); },
-    approve, deposit, withdraw, harvest, emergencyWithdraw,
+    approve, deposit, withdraw, harvest, emergencyWithdraw, autoCompound,
     addPool, updateRewardPerBlock, massUpdate,
     /** Increment pause counter. Returns a disposer that decrements it. */
     pausePolling: () => {
