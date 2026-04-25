@@ -84,6 +84,9 @@ const SUGGESTIONS_NORMAL = [
   '🚀 Swap 1 zkLTC to WDEX',
   '➕💧 Add 1 zkLTC + 50 WDEX liquidity',
   '➖💧 Remove 50% of my zkLTC/WDEX LP',
+  '🎯 Buy WDEX when 1 zkLTC ≥ 60 WDEX',
+  '🛑 Stop-loss: sell my WDEX if rate drops',
+  '📋 Show my limit orders',
   '🌾 Show me all farms',
   '🪙 Harvest my farm rewards',
 ];
