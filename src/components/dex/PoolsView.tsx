@@ -42,6 +42,7 @@ function hashToFloat(s: string, salt: number) {
 
 export default function PoolsView({ isConnected }: { isConnected: boolean }) {
   const { wallet, dex, getCachedPairsWithInfo, invalidatePairsCache } = useDexContext();
+  const { resolve } = useTokenResolver();
   const [pools, setPools] = useState<PoolInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
