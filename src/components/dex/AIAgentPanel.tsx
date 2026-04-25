@@ -31,7 +31,7 @@ interface ChatMessage {
 }
 
 interface ActionProposal {
-  kind: 'swap' | 'send' | 'stake' | 'unstake' | 'harvest' | 'add_liquidity' | 'remove_liquidity';
+  kind: 'swap' | 'send' | 'stake' | 'unstake' | 'harvest' | 'add_liquidity' | 'remove_liquidity' | 'limit_order';
   fromToken?: string;
   toToken?: string;
   amount?: string;
@@ -39,6 +39,12 @@ interface ActionProposal {
   amountB?: string;
   /** Only for remove_liquidity (1-100) */
   percent?: number;
+  /** Only for limit_order — toToken-per-fromToken */
+  targetRate?: string;
+  /** Only for limit_order — UI hint */
+  side?: 'buy' | 'sell';
+  /** Only for limit_order — hours until expiry, 0 = never */
+  expiresInHours?: number;
   recipient?: string;
   poolId?: number;
   summary: string;
