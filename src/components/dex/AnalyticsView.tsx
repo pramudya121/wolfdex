@@ -18,7 +18,12 @@ export default function AnalyticsView() {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'trending' | 'staking'>('trending');
   const [chartPeriod, setChartPeriod] = useState<'7d' | '30d' | '90d'>('30d');
+  const [chartBucket, setChartBucket] = useState<Bucket>('day');
   const [selectedPair, setSelectedPair] = useState<PoolData | null>(null);
+
+  const windowDays = chartPeriod === '7d' ? 7 : chartPeriod === '30d' ? 30 : 90;
+  const { series: historySeries, loading: historyLoading, refresh: refreshHistory } =
+    useHistoricalAnalytics({ bucket: chartBucket, windowDays });
 
   const load = useCallback(async (force = false) => {
     setLoading(prev => prev || pools.length === 0);
