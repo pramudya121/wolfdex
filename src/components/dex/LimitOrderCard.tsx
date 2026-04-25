@@ -45,6 +45,7 @@ export default function LimitOrderCard({
   const [showFromModal, setShowFromModal] = useState(false);
   const [showToModal, setShowToModal] = useState(false);
   const [expiryMinutes, setExpiryMinutes] = useState(60 * 24); // 24H default
+  const [submitting, setSubmitting] = useState(false);
 
   const wrapType = isWrapUnwrap(fromToken.address, toToken.address);
 
