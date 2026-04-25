@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
-import { useDexContext } from '@/context/DexContext';
-import { useCasino } from '@/hooks/useCasino';
-import { useCasinoHistory } from '@/hooks/useCasinoHistory';
-import { GameShell, BetInput, PlayButton, ResultBanner, Confetti, TxPanel, PendingOverlay, decodeByte, MultiplierPicker, applyMultiplier, getBetError, friendlyError, notifyResult, playSpinSound, ReplayButton, type BetMultiplier, type TxStatus } from './casinoShared';
+import { effectiveMinBet, useState, useEffect } from 'react';
+import { effectiveMinBet, useDexContext } from '@/context/DexContext';
+import { effectiveMinBet, useCasino } from '@/hooks/useCasino';
+import { effectiveMinBet, useCasinoHistory } from '@/hooks/useCasinoHistory';
+import { effectiveMinBet, GameShell, BetInput, PlayButton, ResultBanner, Confetti, TxPanel, PendingOverlay, decodeByte, MultiplierPicker, applyMultiplier, getBetError, friendlyError, notifyResult, playSpinSound, ReplayButton, type BetMultiplier, type TxStatus } from './casinoShared';
 import { toast } from 'sonner';
 
 export default function CoinflipGame() {
