@@ -88,7 +88,7 @@ export default function LimitOrderCard({
     setTargetRate('');
   };
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!isConnected || !account) { onConnectClick(); return; }
     const amt = parseFloat(amountIn);
     const rate = parseFloat(targetRate);
@@ -98,20 +98,29 @@ export default function LimitOrderCard({
     if (wrapType) { toast.error('Use the Swap tab to wrap/unwrap'); return; }
 
     const expiresAt = expiryMinutes > 0 ? Date.now() + expiryMinutes * 60_000 : 0;
-    onCreate({
-      account,
-      fromToken,
-      toToken,
-      amountIn,
-      targetRate,
-      side: 'sell',
-      expiresAt,
+    setSubmitting(true);
+    const pending = toast.loading('Placing on-chain limit order…', {
+      description: `${fromToken.isNative ? 'Wrapping zkLTC, approving WETH, ' : 'Approving '}then placeOrder()`,
     });
-    toast.success('Limit order created', {
-      description: `Sell ${amt} ${fromToken.symbol} when 1 ${fromToken.symbol} ≥ ${targetRate} ${toToken.symbol}`,
-    });
-    setAmountIn('');
+    try {
+      const order = await onCreate({
+        account, fromToken, toToken, amountIn, targetRate, side: 'sell', expiresAt,
+      });
+      toast.success('🎯 On-chain limit order placed', {
+        id: pending,
+        description: `Hash: ${order.id.slice(0, 10)}…  ·  Sell ${amt} ${fromToken.symbol} @ ≥ ${targetRate} ${toToken.symbol}`,
+      });
+      setAmountIn('');
+    } catch (e: any) {
+      toast.error('Failed to place limit order', {
+        id: pending,
+        description: (e?.reason || e?.message || 'Transaction reverted').slice(0, 140),
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
+
 
   const expectedOut = (() => {
     const a = parseFloat(amountIn);
