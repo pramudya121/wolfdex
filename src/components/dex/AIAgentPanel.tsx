@@ -301,7 +301,8 @@ export default function AIAgentPanel() {
           const steps: PlanStep[] = rawSteps.map((s: any) => ({
             kind: s.kind,
             fromToken: s.fromToken, toToken: s.toToken,
-            amount: s.amount, recipient: s.recipient, poolId: s.poolId,
+            amount: s.amount, amountB: s.amountB, percent: s.percent,
+            recipient: s.recipient, poolId: s.poolId,
             summary: s.summary || `${s.kind}`,
             useOutputFromPrev: !!s.useOutputFromPrev,
             status: 'pending' as StepStatus,
