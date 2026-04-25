@@ -447,6 +447,50 @@ export default function AIAgentPanel() {
           { label: 'TX', value: `${hash.slice(0, 10)}…${hash.slice(-8)}` },
         ],
       };
+    } else if (p.kind === 'add_liquidity') {
+      const tokenA = getTokenBySymbol(p.fromToken!);
+      const tokenB = getTokenBySymbol(p.toToken!);
+      if (!tokenA || !tokenB) throw new Error('invalid token pair');
+      const amtA = p.amount && parseFloat(p.amount) > 0 ? p.amount : '';
+      const amtB = p.amountB && parseFloat(p.amountB) > 0 ? p.amountB : '';
+      if (!amtA || !amtB) throw new Error('add_liquidity needs both amounts');
+      hash = await dex.addLiquidity(tokenA, tokenB, amtA, amtB);
+      output = amtA;
+      card = {
+        title: '✅ Liquidity Added',
+        rows: [
+          { label: 'Pair', value: `${tokenA.symbol} / ${tokenB.symbol}` },
+          { label: tokenA.symbol, value: amtA, accent: true },
+          { label: tokenB.symbol, value: amtB, accent: true },
+          { label: 'TX', value: `${hash.slice(0, 10)}…${hash.slice(-8)}` },
+        ],
+      };
+    } else if (p.kind === 'remove_liquidity') {
+      const tokenA = getTokenBySymbol(p.fromToken!);
+      const tokenB = getTokenBySymbol(p.toToken!);
+      if (!tokenA || !tokenB) throw new Error('invalid token pair');
+      const pairAddress = await dex.getPairAddress(tokenA.address, tokenB.address);
+      if (!pairAddress || /^0x0+$/.test(pairAddress)) throw new Error('pool does not exist');
+      // Resolve LP amount: explicit `amount`, or `percent` of current LP balance
+      let lpAmount = p.amount && parseFloat(p.amount) > 0 ? p.amount : '';
+      if (!lpAmount && p.percent && p.percent > 0 && p.percent <= 100) {
+        const erc = new ethers.Contract(pairAddress, ERC20_ABI, wallet.signer);
+        const bal: ethers.BigNumber = await erc.balanceOf(wallet.address);
+        const portion = bal.mul(Math.round(p.percent * 100)).div(10000);
+        lpAmount = ethers.utils.formatEther(portion);
+      }
+      if (!lpAmount || parseFloat(lpAmount) <= 0) throw new Error('invalid LP amount or percent');
+      hash = await dex.removeLiquidity(tokenA, tokenB, lpAmount, pairAddress);
+      output = lpAmount;
+      card = {
+        title: '✅ Liquidity Removed',
+        rows: [
+          { label: 'Pair', value: `${tokenA.symbol} / ${tokenB.symbol}` },
+          { label: 'LP burned', value: parseFloat(lpAmount).toFixed(6), accent: true },
+          ...(p.percent ? [{ label: 'Portion', value: `${p.percent}%` }] : []),
+          { label: 'TX', value: `${hash.slice(0, 10)}…${hash.slice(-8)}` },
+        ],
+      };
     } else {
       throw new Error(`unknown action kind: ${(p as any).kind}`);
     }
