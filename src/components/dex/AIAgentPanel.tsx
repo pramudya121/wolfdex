@@ -100,7 +100,7 @@ const SUGGESTIONS_AUTOTRADE = [
 
 export default function AIAgentPanel() {
   const { wallet, dex, farming, showAgent, setShowAgent, txHistory } = useDexContext();
-  const limitOrders = useLimitOrders(wallet.address);
+  const limitOrders = useLimitOrders(wallet.address, wallet.signer);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
@@ -256,11 +256,15 @@ export default function AIAgentPanel() {
 
   const execCancelLimitOrder = async (id: string): Promise<string> => {
     if (!wallet.address) return JSON.stringify({ error: 'wallet not connected' });
-    const found = limitOrders.list.find(o => o.id === id);
+    const found = limitOrders.list.find(o => o.id.toLowerCase() === id.toLowerCase());
     if (!found) return JSON.stringify({ error: `order ${id} not found` });
     if (found.status !== 'open') return JSON.stringify({ error: `order is ${found.status}, can only cancel open` });
-    limitOrders.cancel(id);
-    return JSON.stringify({ ok: true, id, message: 'order cancelled' });
+    try {
+      const txHash = await limitOrders.cancel(id);
+      return JSON.stringify({ ok: true, id, txHash, message: 'on-chain cancelOrder() submitted' });
+    } catch (e: any) {
+      return JSON.stringify({ error: e?.reason || e?.message || 'cancel failed' });
+    }
   };
 
   // Run conversation turn (one round-trip; auto-loops if model returns tool calls)
@@ -534,7 +538,7 @@ export default function AIAgentPanel() {
         ],
       };
     } else if (p.kind === 'limit_order') {
-      // "Local" action: doesn't broadcast a tx — registers a watched limit order.
+      // ON-CHAIN action — places a real LimitOrderDEX order via contract.
       const from = getTokenBySymbol(p.fromToken!);
       const to = getTokenBySymbol(p.toToken!);
       if (!from || !to) throw new Error('invalid limit order tokens');
@@ -543,7 +547,7 @@ export default function AIAgentPanel() {
       if (!amt || !target) throw new Error('limit order needs amount & targetRate');
       const expiresInHours = p.expiresInHours == null ? 168 : Math.max(0, p.expiresInHours);
       const expiresAt = expiresInHours > 0 ? Date.now() + expiresInHours * 3600_000 : 0;
-      const order = limitOrders.create({
+      const order = await limitOrders.create({
         account: wallet.address!,
         fromToken: from,
         toToken: to,
@@ -552,17 +556,18 @@ export default function AIAgentPanel() {
         side: (p.side as LimitOrderSide) ?? 'sell',
         expiresAt,
       });
-      hash = order.id; // not a tx hash — store the order id for traceability
+      hash = order.placeTxHash || order.id;
       output = amt;
       card = {
-        title: '🎯 Limit Order Created',
+        title: '🎯 On-Chain Limit Order Placed',
         rows: [
           { label: 'Pair', value: `${from.symbol} → ${to.symbol}` },
           { label: 'Amount In', value: `${amt} ${from.symbol}`, accent: true },
           { label: 'Target Rate', value: `≥ ${target} ${to.symbol} per ${from.symbol}`, accent: true },
           { label: 'Side', value: (p.side ?? 'sell').toUpperCase() },
           { label: 'Expires', value: expiresAt ? new Date(expiresAt).toLocaleString() : 'never' },
-          { label: 'Order ID', value: order.id },
+          { label: 'Order Hash', value: `${order.id.slice(0, 10)}…${order.id.slice(-8)}` },
+          ...(order.placeTxHash ? [{ label: 'TX', value: `${order.placeTxHash.slice(0, 10)}…${order.placeTxHash.slice(-8)}` }] : []),
         ],
       };
     } else {

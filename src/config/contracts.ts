@@ -16,6 +16,9 @@ export const CONTRACTS = {
   MULTICALL: '0xEc94943b75359f1ede3d639AD548e56239d754c2',
   FARMING: '0x28c7167ebF6112D5B01396eEeDFe8F990Fcb54bb',
   CASINO: '0x5Be451a79E790a2D31FD5Db5C439D6E177987b2b',
+  // On-chain limit-order book — fully signed orders settled by makers/takers.
+  // Source: 0xD20d411eCA0398095277DBA86FB8B2166c2079fF on LitVM LiteForge.
+  LIMIT_ORDER: '0xD20d411eCA0398095277DBA86FB8B2166c2079fF',
 };
 
 export interface TokenInfo {

@@ -160,3 +160,38 @@ export const CASINO_ABI = [
   'event Payout(address indexed player, uint256 amt, string game, bool win)',
   'event Deposit(address sender, uint256 amt)',
 ];
+
+/**
+ * On-chain Limit Order Book (LimitOrderDEX).
+ * Source: 0xD20d411eCA0398095277DBA86FB8B2166c2079fF on LitVM LiteForge.
+ *
+ * Flow:
+ *  1. Maker calls placeOrder(...) → contract escrows sellAmount (after ERC20 approve).
+ *     Emits OrderPlaced(orderHash, maker, Order).
+ *  2. Anyone can call fillOrder(orderHash) → contract pulls buyAmount of buyToken
+ *     from caller, releases sellAmount to caller, pays buyAmount-fee to maker.
+ *     Emits OrderFilled(orderHash, taker, filledSell, filledBuy, fee).
+ *  3. Maker may cancelOrder(orderHash) → refunds escrow, marks cancelled.
+ *     Emits OrderCancelled(orderHash, maker).
+ *
+ * NOTE: native zkLTC must be wrapped (WETH9) before placing — the contract is
+ * pure-ERC20.
+ */
+export const LIMIT_ORDER_ABI = [
+  // --- writes ---
+  'function placeOrder(address sellToken, address buyToken, uint256 sellAmount, uint256 buyAmount, uint256 expiry, uint256 nonce) returns (bytes32 orderHash)',
+  'function cancelOrder(bytes32 orderHash)',
+  'function fillOrder(bytes32 orderHash)',
+  'function fillOrderWithSig(address maker, address sellToken, address buyToken, uint256 sellAmount, uint256 buyAmount, uint256 expiry, uint256 nonce, bytes sig)',
+  // --- reads ---
+  'function feeBasisPoints() view returns (uint256)',
+  'function feeRecipient() view returns (address)',
+  'function getOrder(bytes32 orderHash) view returns (tuple(address maker, address sellToken, address buyToken, uint256 sellAmount, uint256 buyAmount, uint256 expiry, uint256 nonce, bool cancelled))',
+  'function orders(bytes32) view returns (address maker, address sellToken, address buyToken, uint256 sellAmount, uint256 buyAmount, uint256 expiry, uint256 nonce, bool cancelled)',
+  'function usedNonces(address, uint256) view returns (bool)',
+  'function whitelisted(address) view returns (bool)',
+  // --- events ---
+  'event OrderPlaced(bytes32 indexed orderHash, address indexed maker, tuple(address maker, address sellToken, address buyToken, uint256 sellAmount, uint256 buyAmount, uint256 expiry, uint256 nonce, bool cancelled) order)',
+  'event OrderFilled(bytes32 indexed orderHash, address indexed taker, uint256 filledSell, uint256 filledBuy, uint256 fee)',
+  'event OrderCancelled(bytes32 indexed orderHash, address indexed maker)',
+];

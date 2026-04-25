@@ -13,7 +13,16 @@ interface Props {
   isConnected: boolean;
   account: string | null;
   onConnectClick: () => void;
-  onCreate: (order: Omit<LimitOrder, 'id' | 'createdAt' | 'status'>) => LimitOrder;
+  /** Place a real on-chain limit order. */
+  onCreate: (order: {
+    account: string;
+    fromToken: TokenInfo;
+    toToken: TokenInfo;
+    amountIn: string;
+    targetRate: string;
+    side: 'sell' | 'buy';
+    expiresAt: number;
+  }) => Promise<LimitOrder>;
 }
 
 const EXPIRY_OPTIONS = [
@@ -36,6 +45,7 @@ export default function LimitOrderCard({
   const [showFromModal, setShowFromModal] = useState(false);
   const [showToModal, setShowToModal] = useState(false);
   const [expiryMinutes, setExpiryMinutes] = useState(60 * 24); // 24H default
+  const [submitting, setSubmitting] = useState(false);
 
   const wrapType = isWrapUnwrap(fromToken.address, toToken.address);
 
@@ -78,7 +88,7 @@ export default function LimitOrderCard({
     setTargetRate('');
   };
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!isConnected || !account) { onConnectClick(); return; }
     const amt = parseFloat(amountIn);
     const rate = parseFloat(targetRate);
@@ -88,20 +98,29 @@ export default function LimitOrderCard({
     if (wrapType) { toast.error('Use the Swap tab to wrap/unwrap'); return; }
 
     const expiresAt = expiryMinutes > 0 ? Date.now() + expiryMinutes * 60_000 : 0;
-    onCreate({
-      account,
-      fromToken,
-      toToken,
-      amountIn,
-      targetRate,
-      side: 'sell',
-      expiresAt,
+    setSubmitting(true);
+    const pending = toast.loading('Placing on-chain limit order…', {
+      description: `${fromToken.isNative ? 'Wrapping zkLTC, approving WETH, ' : 'Approving '}then placeOrder()`,
     });
-    toast.success('Limit order created', {
-      description: `Sell ${amt} ${fromToken.symbol} when 1 ${fromToken.symbol} ≥ ${targetRate} ${toToken.symbol}`,
-    });
-    setAmountIn('');
+    try {
+      const order = await onCreate({
+        account, fromToken, toToken, amountIn, targetRate, side: 'sell', expiresAt,
+      });
+      toast.success('🎯 On-chain limit order placed', {
+        id: pending,
+        description: `Hash: ${order.id.slice(0, 10)}…  ·  Sell ${amt} ${fromToken.symbol} @ ≥ ${targetRate} ${toToken.symbol}`,
+      });
+      setAmountIn('');
+    } catch (e: any) {
+      toast.error('Failed to place limit order', {
+        id: pending,
+        description: (e?.reason || e?.message || 'Transaction reverted').slice(0, 140),
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
+
 
   const expectedOut = (() => {
     const a = parseFloat(amountIn);
@@ -121,7 +140,7 @@ export default function LimitOrderCard({
               Limit Order
               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-wolf-pink/20 text-wolf-pink font-medium">BETA</span>
             </h2>
-            <span className="text-[10px] text-muted-foreground">Auto-fills every 15s</span>
+            <span className="text-[10px] text-muted-foreground">⛓ Settled on-chain · LimitOrderDEX</span>
           </div>
 
           {/* You sell */}
@@ -231,14 +250,14 @@ export default function LimitOrderCard({
 
           <button
             onClick={handleCreate}
-            disabled={isConnected && (!amountIn || !targetRate)}
+            disabled={submitting || (isConnected && (!amountIn || !targetRate))}
             className="w-full mt-4 py-4 rounded-2xl font-bold text-base transition-all wolf-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {!isConnected ? 'Connect Wallet' : 'Place Limit Order'}
+            {!isConnected ? 'Connect Wallet' : submitting ? 'Placing on-chain…' : 'Place Limit Order'}
           </button>
 
           <p className="text-[10px] text-muted-foreground mt-2 text-center">
-            Order auto-executes when market price crosses your target. Slippage: {slippage}%.
+            Order is escrowed by LimitOrderDEX and fills when a taker calls fillOrder. Native zkLTC is auto-wrapped to WETH. Slippage: {slippage}%.
           </p>
         </motion.div>
       </div>

@@ -25,7 +25,7 @@ type Tab = 'swap' | 'limit';
 
 function SwapPage() {
   const { wallet, dex, txHistory } = useDexContext();
-  const limitOrders = useLimitOrders(wallet.address);
+  const limitOrders = useLimitOrders(wallet.address, wallet.signer);
   const [tab, setTab] = useState<Tab>('swap');
 
   // Wrap swap to record into the global TX history.
@@ -136,18 +136,21 @@ function SwapPage() {
                   <div className="moving-border-inner rounded-2xl p-4">
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="text-sm font-bold flex items-center gap-2">
-                        Your Orders
+                        Your On-Chain Orders
                         <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-wolf-pink/15 text-wolf-pink">
                           {limitOrders.list.length}
                         </span>
                       </h3>
-                      {limitOrders.list.length > 0 && (
-                        <button onClick={limitOrders.clear}
-                          className="text-[11px] text-muted-foreground hover:text-destructive transition-colors"
-                        >Clear all</button>
-                      )}
+                      <button onClick={() => limitOrders.refresh()}
+                        className="text-[11px] text-muted-foreground hover:text-wolf-gold transition-colors"
+                      >🔄 Refresh</button>
                     </div>
-                    <OpenOrdersList orders={limitOrders.list} onCancel={limitOrders.cancel} onRemove={limitOrders.remove} />
+                    <OpenOrdersList
+                      orders={limitOrders.list}
+                      onCancel={limitOrders.cancel}
+                      onFill={limitOrders.fill}
+                      account={wallet.address}
+                    />
                   </div>
                 </div>
             </motion.div>
