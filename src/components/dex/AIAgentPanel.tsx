@@ -97,10 +97,11 @@ const SUGGESTIONS_AUTOTRADE = [
 
 export default function AIAgentPanel() {
   const { wallet, dex, farming, showAgent, setShowAgent, txHistory } = useDexContext();
+  const limitOrders = useLimitOrders(wallet.address);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
-      content: '🐺 **WOLF AI online.** I\'m your autonomous trading copilot on WolfDex. Ask me to check balances, swap, send, stake, harvest farms, or **add/remove liquidity** — I\'ll handle the on-chain plumbing. What\'s the play?',
+      content: '🐺 **WOLF AI online.** I\'m your autonomous trading copilot on WolfDex. Ask me to check balances, swap, send, stake, harvest farms, **add/remove liquidity**, or **place limit orders / stop-loss**. What\'s the play?',
     },
   ]);
   const [input, setInput] = useState('');
