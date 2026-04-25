@@ -16,6 +16,6 @@ export default function GlobalLimitWatcher() {
   const { wallet } = useDexContext();
   // Subscribe so the on-chain indexer runs even on pages that don't render
   // the orders list. The hook itself polls eth_getLogs every 20s.
-  useLimitOrders(wallet.address);
+  useLimitOrders(wallet.address, wallet.signer);
   return null;
 }
