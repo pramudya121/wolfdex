@@ -530,7 +530,7 @@ export function BetInput({
         hasError ? 'border-wolf-red/60 focus-within:border-wolf-red' : 'border-wolf-border/40 focus-within:border-wolf-pink/60'
       }`}>
         <input
-          type="number" step="0.000001" min={UI_MIN} max={max}
+          type="number" step="0.01" min={UI_MIN} max={max}
           value={bet} disabled={disabled}
           onChange={e => setBet(e.target.value)}
           className="bg-transparent outline-none flex-1 font-mono text-base"
@@ -540,7 +540,7 @@ export function BetInput({
       {multiplier > 1 && (
         <div className="text-[11px] text-muted-foreground flex items-center justify-between">
           <span>Effective bet (×{multiplier})</span>
-          <span className="font-mono text-wolf-gold">{parseFloat(effective).toFixed(6)} zkLTC</span>
+          <span className="font-mono text-wolf-gold">{parseFloat(effective).toFixed(4)} zkLTC</span>
         </div>
       )}
       {hasError && (
