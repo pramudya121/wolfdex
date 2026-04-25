@@ -505,7 +505,7 @@ export default function AIAgentPanel() {
     if (!wallet.isConnected || !wallet.signer) { toast.error('Connect wallet'); return; }
     setBusy(true);
     const pendingId = `pending-agent-${Date.now()}`;
-    const label = p.kind.toUpperCase();
+    const label = p.kind.replace(/_/g, ' ').toUpperCase();
     txHistory.add({
       hash: pendingId, kind: 'agent', status: 'pending',
       summary: `🤖 ${p.summary}`, account: wallet.address || '', chainId: CHAIN_CONFIG.chainId,
