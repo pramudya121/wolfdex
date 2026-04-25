@@ -21,7 +21,7 @@ export default function RouletteGame() {
   const [tx, setTx] = useState<{ hash: string | null; status: TxStatus }>({ hash: null, status: 'idle' });
 
   useEffect(() => {
-    if (!bet && parseFloat(casino.stats.minBet) > 0) setBet(casino.stats.minBet);
+    if (!bet && parseFloat(casino.stats.minBet) > 0) setBet(effectiveMinBet(casino.stats.minBet));
   }, [casino.stats.minBet, bet]);
 
   const betError = getBetError(bet, mult, casino.stats.minBet, casino.stats.maxBet);

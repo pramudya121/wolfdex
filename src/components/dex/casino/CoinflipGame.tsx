@@ -21,7 +21,7 @@ export default function CoinflipGame() {
   // Auto-fill the bet with the chain's minBet as soon as stats load,
   // so the first click always passes the contract's bet-size check.
   useEffect(() => {
-    if (!bet && parseFloat(casino.stats.minBet) > 0) setBet(casino.stats.minBet);
+    if (!bet && parseFloat(casino.stats.minBet) > 0) setBet(effectiveMinBet(casino.stats.minBet));
   }, [casino.stats.minBet, bet]);
 
   const betError = getBetError(bet, mult, casino.stats.minBet, casino.stats.maxBet);
