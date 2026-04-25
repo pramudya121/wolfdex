@@ -363,8 +363,8 @@ export function notifyResult(opts: {
  *   LITVM : 0.88
  */
 export const WHEEL_REWARD_AMOUNT: Record<string, number> = {
-  zkLTC:  0.00001,
-  wzkLTC: 0.00002,
+  zkLTC:  0.01,
+  wzkLTC: 0.02,
   ETH:    0.5,
   MON:    0.9,
   BNB:    0.6,
@@ -376,7 +376,7 @@ export const WHEEL_REWARD_AMOUNT: Record<string, number> = {
 /** Pre-spin segment label (target reward, NOT realized). */
 export function rewardLabelFor(symbol: string): string {
   const amt = WHEEL_REWARD_AMOUNT[symbol] ?? 0.1;
-  const str = amt < 0.001 ? amt.toFixed(5) : amt.toFixed(2);
+  const str = amt < 0.01 ? amt.toFixed(4) : amt.toFixed(2);
   return `${parseFloat(str)} ${symbol}`;
 }
 
