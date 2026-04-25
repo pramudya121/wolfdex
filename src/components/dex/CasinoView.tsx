@@ -160,22 +160,38 @@ export default function CasinoView() {
         <StatTile label="Status"   value={casino.stats.isActive ? '🟢 LIVE' : '🔴 OFF'} />
       </div>
 
-      {/* Game tabs */}
-      <div className="grid grid-cols-4 md:grid-cols-8 gap-2 mb-6">
-        {GAMES.map(g => (
-          <button
-            key={g.id}
-            onClick={() => setActive(g.id)}
-            className={`p-3 rounded-xl border-2 text-center transition-all hover:-translate-y-0.5 ${
-              active === g.id
-                ? 'border-wolf-pink bg-wolf-pink/15 scale-[1.05] shadow-[0_8px_30px_-6px_oklch(0.65_0.25_330/55%)]'
-                : 'border-wolf-border/30 bg-wolf-surface hover:border-wolf-pink/40'
-            }`}
-          >
-            <div className="text-2xl mb-1">{g.icon}</div>
-            <div className="text-[11px] font-semibold leading-tight">{g.label}</div>
-          </button>
-        ))}
+      {/* Game tabs — neon casino chips */}
+      <div className="grid grid-cols-4 md:grid-cols-8 gap-2.5 mb-6">
+        {GAMES.map((g, i) => {
+          const isActive = active === g.id;
+          return (
+            <motion.button
+              key={g.id}
+              onClick={() => setActive(g.id)}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.04 }}
+              whileHover={{ y: -4 }}
+              whileTap={{ scale: 0.96 }}
+              className={`casino-game-chip relative p-3 rounded-xl text-center transition-colors group overflow-hidden ${
+                isActive ? 'casino-game-chip-active' : ''
+              }`}
+            >
+              {isActive && (
+                <motion.span
+                  layoutId="casino-tab-active"
+                  className="absolute inset-0 rounded-xl bg-gradient-to-br from-wolf-pink/25 via-wolf-gold/15 to-wolf-pink/25 border-2 border-wolf-pink"
+                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                />
+              )}
+              <span className="relative block">
+                <span className="text-2xl mb-1 block transition-transform group-hover:scale-110">{g.icon}</span>
+                <span className="text-[11px] font-bold leading-tight block">{g.label}</span>
+              </span>
+              <span className="casino-chip-shine" />
+            </motion.button>
+          );
+        })}
       </div>
 
       {/* Active game */}

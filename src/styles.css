@@ -1320,3 +1320,81 @@
   text-shadow: 0 1px 0 oklch(0 0 0 / 50%);
   box-shadow: 0 2px 0 oklch(0.25 0.08 280), inset 0 1px 0 oklch(1 0 0 / 15%);
 }
+
+/* ===== Casino game chips ===== */
+.casino-game-chip {
+  background: linear-gradient(180deg, oklch(0.18 0.05 280 / 90%), oklch(0.13 0.04 280 / 90%));
+  border: 2px solid oklch(0.30 0.05 280 / 60%);
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / 6%),
+    0 4px 14px -4px oklch(0 0 0 / 40%);
+  cursor: pointer;
+}
+.casino-game-chip:hover {
+  border-color: oklch(0.65 0.25 330 / 60%);
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / 10%),
+    0 8px 28px -6px oklch(0.65 0.25 330 / 35%);
+}
+.casino-game-chip-active {
+  border-color: transparent;
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / 12%),
+    0 12px 36px -6px oklch(0.65 0.25 330 / 55%);
+}
+.casino-chip-shine {
+  position: absolute; inset: 0;
+  background: linear-gradient(115deg, transparent 35%, oklch(1 0 0 / 12%) 50%, transparent 65%);
+  background-size: 220% 100%;
+  background-position: -100% 0;
+  border-radius: inherit;
+  pointer-events: none;
+  transition: background-position 0.7s ease;
+}
+.casino-game-chip:hover .casino-chip-shine {
+  background-position: 200% 0;
+}
+
+/* ===== Analytics — premium stat tile with hover & subtle scan-line ===== */
+.analytics-stat {
+  background:
+    linear-gradient(180deg, oklch(0.16 0.04 280 / 85%), oklch(0.11 0.03 280 / 85%));
+  border: 1px solid oklch(0.30 0.05 280 / 50%);
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+}
+.analytics-stat:hover {
+  transform: translateY(-2px);
+  border-color: oklch(0.65 0.25 330 / 60%);
+  box-shadow: 0 12px 30px -10px oklch(0.65 0.25 330 / 35%);
+}
+.analytics-stat::after {
+  content: '';
+  position: absolute; inset: auto 0 0 0; height: 2px;
+  background: linear-gradient(90deg, transparent, oklch(0.65 0.25 330 / 80%), transparent);
+  transform: translateX(-100%);
+  transition: transform 0.6s ease;
+}
+.analytics-stat:hover::after { transform: translateX(100%); }
+
+/* shimmering gradient text for big numbers */
+.analytics-num {
+  background: linear-gradient(110deg, oklch(0.95 0.05 90), oklch(0.78 0.16 85) 40%, oklch(0.65 0.25 330) 70%, oklch(0.95 0.05 90));
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: analyticsNumShine 6s linear infinite;
+}
+@keyframes analyticsNumShine {
+  to { background-position: -200% 0; }
+}
+
+/* sparkline grid */
+.analytics-spark-grid {
+  background-image:
+    linear-gradient(oklch(0.40 0.05 280 / 8%) 1px, transparent 1px),
+    linear-gradient(90deg, oklch(0.40 0.05 280 / 8%) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
