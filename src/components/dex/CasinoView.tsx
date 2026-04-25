@@ -195,6 +195,9 @@ export default function CasinoView() {
         })}
       </div>
 
+      {/* Live plays ticker */}
+      <LivePlaysTicker />
+
       {/* Active game */}
       <div className="max-w-4xl mx-auto">
         <AnimatePresence mode="wait">
