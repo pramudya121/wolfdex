@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { useDexContext } from '@/context/DexContext';
 import { useCasino } from '@/hooks/useCasino';
 import { useCasinoHistory } from '@/hooks/useCasinoHistory';
-import { GameShell, BetInput, PlayButton, ResultBanner, Confetti, TxPanel, PendingOverlay, decodeByte, MultiplierPicker, applyMultiplier, getBetError, friendlyError, notifyResult, playSpinSound, tonePeg, ReplayButton, type BetMultiplier, type TxStatus } from './casinoShared';
+import { effectiveMinBet, GameShell, BetInput, PlayButton, ResultBanner, Confetti, TxPanel, PendingOverlay, decodeByte, MultiplierPicker, applyMultiplier, getBetError, friendlyError, notifyResult, playSpinSound, tonePeg, ReplayButton, type BetMultiplier, type TxStatus } from './casinoShared';
 import { toast } from 'sonner';
 
 // --- Pyramid configuration (matches reference image) ---
