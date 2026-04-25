@@ -6,6 +6,7 @@ import { useDexContext } from '@/context/DexContext';
 import { TOKENS, NATIVE_TOKEN, CHAIN_CONFIG, getTokenBySymbol, isNativeToken } from '@/config/contracts';
 import { ERC20_ABI } from '@/config/abis';
 import { useWolfVoice, guessLanguage } from '@/hooks/useWolfVoice';
+import { useLimitOrders, type LimitOrderSide } from '@/hooks/useLimitOrders';
 import { WolfSpinner } from './ui/WolfSkeleton';
 
 type Role = 'user' | 'assistant' | 'tool' | 'system';
