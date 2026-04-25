@@ -30,10 +30,14 @@ interface ChatMessage {
 }
 
 interface ActionProposal {
-  kind: 'swap' | 'send' | 'stake' | 'unstake' | 'harvest';
+  kind: 'swap' | 'send' | 'stake' | 'unstake' | 'harvest' | 'add_liquidity' | 'remove_liquidity';
   fromToken?: string;
   toToken?: string;
   amount?: string;
+  /** Only for add_liquidity = amount of tokenB */
+  amountB?: string;
+  /** Only for remove_liquidity (1-100) */
+  percent?: number;
   recipient?: string;
   poolId?: number;
   summary: string;
