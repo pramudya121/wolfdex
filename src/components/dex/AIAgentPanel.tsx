@@ -951,6 +951,15 @@ function ProposalCard({ proposal, busy, onExecute, onCancel }: {
           {proposal.percent !== undefined && proposal.kind === 'remove_liquidity' && (
             <Field label="Portion" value={`${proposal.percent}%`} accent />
           )}
+          {proposal.kind === 'limit_order' && proposal.targetRate && (
+            <Field label="Target Rate" value={`≥ ${proposal.targetRate} ${proposal.toToken ?? ''}/${proposal.fromToken ?? ''}`} accent />
+          )}
+          {proposal.kind === 'limit_order' && proposal.side && (
+            <Field label="Side" value={proposal.side.toUpperCase()} />
+          )}
+          {proposal.kind === 'limit_order' && proposal.expiresInHours !== undefined && (
+            <Field label="Expires" value={proposal.expiresInHours === 0 ? 'never' : `${proposal.expiresInHours}h`} />
+          )}
           {proposal.recipient && <Field label="Recipient" value={`${proposal.recipient.slice(0, 6)}…${proposal.recipient.slice(-4)}`} />}
           {proposal.poolId !== undefined && <Field label="Pool" value={`#${proposal.poolId}`} />}
         </div>
