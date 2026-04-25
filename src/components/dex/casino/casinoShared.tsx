@@ -499,15 +499,21 @@ export function BetInput({
   multiplier?: number;
   error?: string | null;
 }) {
-  const UI_MIN = min && parseFloat(min) > 0 ? min : '0.00001';
-  // Build presets from the actual chain min so users always pick a valid amount.
-  const minF = parseFloat(min || '0') || 0.00001;
+  // Apply UI floor: minimum bet is always >= 0.01 zkLTC, regardless of chain min.
+  const minF = Math.max(parseFloat(min || '0') || 0, UI_MIN_BET_ZK);
   const maxF = parseFloat(max || '0') || 1;
+  const UI_MIN = minF.toString();
+  // Build presets from the effective floor so users always pick a valid amount.
+  const fmtPreset = (v: number) => {
+    const clamped = Math.min(Math.max(v, minF), maxF);
+    // Trim trailing zeros, keep at most 4 decimals
+    return clamped.toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
+  };
   const presets = Array.from(new Set([
-    minF.toFixed(6).replace(/0+$/, '').replace(/\.$/, ''),
-    (minF * 5).toFixed(6).replace(/0+$/, '').replace(/\.$/, ''),
-    (Math.min(maxF, minF * 50)).toFixed(6).replace(/0+$/, '').replace(/\.$/, ''),
-    (Math.min(maxF, minF * 500)).toFixed(6).replace(/0+$/, '').replace(/\.$/, ''),
+    fmtPreset(minF),
+    fmtPreset(minF * 5),
+    fmtPreset(minF * 25),
+    fmtPreset(minF * 100),
   ])).slice(0, 4);
   let effective = bet;
   try { effective = ethers.utils.formatEther(ethers.utils.parseEther(bet || '0').mul(multiplier)); } catch { /* keep */ }
@@ -517,7 +523,7 @@ export function BetInput({
       <div className="flex items-center justify-between text-xs">
         <span className="text-muted-foreground">Bet (zkLTC)</span>
         <span className="text-muted-foreground">
-          min {parseFloat(min || '0').toFixed(6)} • max {parseFloat(max || '0').toFixed(4)}
+          min {minF.toFixed(4).replace(/0+$/, '').replace(/\.$/, '')} • max {maxF.toFixed(4)}
         </span>
       </div>
       <div className={`flex items-center gap-2 px-3 py-2 rounded-xl bg-wolf-surface border transition-colors ${
