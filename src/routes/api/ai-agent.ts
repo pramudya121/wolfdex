@@ -120,17 +120,40 @@ const TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'list_limit_orders',
+      description: 'List the user\'s active and recent limit orders (open, filled, cancelled, expired). Use this when the user asks "show my limit orders" or wants to inspect existing orders.',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'cancel_limit_order',
+      description: 'Cancel an open limit order by its id. Get the id from list_limit_orders first.',
+      parameters: {
+        type: 'object',
+        properties: { id: { type: 'string', description: 'Limit order id (e.g. "lo_169...").' } },
+        required: ['id'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'propose_action',
       description: 'Surface a single structured action proposal to the user as a confirmation card. Use this BEFORE executing any single on-chain write in NORMAL mode.',
       parameters: {
         type: 'object',
         properties: {
-          kind: { type: 'string', enum: ['swap', 'send', 'stake', 'unstake', 'harvest', 'add_liquidity', 'remove_liquidity'] },
-          fromToken: { type: 'string', description: 'For swap/send/stake/unstake — also used as tokenA for add_liquidity/remove_liquidity' },
-          toToken: { type: 'string', description: 'For swap/send — also used as tokenB for add_liquidity/remove_liquidity' },
-          amount: { type: 'string', description: 'Decimal string. For add_liquidity = amount of tokenA. For remove_liquidity = LP token amount (omit if percent given).' },
+          kind: { type: 'string', enum: ['swap', 'send', 'stake', 'unstake', 'harvest', 'add_liquidity', 'remove_liquidity', 'limit_order'] },
+          fromToken: { type: 'string', description: 'For swap/send/stake/unstake — also used as tokenA for add_liquidity/remove_liquidity, and as the token-being-spent for limit_order.' },
+          toToken: { type: 'string', description: 'For swap/send — also used as tokenB for add_liquidity/remove_liquidity, and as the token-to-receive for limit_order.' },
+          amount: { type: 'string', description: 'Decimal string. For add_liquidity = amount of tokenA. For remove_liquidity = LP token amount (omit if percent given). For limit_order = amount of fromToken to sell.' },
           amountB: { type: 'string', description: 'Decimal string. Only for add_liquidity = amount of tokenB.' },
           percent: { type: 'number', description: 'Only for remove_liquidity (1-100). Removes that percent of the user\'s LP balance.' },
+          targetRate: { type: 'string', description: 'For limit_order only. toToken received per 1 fromToken (e.g. "50" means 50 WDEX per 1 zkLTC).' },
+          side: { type: 'string', enum: ['buy', 'sell'], description: 'For limit_order only. UI hint for direction.' },
+          expiresInHours: { type: 'number', description: 'For limit_order only. Hours until order expires (default 168 = 7 days). Use 0 for never.' },
           recipient: { type: 'string', description: 'For send only' },
           poolId: { type: 'number', description: 'For stake/unstake/harvest' },
           summary: { type: 'string', description: 'One-line plain-English description' },
