@@ -533,12 +533,44 @@ export default function AIAgentPanel() {
           { label: 'TX', value: `${hash.slice(0, 10)}…${hash.slice(-8)}` },
         ],
       };
+    } else if (p.kind === 'limit_order') {
+      // "Local" action: doesn't broadcast a tx — registers a watched limit order.
+      const from = getTokenBySymbol(p.fromToken!);
+      const to = getTokenBySymbol(p.toToken!);
+      if (!from || !to) throw new Error('invalid limit order tokens');
+      const amt = p.amount && parseFloat(p.amount) > 0 ? p.amount : '';
+      const target = p.targetRate && parseFloat(p.targetRate) > 0 ? p.targetRate : '';
+      if (!amt || !target) throw new Error('limit order needs amount & targetRate');
+      const expiresInHours = p.expiresInHours == null ? 168 : Math.max(0, p.expiresInHours);
+      const expiresAt = expiresInHours > 0 ? Date.now() + expiresInHours * 3600_000 : 0;
+      const order = limitOrders.create({
+        account: wallet.address!,
+        fromToken: from,
+        toToken: to,
+        amountIn: amt,
+        targetRate: target,
+        side: (p.side as LimitOrderSide) ?? 'sell',
+        expiresAt,
+      });
+      hash = order.id; // not a tx hash — store the order id for traceability
+      output = amt;
+      card = {
+        title: '🎯 Limit Order Created',
+        rows: [
+          { label: 'Pair', value: `${from.symbol} → ${to.symbol}` },
+          { label: 'Amount In', value: `${amt} ${from.symbol}`, accent: true },
+          { label: 'Target Rate', value: `≥ ${target} ${to.symbol} per ${from.symbol}`, accent: true },
+          { label: 'Side', value: (p.side ?? 'sell').toUpperCase() },
+          { label: 'Expires', value: expiresAt ? new Date(expiresAt).toLocaleString() : 'never' },
+          { label: 'Order ID', value: order.id },
+        ],
+      };
     } else {
       throw new Error(`unknown action kind: ${(p as any).kind}`);
     }
 
     return { hash, card, output };
-  }, [wallet, dex, farming]);
+  }, [wallet, dex, farming, limitOrders]);
 
   // ===== EXECUTE PROPOSED ACTION (single) =====
   const executeProposal = async (idx: number, p: ActionProposal) => {
