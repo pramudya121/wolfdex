@@ -39,8 +39,31 @@ interface PoolInfo {
 
 const KNOWN_ADDRS = new Set(TOKENS.map(t => t.address.toLowerCase()));
 
+const DISPLAY_PRIORITY: Record<string, number> = {
+  WDEX: 0,
+  wzkLTC: 1,
+  zkLTC: 2,
+  ETH: 3,
+  BNB: 4,
+  MON: 5,
+  HYPE: 6,
+  LITVM: 7,
+};
+
 function isKnown(addr: string) {
   return KNOWN_ADDRS.has(addr.toLowerCase());
+}
+
+function compareDisplayTokens(
+  a: { address: string; symbol: string; known: boolean },
+  b: { address: string; symbol: string; known: boolean },
+) {
+  const rankA = DISPLAY_PRIORITY[a.symbol] ?? (a.known ? 50 : 100);
+  const rankB = DISPLAY_PRIORITY[b.symbol] ?? (b.known ? 50 : 100);
+  if (rankA !== rankB) return rankA - rankB;
+  const symbolCmp = a.symbol.localeCompare(b.symbol);
+  if (symbolCmp !== 0) return symbolCmp;
+  return a.address.toLowerCase().localeCompare(b.address.toLowerCase());
 }
 
 type SortKey = 'tvl' | 'vol' | 'apr' | 'name';
@@ -67,7 +90,7 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
   const [chartPool, setChartPool] = useState<PoolInfo | null>(null);
 
   const [hideEmpty, setHideEmpty] = useState(true);
-  const [hideUnverified, setHideUnverified] = useState(false);
+  const [hideUnverified, setHideUnverified] = useState(true);
   const [hideImpostors, setHideImpostors] = useState(true);
 
   const loadPools = useCallback(async (force = false) => {
@@ -181,6 +204,24 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
           tvlUnknown = true;
           tvl = 0;
         }
+        const displayA = {
+          address: info.token0,
+          symbol: disambiguate(info.token0, t0.symbol),
+          logo: t0.logo,
+          reserve: r0.toString(),
+          known: isKnown(info.token0),
+        };
+        const displayB = {
+          address: info.token1,
+          symbol: disambiguate(info.token1, t1.symbol),
+          logo: t1.logo,
+          reserve: r1.toString(),
+          known: isKnown(info.token1),
+        };
+        const [first, second] = compareDisplayTokens(displayA, displayB) <= 0
+          ? [displayA, displayB]
+          : [displayB, displayA];
+
         const turnover = 0.04 + hashToFloat(addr, 7) * 0.18;
         const vol24h = tvl * turnover;
         const fees24h = vol24h * 0.003;
@@ -194,14 +235,14 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
           isImpostorToken(info.token1, t1.symbol);
         out.push({
           address: addr,
-          token0: info.token0,
-          token1: info.token1,
-          symbol0: disambiguate(info.token0, t0.symbol),
-          symbol1: disambiguate(info.token1, t1.symbol),
-          logo0: t0.logo,
-          logo1: t1.logo,
-          reserve0: r0.toString(),
-          reserve1: r1.toString(),
+          token0: first.address,
+          token1: second.address,
+          symbol0: first.symbol,
+          symbol1: second.symbol,
+          logo0: first.logo,
+          logo1: second.logo,
+          reserve0: first.reserve,
+          reserve1: second.reserve,
           totalSupply: info.totalSupply,
           tvl,
           vol24h,
