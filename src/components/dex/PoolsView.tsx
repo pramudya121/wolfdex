@@ -266,7 +266,7 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
       }
     });
     return list;
-  }, [pools, search, sortBy, onlyMine, hideEmpty, hideUnverified]);
+  }, [pools, search, sortBy, onlyMine, hideEmpty, hideUnverified, hideImpostors]);
 
   const showSkeleton = loading && pools.length === 0;
 
