@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CONTRACTS, CHAIN_CONFIG, getTokenByAddress, TOKENS } from '@/config/contracts';
+import { CONTRACTS, CHAIN_CONFIG, getTokenByAddress, TOKENS, isBlockedToken, RESERVED_SYMBOLS } from '@/config/contracts';
 import { Link } from '@tanstack/react-router';
 import { useDexContext } from '@/context/DexContext';
 import CreatePairModal from './CreatePairModal';
@@ -33,6 +33,8 @@ interface PoolInfo {
   empty: boolean;
   /** True when this pool's TVL could not be priced reliably (no path to WETH). */
   tvlUnknown: boolean;
+  /** True when a token spoofs a reserved/curated symbol or is on the blocklist. */
+  impostor: boolean;
 }
 
 const KNOWN_ADDRS = new Set(TOKENS.map(t => t.address.toLowerCase()));
@@ -66,6 +68,7 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
 
   const [hideEmpty, setHideEmpty] = useState(true);
   const [hideUnverified, setHideUnverified] = useState(false);
+  const [hideImpostors, setHideImpostors] = useState(true);
 
   const loadPools = useCallback(async (force = false) => {
     setLoading(prev => prev || pools.length === 0);
