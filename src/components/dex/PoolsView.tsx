@@ -259,8 +259,8 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
       {/* Summary stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {[
-          { icon: '🏊', label: 'Total Pools', value: pools.length.toString(), color: 'from-wolf-pink/20 to-wolf-pink/5' },
-          { icon: '💰', label: 'Total TVL', value: fmt$(totalTVL), color: 'from-wolf-gold/20 to-wolf-gold/5' },
+          { icon: '🏊', label: `Verified Pools`, value: `${trustworthy.length} / ${pools.length}`, color: 'from-wolf-pink/20 to-wolf-pink/5' },
+          { icon: '💰', label: 'Total TVL (verified)', value: fmt$(totalTVL), color: 'from-wolf-gold/20 to-wolf-gold/5' },
           { icon: '📊', label: '24h Volume (est)', value: fmt$(totalVol), color: 'from-wolf-green/20 to-wolf-green/5' },
           { icon: '💎', label: '24h Fees (est)', value: fmt$(totalFees), color: 'from-cyan-500/20 to-cyan-500/5' },
         ].map((s, i) => (
