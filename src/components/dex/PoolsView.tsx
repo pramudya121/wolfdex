@@ -444,7 +444,12 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
               className="wolf-pool-card rounded-xl p-4 relative overflow-hidden"
             >
               <div className="absolute top-2 right-2 flex gap-1">
-                {pool.unverified && (
+                {pool.impostor && (
+                  <span title="Impostor: token spoofs a curated symbol or is blocklisted. Do NOT trade." className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-red-500/20 text-red-300 border border-red-500/40">
+                    🛑 SCAM
+                  </span>
+                )}
+                {pool.unverified && !pool.impostor && (
                   <span title="Pool contains an unverified / unknown ERC20 token. Trade with caution." className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
                     ⚠ UNVERIFIED
                   </span>
