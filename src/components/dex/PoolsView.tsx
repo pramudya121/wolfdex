@@ -349,10 +349,13 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
         >
           {hideUnverified ? '🛡 Verified only' : '⚠ Unverified'}
         </button>
-        <div className="flex gap-1 p-1 rounded-lg bg-wolf-surface border border-wolf-border/30">
-          {(['grid', 'list'] as const).map(v => (
-            <button key={v} onClick={() => setView(v)}
-              className={`px-2.5 py-1.5 rounded-md text-xs font-bold transition-all ${view === v ? 'bg-wolf-pink/20 text-wolf-pink' : 'text-muted-foreground'}`}
+        <button onClick={() => setHideImpostors(v => !v)}
+          title={hideImpostors ? 'Reveal impostor / scam pools' : 'Hide pools containing tokens that spoof a curated symbol or are blocklisted'}
+          className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all border ${hideImpostors
+            ? 'bg-red-500/10 text-red-300 border-red-500/40'
+            : 'bg-wolf-surface border-wolf-border/30 text-muted-foreground hover:text-foreground'}`}
+        >
+          {hideImpostors ? `🛑 Hiding ${impostorCount} scam${impostorCount === 1 ? '' : 's'}` : '👁 Show scams'}
               title={v === 'grid' ? 'Grid view' : 'Table view'}
             >{v === 'grid' ? '▦' : '☰'}</button>
           ))}
