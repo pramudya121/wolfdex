@@ -207,9 +207,15 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
   }, [pools, loadPools]);
 
 
-  const totalTVL = useMemo(() => pools.reduce((s, p) => s + p.tvl, 0), [pools]);
-  const totalVol = useMemo(() => pools.reduce((s, p) => s + p.vol24h, 0), [pools]);
-  const totalFees = useMemo(() => pools.reduce((s, p) => s + p.fees24h, 0), [pools]);
+  // Totals: only count "trustworthy" pools — non-empty, priced, and verified.
+  // Otherwise scam tokens with huge fake reserves balloon the headline numbers.
+  const trustworthy = useMemo(
+    () => pools.filter(p => !p.empty && !p.tvlUnknown && !p.unverified),
+    [pools],
+  );
+  const totalTVL = useMemo(() => trustworthy.reduce((s, p) => s + p.tvl, 0), [trustworthy]);
+  const totalVol = useMemo(() => trustworthy.reduce((s, p) => s + p.vol24h, 0), [trustworthy]);
+  const totalFees = useMemo(() => trustworthy.reduce((s, p) => s + p.fees24h, 0), [trustworthy]);
   const myPositionsCount = useMemo(() => pools.filter(p => p.myLp > 0).length, [pools]);
 
   const filtered = useMemo(() => {
@@ -218,7 +224,12 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
       p.symbol1.toLowerCase().includes(search.toLowerCase())
     );
     if (onlyMine) list = list.filter(p => p.myLp > 0);
+    if (hideEmpty) list = list.filter(p => !p.empty);
+    if (hideUnverified) list = list.filter(p => !p.unverified);
     list.sort((a, b) => {
+      // Always demote empty / unknown pools to the bottom regardless of sort key
+      if (a.empty !== b.empty) return a.empty ? 1 : -1;
+      if (a.tvlUnknown !== b.tvlUnknown) return a.tvlUnknown ? 1 : -1;
       switch (sortBy) {
         case 'tvl': return b.tvl - a.tvl;
         case 'vol': return b.vol24h - a.vol24h;
@@ -227,11 +238,14 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
       }
     });
     return list;
-  }, [pools, search, sortBy, onlyMine]);
+  }, [pools, search, sortBy, onlyMine, hideEmpty, hideUnverified]);
 
   const showSkeleton = loading && pools.length === 0;
 
   const fmt$ = (n: number) => n >= 1000 ? `$${(n / 1000).toFixed(2)}k` : `$${n.toFixed(2)}`;
+  const fmtTvl = (p: PoolInfo) => p.tvlUnknown ? '—' : fmt$(p.tvl);
+  const fmtVol = (p: PoolInfo) => p.tvlUnknown ? '—' : fmt$(p.vol24h);
+  const fmtFees = (p: PoolInfo) => p.tvlUnknown ? '—' : fmt$(p.fees24h);
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-6xl mx-auto">
