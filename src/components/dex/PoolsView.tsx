@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CONTRACTS, CHAIN_CONFIG, getTokenByAddress } from '@/config/contracts';
+import { CONTRACTS, CHAIN_CONFIG, getTokenByAddress, TOKENS } from '@/config/contracts';
 import { Link } from '@tanstack/react-router';
 import { useDexContext } from '@/context/DexContext';
 import CreatePairModal from './CreatePairModal';
 import { WolfSkeleton, WolfSkeletonText } from './ui/WolfSkeleton';
 import PairChart from './PairChart';
-import { ethers } from 'ethers';
+
 import { useTokenResolver } from '@/hooks/useTokenResolver';
 
 interface PoolInfo {
@@ -27,6 +27,18 @@ interface PoolInfo {
   apr: number;
   myLp: number;
   myShare: number;
+  /** True when at least one token is not in the curated TOKENS list. */
+  unverified: boolean;
+  /** True when the pool has no liquidity. */
+  empty: boolean;
+  /** True when this pool's TVL could not be priced reliably (no path to WETH). */
+  tvlUnknown: boolean;
+}
+
+const KNOWN_ADDRS = new Set(TOKENS.map(t => t.address.toLowerCase()));
+
+function isKnown(addr: string) {
+  return KNOWN_ADDRS.has(addr.toLowerCase());
 }
 
 type SortKey = 'tvl' | 'vol' | 'apr' | 'name';
@@ -52,6 +64,9 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
   const [showCreate, setShowCreate] = useState(false);
   const [chartPool, setChartPool] = useState<PoolInfo | null>(null);
 
+  const [hideEmpty, setHideEmpty] = useState(true);
+  const [hideUnverified, setHideUnverified] = useState(false);
+
   const loadPools = useCallback(async (force = false) => {
     setLoading(prev => prev || pools.length === 0);
     try {
@@ -59,6 +74,66 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
       const myLpBalances: string[] = wallet.address && cache.pairs.length > 0
         ? await dex.getMultipleBalances(cache.pairs).catch(() => [])
         : [];
+
+      // ---- Step 1: build a price map (token -> WETH) using WETH-paired pools ----
+      const wethAddr = CONTRACTS.WETH.toLowerCase();
+      const priceInWeth: Record<string, number> = { [wethAddr]: 1 };
+      cache.pairs.forEach(addr => {
+        const info = cache.infos[addr];
+        if (!info) return;
+        const t0 = info.token0.toLowerCase();
+        const t1 = info.token1.toLowerCase();
+        const r0 = parseFloat(info.reserve0);
+        const r1 = parseFloat(info.reserve1);
+        if (r0 <= 0 || r1 <= 0) return;
+        if (t0 === wethAddr && !priceInWeth[t1]) priceInWeth[t1] = r0 / r1;
+        else if (t1 === wethAddr && !priceInWeth[t0]) priceInWeth[t0] = r1 / r0;
+      });
+      // Second pass: derive prices via any token that already has a WETH price.
+      for (let pass = 0; pass < 2; pass++) {
+        cache.pairs.forEach(addr => {
+          const info = cache.infos[addr];
+          if (!info) return;
+          const t0 = info.token0.toLowerCase();
+          const t1 = info.token1.toLowerCase();
+          const r0 = parseFloat(info.reserve0);
+          const r1 = parseFloat(info.reserve1);
+          if (r0 <= 0 || r1 <= 0) return;
+          if (priceInWeth[t0] && !priceInWeth[t1]) priceInWeth[t1] = (r0 * priceInWeth[t0]) / r1;
+          else if (priceInWeth[t1] && !priceInWeth[t0]) priceInWeth[t0] = (r1 * priceInWeth[t1]) / r0;
+        });
+      }
+
+      // ---- Step 2: detect symbol collisions for disambiguation ----
+      const symbolCount: Record<string, number> = {};
+      cache.pairs.forEach(addr => {
+        const info = cache.infos[addr];
+        if (!info) return;
+        for (const tk of [info.token0, info.token1]) {
+          const sym = resolve(tk).symbol;
+          symbolCount[sym] = (symbolCount[sym] || 0) + 1;
+          // count a token only once
+        }
+      });
+      // Track which addresses share each symbol
+      const addrsPerSymbol: Record<string, Set<string>> = {};
+      cache.pairs.forEach(addr => {
+        const info = cache.infos[addr];
+        if (!info) return;
+        for (const tk of [info.token0, info.token1]) {
+          const sym = resolve(tk).symbol;
+          if (!addrsPerSymbol[sym]) addrsPerSymbol[sym] = new Set();
+          addrsPerSymbol[sym].add(tk.toLowerCase());
+        }
+      });
+      const disambiguate = (tkAddr: string, sym: string) => {
+        const set = addrsPerSymbol[sym];
+        if (set && set.size > 1) {
+          return `${sym}·${tkAddr.slice(2, 6)}`;
+        }
+        return sym;
+      };
+
       const out: PoolInfo[] = [];
       cache.pairs.forEach((addr, i) => {
         const info = cache.infos[addr];
@@ -67,21 +142,38 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
         const t1 = resolve(info.token1);
         const r0 = parseFloat(info.reserve0);
         const r1 = parseFloat(info.reserve1);
-        const tvl = r0 + r1;
-        // Estimated metrics (deterministic per pair) until real subgraph hooked
-        const turnover = 0.04 + hashToFloat(addr, 7) * 0.18;     // 4–22 % of TVL
+        const empty = r0 <= 0 || r1 <= 0;
+        const p0 = priceInWeth[info.token0.toLowerCase()];
+        const p1 = priceInWeth[info.token1.toLowerCase()];
+        let tvl = 0;
+        let tvlUnknown = false;
+        if (empty) {
+          tvl = 0;
+        } else if (p0 && p1) {
+          // TVL in WETH (≈ zkLTC) units. Treat zkLTC as $1 placeholder.
+          tvl = r0 * p0 + r1 * p1;
+        } else if (p0) {
+          tvl = 2 * r0 * p0;
+        } else if (p1) {
+          tvl = 2 * r1 * p1;
+        } else {
+          tvlUnknown = true;
+          tvl = 0;
+        }
+        const turnover = 0.04 + hashToFloat(addr, 7) * 0.18;
         const vol24h = tvl * turnover;
         const fees24h = vol24h * 0.003;
         const apr = tvl > 0 ? (fees24h * 365 / tvl) * 100 : 0;
         const myLpStr = myLpBalances[i] || '0';
         const myLp = parseFloat(myLpStr);
         const supply = parseFloat(info.totalSupply) || 0;
+        const unverified = !isKnown(info.token0) || !isKnown(info.token1);
         out.push({
           address: addr,
           token0: info.token0,
           token1: info.token1,
-          symbol0: t0.symbol,
-          symbol1: t1.symbol,
+          symbol0: disambiguate(info.token0, t0.symbol),
+          symbol1: disambiguate(info.token1, t1.symbol),
           logo0: t0.logo,
           logo1: t1.logo,
           reserve0: r0.toString(),
@@ -93,6 +185,9 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
           apr,
           myLp,
           myShare: supply > 0 ? (myLp / supply) * 100 : 0,
+          unverified,
+          empty,
+          tvlUnknown,
         });
       });
       setPools(out);
@@ -111,9 +206,16 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
     return () => clearTimeout(t);
   }, [pools, loadPools]);
 
-  const totalTVL = useMemo(() => pools.reduce((s, p) => s + p.tvl, 0), [pools]);
-  const totalVol = useMemo(() => pools.reduce((s, p) => s + p.vol24h, 0), [pools]);
-  const totalFees = useMemo(() => pools.reduce((s, p) => s + p.fees24h, 0), [pools]);
+
+  // Totals: only count "trustworthy" pools — non-empty, priced, and verified.
+  // Otherwise scam tokens with huge fake reserves balloon the headline numbers.
+  const trustworthy = useMemo(
+    () => pools.filter(p => !p.empty && !p.tvlUnknown && !p.unverified),
+    [pools],
+  );
+  const totalTVL = useMemo(() => trustworthy.reduce((s, p) => s + p.tvl, 0), [trustworthy]);
+  const totalVol = useMemo(() => trustworthy.reduce((s, p) => s + p.vol24h, 0), [trustworthy]);
+  const totalFees = useMemo(() => trustworthy.reduce((s, p) => s + p.fees24h, 0), [trustworthy]);
   const myPositionsCount = useMemo(() => pools.filter(p => p.myLp > 0).length, [pools]);
 
   const filtered = useMemo(() => {
@@ -122,7 +224,12 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
       p.symbol1.toLowerCase().includes(search.toLowerCase())
     );
     if (onlyMine) list = list.filter(p => p.myLp > 0);
+    if (hideEmpty) list = list.filter(p => !p.empty);
+    if (hideUnverified) list = list.filter(p => !p.unverified);
     list.sort((a, b) => {
+      // Always demote empty / unknown pools to the bottom regardless of sort key
+      if (a.empty !== b.empty) return a.empty ? 1 : -1;
+      if (a.tvlUnknown !== b.tvlUnknown) return a.tvlUnknown ? 1 : -1;
       switch (sortBy) {
         case 'tvl': return b.tvl - a.tvl;
         case 'vol': return b.vol24h - a.vol24h;
@@ -131,11 +238,14 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
       }
     });
     return list;
-  }, [pools, search, sortBy, onlyMine]);
+  }, [pools, search, sortBy, onlyMine, hideEmpty, hideUnverified]);
 
   const showSkeleton = loading && pools.length === 0;
 
   const fmt$ = (n: number) => n >= 1000 ? `$${(n / 1000).toFixed(2)}k` : `$${n.toFixed(2)}`;
+  const fmtTvl = (p: PoolInfo) => p.tvlUnknown ? '—' : fmt$(p.tvl);
+  const fmtVol = (p: PoolInfo) => p.tvlUnknown ? '—' : fmt$(p.vol24h);
+  const fmtFees = (p: PoolInfo) => p.tvlUnknown ? '—' : fmt$(p.fees24h);
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-6xl mx-auto">
@@ -149,8 +259,8 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
       {/* Summary stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {[
-          { icon: '🏊', label: 'Total Pools', value: pools.length.toString(), color: 'from-wolf-pink/20 to-wolf-pink/5' },
-          { icon: '💰', label: 'Total TVL', value: fmt$(totalTVL), color: 'from-wolf-gold/20 to-wolf-gold/5' },
+          { icon: '🏊', label: `Verified Pools`, value: `${trustworthy.length} / ${pools.length}`, color: 'from-wolf-pink/20 to-wolf-pink/5' },
+          { icon: '💰', label: 'Total TVL (verified)', value: fmt$(totalTVL), color: 'from-wolf-gold/20 to-wolf-gold/5' },
           { icon: '📊', label: '24h Volume (est)', value: fmt$(totalVol), color: 'from-wolf-green/20 to-wolf-green/5' },
           { icon: '💎', label: '24h Fees (est)', value: fmt$(totalFees), color: 'from-cyan-500/20 to-cyan-500/5' },
         ].map((s, i) => (
@@ -195,6 +305,22 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
             ⭐ My Positions {myPositionsCount > 0 && <span className="ml-1 px-1.5 py-0.5 rounded-md bg-wolf-gold/20 text-[9px]">{myPositionsCount}</span>}
           </button>
         )}
+        <button onClick={() => setHideEmpty(v => !v)}
+          title={hideEmpty ? 'Show empty pools' : 'Hide empty (zero-liquidity) pools'}
+          className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all border ${hideEmpty
+            ? 'bg-wolf-surface border-wolf-border/30 text-muted-foreground hover:text-foreground'
+            : 'bg-cyan-500/15 text-cyan-300 border-cyan-500/40'}`}
+        >
+          {hideEmpty ? '🚫 Empty' : '👁 Empty'}
+        </button>
+        <button onClick={() => setHideUnverified(v => !v)}
+          title={hideUnverified ? 'Show unverified-token pools' : 'Hide pools with unknown / unverified tokens'}
+          className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all border ${hideUnverified
+            ? 'bg-wolf-pink/15 text-wolf-pink border-wolf-pink/40'
+            : 'bg-wolf-surface border-wolf-border/30 text-muted-foreground hover:text-foreground'}`}
+        >
+          {hideUnverified ? '🛡 Verified only' : '⚠ Unverified'}
+        </button>
         <div className="flex gap-1 p-1 rounded-lg bg-wolf-surface border border-wolf-border/30">
           {(['grid', 'list'] as const).map(v => (
             <button key={v} onClick={() => setView(v)}
@@ -255,14 +381,18 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
                   <img src={pool.logo1} alt="" className="w-7 h-7 rounded-full ring-2 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
                 </div>
                 <div className="min-w-0">
-                  <div className="font-bold truncate">{pool.symbol0}/{pool.symbol1}</div>
+                  <div className="font-bold truncate flex items-center gap-1.5">
+                    <span>{pool.symbol0}/{pool.symbol1}</span>
+                    {pool.unverified && <span title="Contains unverified token" className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">⚠</span>}
+                    {pool.empty && <span title="No liquidity yet" className="text-[9px] px-1.5 py-0.5 rounded bg-muted/30 text-muted-foreground border border-wolf-border/30">EMPTY</span>}
+                  </div>
                   {pool.myLp > 0 && <div className="text-[10px] text-wolf-gold">⭐ {pool.myShare.toFixed(2)}% mine</div>}
                 </div>
               </div>
-              <div className="col-span-2 text-right font-bold">{fmt$(pool.tvl)}</div>
-              <div className="col-span-2 text-right text-muted-foreground">{fmt$(pool.vol24h)}</div>
-              <div className="col-span-2 text-right text-cyan-400">{fmt$(pool.fees24h)}</div>
-              <div className="col-span-1 text-right text-wolf-green font-bold">{pool.apr.toFixed(1)}%</div>
+              <div className="col-span-2 text-right font-bold">{fmtTvl(pool)}</div>
+              <div className="col-span-2 text-right text-muted-foreground">{fmtVol(pool)}</div>
+              <div className="col-span-2 text-right text-cyan-400">{fmtFees(pool)}</div>
+              <div className="col-span-1 text-right text-wolf-green font-bold">{pool.tvlUnknown ? '—' : `${pool.apr.toFixed(1)}%`}</div>
               <div className="col-span-2 flex justify-end gap-1.5">
                 <button onClick={() => setChartPool(pool)} className="px-2 py-1 rounded-md text-[10px] bg-wolf-surface border border-wolf-gold/30 hover:border-wolf-gold hover:text-wolf-gold transition">📊</button>
                 <Link to="/liquidity" className="px-2.5 py-1 rounded-md text-[10px] font-bold wolf-btn-primary">Add</Link>
@@ -276,11 +406,23 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
             <motion.div key={pool.address} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i * 0.02, 0.2) }}
               className="wolf-pool-card rounded-xl p-4 relative overflow-hidden"
             >
-              {pool.myLp > 0 && (
-                <span className="absolute top-2 right-2 px-2 py-0.5 rounded-full text-[9px] font-bold bg-wolf-gold/20 text-wolf-gold border border-wolf-gold/40">
-                  ⭐ MINE
-                </span>
-              )}
+              <div className="absolute top-2 right-2 flex gap-1">
+                {pool.unverified && (
+                  <span title="Pool contains an unverified / unknown ERC20 token. Trade with caution." className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    ⚠ UNVERIFIED
+                  </span>
+                )}
+                {pool.empty && (
+                  <span title="Pool has no liquidity yet" className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-muted/30 text-muted-foreground border border-wolf-border/40">
+                    EMPTY
+                  </span>
+                )}
+                {pool.myLp > 0 && (
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-wolf-gold/20 text-wolf-gold border border-wolf-gold/40">
+                    ⭐ MINE
+                  </span>
+                )}
+              </div>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <div className="flex -space-x-2">
@@ -289,7 +431,7 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
                   </div>
                   <div>
                     <span className="font-bold text-sm">{pool.symbol0}/{pool.symbol1}</span>
-                    <div className="text-[10px] text-muted-foreground">Fee 0.3% · APR <span className="text-wolf-green font-bold">{pool.apr.toFixed(1)}%</span></div>
+                    <div className="text-[10px] text-muted-foreground">Fee 0.3% · APR <span className="text-wolf-green font-bold">{pool.tvlUnknown ? '—' : `${pool.apr.toFixed(1)}%`}</span></div>
                   </div>
                 </div>
               </div>
@@ -297,15 +439,15 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
               <div className="grid grid-cols-3 gap-2 mb-3">
                 <div className="bg-wolf-surface/40 rounded-lg p-2 border border-wolf-border/20">
                   <div className="text-[9px] uppercase tracking-wider text-muted-foreground">TVL</div>
-                  <div className="font-bold text-xs mt-0.5">{fmt$(pool.tvl)}</div>
+                  <div className="font-bold text-xs mt-0.5">{fmtTvl(pool)}</div>
                 </div>
                 <div className="bg-wolf-surface/40 rounded-lg p-2 border border-wolf-border/20">
                   <div className="text-[9px] uppercase tracking-wider text-muted-foreground">24h Vol</div>
-                  <div className="font-bold text-xs mt-0.5">{fmt$(pool.vol24h)}</div>
+                  <div className="font-bold text-xs mt-0.5">{fmtVol(pool)}</div>
                 </div>
                 <div className="bg-wolf-surface/40 rounded-lg p-2 border border-cyan-500/20">
                   <div className="text-[9px] uppercase tracking-wider text-muted-foreground">24h Fees</div>
-                  <div className="font-bold text-xs mt-0.5 text-cyan-400">{fmt$(pool.fees24h)}</div>
+                  <div className="font-bold text-xs mt-0.5 text-cyan-400">{fmtFees(pool)}</div>
                 </div>
               </div>
 
