@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CONTRACTS, CHAIN_CONFIG, getTokenByAddress, TOKENS } from '@/config/contracts';
+import { CONTRACTS, CHAIN_CONFIG, getTokenByAddress, TOKENS, isBlockedToken, RESERVED_SYMBOLS } from '@/config/contracts';
 import { Link } from '@tanstack/react-router';
 import { useDexContext } from '@/context/DexContext';
 import CreatePairModal from './CreatePairModal';
@@ -33,6 +33,8 @@ interface PoolInfo {
   empty: boolean;
   /** True when this pool's TVL could not be priced reliably (no path to WETH). */
   tvlUnknown: boolean;
+  /** True when a token spoofs a reserved/curated symbol or is on the blocklist. */
+  impostor: boolean;
 }
 
 const KNOWN_ADDRS = new Set(TOKENS.map(t => t.address.toLowerCase()));
@@ -66,6 +68,7 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
 
   const [hideEmpty, setHideEmpty] = useState(true);
   const [hideUnverified, setHideUnverified] = useState(false);
+  const [hideImpostors, setHideImpostors] = useState(true);
 
   const loadPools = useCallback(async (force = false) => {
     setLoading(prev => prev || pools.length === 0);
@@ -127,11 +130,29 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
         }
       });
       const disambiguate = (tkAddr: string, sym: string) => {
+        const lc = tkAddr.toLowerCase();
+        const symLc = sym.toLowerCase();
+        // 1. If token is in curated list → trust the symbol as-is
+        if (KNOWN_ADDRS.has(lc)) return sym;
+        // 2. If symbol is reserved by a curated token at a different address → impostor
+        const reservedAddr = RESERVED_SYMBOLS[symLc];
+        if (reservedAddr !== undefined && reservedAddr !== lc) {
+          return `${sym}·SPOOF`;
+        }
+        // 3. If multiple unknown contracts use the same symbol → suffix with addr fragment
         const set = addrsPerSymbol[sym];
         if (set && set.size > 1) {
           return `${sym}·${tkAddr.slice(2, 6)}`;
         }
         return sym;
+      };
+
+      const isImpostorToken = (tkAddr: string, sym: string) => {
+        const lc = tkAddr.toLowerCase();
+        if (isBlockedToken(lc)) return true;
+        if (KNOWN_ADDRS.has(lc)) return false;
+        const reservedAddr = RESERVED_SYMBOLS[sym.toLowerCase()];
+        return reservedAddr !== undefined && reservedAddr !== lc;
       };
 
       const out: PoolInfo[] = [];
@@ -168,6 +189,9 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
         const myLp = parseFloat(myLpStr);
         const supply = parseFloat(info.totalSupply) || 0;
         const unverified = !isKnown(info.token0) || !isKnown(info.token1);
+        const impostor =
+          isImpostorToken(info.token0, t0.symbol) ||
+          isImpostorToken(info.token1, t1.symbol);
         out.push({
           address: addr,
           token0: info.token0,
@@ -188,6 +212,7 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
           unverified,
           empty,
           tvlUnknown,
+          impostor,
         });
       });
       setPools(out);
@@ -210,13 +235,14 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
   // Totals: only count "trustworthy" pools — non-empty, priced, and verified.
   // Otherwise scam tokens with huge fake reserves balloon the headline numbers.
   const trustworthy = useMemo(
-    () => pools.filter(p => !p.empty && !p.tvlUnknown && !p.unverified),
+    () => pools.filter(p => !p.empty && !p.tvlUnknown && !p.unverified && !p.impostor),
     [pools],
   );
   const totalTVL = useMemo(() => trustworthy.reduce((s, p) => s + p.tvl, 0), [trustworthy]);
   const totalVol = useMemo(() => trustworthy.reduce((s, p) => s + p.vol24h, 0), [trustworthy]);
   const totalFees = useMemo(() => trustworthy.reduce((s, p) => s + p.fees24h, 0), [trustworthy]);
   const myPositionsCount = useMemo(() => pools.filter(p => p.myLp > 0).length, [pools]);
+  const impostorCount = useMemo(() => pools.filter(p => p.impostor).length, [pools]);
 
   const filtered = useMemo(() => {
     let list = pools.filter(p =>
@@ -226,8 +252,10 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
     if (onlyMine) list = list.filter(p => p.myLp > 0);
     if (hideEmpty) list = list.filter(p => !p.empty);
     if (hideUnverified) list = list.filter(p => !p.unverified);
+    if (hideImpostors) list = list.filter(p => !p.impostor);
     list.sort((a, b) => {
-      // Always demote empty / unknown pools to the bottom regardless of sort key
+      // Always demote impostor / empty / unknown pools to the bottom regardless of sort key
+      if (a.impostor !== b.impostor) return a.impostor ? 1 : -1;
       if (a.empty !== b.empty) return a.empty ? 1 : -1;
       if (a.tvlUnknown !== b.tvlUnknown) return a.tvlUnknown ? 1 : -1;
       switch (sortBy) {
@@ -238,7 +266,7 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
       }
     });
     return list;
-  }, [pools, search, sortBy, onlyMine, hideEmpty, hideUnverified]);
+  }, [pools, search, sortBy, onlyMine, hideEmpty, hideUnverified, hideImpostors]);
 
   const showSkeleton = loading && pools.length === 0;
 
@@ -321,6 +349,14 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
         >
           {hideUnverified ? '🛡 Verified only' : '⚠ Unverified'}
         </button>
+        <button onClick={() => setHideImpostors(v => !v)}
+          title={hideImpostors ? 'Reveal impostor / scam pools' : 'Hide pools containing tokens that spoof a curated symbol or are blocklisted'}
+          className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all border ${hideImpostors
+            ? 'bg-red-500/10 text-red-300 border-red-500/40'
+            : 'bg-wolf-surface border-wolf-border/30 text-muted-foreground hover:text-foreground'}`}
+        >
+          {hideImpostors ? `🛑 Hiding ${impostorCount} scam${impostorCount === 1 ? '' : 's'}` : '👁 Show scams'}
+        </button>
         <div className="flex gap-1 p-1 rounded-lg bg-wolf-surface border border-wolf-border/30">
           {(['grid', 'list'] as const).map(v => (
             <button key={v} onClick={() => setView(v)}
@@ -383,7 +419,8 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
                 <div className="min-w-0">
                   <div className="font-bold truncate flex items-center gap-1.5">
                     <span>{pool.symbol0}/{pool.symbol1}</span>
-                    {pool.unverified && <span title="Contains unverified token" className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">⚠</span>}
+                    {pool.impostor && <span title="Impostor: token spoofs a curated symbol or is blocklisted" className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-300 border border-red-500/40">🛑 SCAM</span>}
+                    {pool.unverified && !pool.impostor && <span title="Contains unverified token" className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">⚠</span>}
                     {pool.empty && <span title="No liquidity yet" className="text-[9px] px-1.5 py-0.5 rounded bg-muted/30 text-muted-foreground border border-wolf-border/30">EMPTY</span>}
                   </div>
                   {pool.myLp > 0 && <div className="text-[10px] text-wolf-gold">⭐ {pool.myShare.toFixed(2)}% mine</div>}
@@ -407,7 +444,12 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
               className="wolf-pool-card rounded-xl p-4 relative overflow-hidden"
             >
               <div className="absolute top-2 right-2 flex gap-1">
-                {pool.unverified && (
+                {pool.impostor && (
+                  <span title="Impostor: token spoofs a curated symbol or is blocklisted. Do NOT trade." className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-red-500/20 text-red-300 border border-red-500/40">
+                    🛑 SCAM
+                  </span>
+                )}
+                {pool.unverified && !pool.impostor && (
                   <span title="Pool contains an unverified / unknown ERC20 token. Trade with caution." className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
                     ⚠ UNVERIFIED
                   </span>
