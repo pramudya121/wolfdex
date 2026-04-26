@@ -39,8 +39,31 @@ interface PoolInfo {
 
 const KNOWN_ADDRS = new Set(TOKENS.map(t => t.address.toLowerCase()));
 
+const DISPLAY_PRIORITY: Record<string, number> = {
+  WDEX: 0,
+  wzkLTC: 1,
+  zkLTC: 2,
+  ETH: 3,
+  BNB: 4,
+  MON: 5,
+  HYPE: 6,
+  LITVM: 7,
+};
+
 function isKnown(addr: string) {
   return KNOWN_ADDRS.has(addr.toLowerCase());
+}
+
+function compareDisplayTokens(
+  a: { address: string; symbol: string; known: boolean },
+  b: { address: string; symbol: string; known: boolean },
+) {
+  const rankA = DISPLAY_PRIORITY[a.symbol] ?? (a.known ? 50 : 100);
+  const rankB = DISPLAY_PRIORITY[b.symbol] ?? (b.known ? 50 : 100);
+  if (rankA !== rankB) return rankA - rankB;
+  const symbolCmp = a.symbol.localeCompare(b.symbol);
+  if (symbolCmp !== 0) return symbolCmp;
+  return a.address.toLowerCase().localeCompare(b.address.toLowerCase());
 }
 
 type SortKey = 'tvl' | 'vol' | 'apr' | 'name';
@@ -67,7 +90,7 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
   const [chartPool, setChartPool] = useState<PoolInfo | null>(null);
 
   const [hideEmpty, setHideEmpty] = useState(true);
-  const [hideUnverified, setHideUnverified] = useState(false);
+  const [hideUnverified, setHideUnverified] = useState(true);
   const [hideImpostors, setHideImpostors] = useState(true);
 
   const loadPools = useCallback(async (force = false) => {
