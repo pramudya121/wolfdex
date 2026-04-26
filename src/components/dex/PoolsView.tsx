@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CONTRACTS, CHAIN_CONFIG, getTokenByAddress } from '@/config/contracts';
+import { CONTRACTS, CHAIN_CONFIG, getTokenByAddress, TOKENS } from '@/config/contracts';
 import { Link } from '@tanstack/react-router';
 import { useDexContext } from '@/context/DexContext';
 import CreatePairModal from './CreatePairModal';
@@ -27,6 +27,18 @@ interface PoolInfo {
   apr: number;
   myLp: number;
   myShare: number;
+  /** True when at least one token is not in the curated TOKENS list. */
+  unverified: boolean;
+  /** True when the pool has no liquidity. */
+  empty: boolean;
+  /** True when this pool's TVL could not be priced reliably (no path to WETH). */
+  tvlUnknown: boolean;
+}
+
+const KNOWN_ADDRS = new Set(TOKENS.map(t => t.address.toLowerCase()));
+
+function isKnown(addr: string) {
+  return KNOWN_ADDRS.has(addr.toLowerCase());
 }
 
 type SortKey = 'tvl' | 'vol' | 'apr' | 'name';
