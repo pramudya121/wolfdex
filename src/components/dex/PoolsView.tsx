@@ -6,7 +6,7 @@ import { useDexContext } from '@/context/DexContext';
 import CreatePairModal from './CreatePairModal';
 import { WolfSkeleton, WolfSkeletonText } from './ui/WolfSkeleton';
 import PairChart from './PairChart';
-import { ethers } from 'ethers';
+
 import { useTokenResolver } from '@/hooks/useTokenResolver';
 
 interface PoolInfo {
