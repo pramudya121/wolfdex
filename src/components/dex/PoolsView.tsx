@@ -130,11 +130,29 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
         }
       });
       const disambiguate = (tkAddr: string, sym: string) => {
+        const lc = tkAddr.toLowerCase();
+        const symLc = sym.toLowerCase();
+        // 1. If token is in curated list → trust the symbol as-is
+        if (KNOWN_ADDRS.has(lc)) return sym;
+        // 2. If symbol is reserved by a curated token at a different address → impostor
+        const reservedAddr = RESERVED_SYMBOLS[symLc];
+        if (reservedAddr !== undefined && reservedAddr !== lc) {
+          return `${sym}·SPOOF`;
+        }
+        // 3. If multiple unknown contracts use the same symbol → suffix with addr fragment
         const set = addrsPerSymbol[sym];
         if (set && set.size > 1) {
           return `${sym}·${tkAddr.slice(2, 6)}`;
         }
         return sym;
+      };
+
+      const isImpostorToken = (tkAddr: string, sym: string) => {
+        const lc = tkAddr.toLowerCase();
+        if (isBlockedToken(lc)) return true;
+        if (KNOWN_ADDRS.has(lc)) return false;
+        const reservedAddr = RESERVED_SYMBOLS[sym.toLowerCase()];
+        return reservedAddr !== undefined && reservedAddr !== lc;
       };
 
       const out: PoolInfo[] = [];
@@ -171,6 +189,9 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
         const myLp = parseFloat(myLpStr);
         const supply = parseFloat(info.totalSupply) || 0;
         const unverified = !isKnown(info.token0) || !isKnown(info.token1);
+        const impostor =
+          isImpostorToken(info.token0, t0.symbol) ||
+          isImpostorToken(info.token1, t1.symbol);
         out.push({
           address: addr,
           token0: info.token0,
@@ -191,6 +212,7 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
           unverified,
           empty,
           tvlUnknown,
+          impostor,
         });
       });
       setPools(out);
