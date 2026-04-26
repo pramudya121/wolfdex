@@ -381,14 +381,18 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
                   <img src={pool.logo1} alt="" className="w-7 h-7 rounded-full ring-2 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
                 </div>
                 <div className="min-w-0">
-                  <div className="font-bold truncate">{pool.symbol0}/{pool.symbol1}</div>
+                  <div className="font-bold truncate flex items-center gap-1.5">
+                    <span>{pool.symbol0}/{pool.symbol1}</span>
+                    {pool.unverified && <span title="Contains unverified token" className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">⚠</span>}
+                    {pool.empty && <span title="No liquidity yet" className="text-[9px] px-1.5 py-0.5 rounded bg-muted/30 text-muted-foreground border border-wolf-border/30">EMPTY</span>}
+                  </div>
                   {pool.myLp > 0 && <div className="text-[10px] text-wolf-gold">⭐ {pool.myShare.toFixed(2)}% mine</div>}
                 </div>
               </div>
-              <div className="col-span-2 text-right font-bold">{fmt$(pool.tvl)}</div>
-              <div className="col-span-2 text-right text-muted-foreground">{fmt$(pool.vol24h)}</div>
-              <div className="col-span-2 text-right text-cyan-400">{fmt$(pool.fees24h)}</div>
-              <div className="col-span-1 text-right text-wolf-green font-bold">{pool.apr.toFixed(1)}%</div>
+              <div className="col-span-2 text-right font-bold">{fmtTvl(pool)}</div>
+              <div className="col-span-2 text-right text-muted-foreground">{fmtVol(pool)}</div>
+              <div className="col-span-2 text-right text-cyan-400">{fmtFees(pool)}</div>
+              <div className="col-span-1 text-right text-wolf-green font-bold">{pool.tvlUnknown ? '—' : `${pool.apr.toFixed(1)}%`}</div>
               <div className="col-span-2 flex justify-end gap-1.5">
                 <button onClick={() => setChartPool(pool)} className="px-2 py-1 rounded-md text-[10px] bg-wolf-surface border border-wolf-gold/30 hover:border-wolf-gold hover:text-wolf-gold transition">📊</button>
                 <Link to="/liquidity" className="px-2.5 py-1 rounded-md text-[10px] font-bold wolf-btn-primary">Add</Link>
