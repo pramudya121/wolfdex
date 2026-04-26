@@ -419,7 +419,8 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
                 <div className="min-w-0">
                   <div className="font-bold truncate flex items-center gap-1.5">
                     <span>{pool.symbol0}/{pool.symbol1}</span>
-                    {pool.unverified && <span title="Contains unverified token" className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">⚠</span>}
+                    {pool.impostor && <span title="Impostor: token spoofs a curated symbol or is blocklisted" className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-300 border border-red-500/40">🛑 SCAM</span>}
+                    {pool.unverified && !pool.impostor && <span title="Contains unverified token" className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">⚠</span>}
                     {pool.empty && <span title="No liquidity yet" className="text-[9px] px-1.5 py-0.5 rounded bg-muted/30 text-muted-foreground border border-wolf-border/30">EMPTY</span>}
                   </div>
                   {pool.myLp > 0 && <div className="text-[10px] text-wolf-gold">⭐ {pool.myShare.toFixed(2)}% mine</div>}
