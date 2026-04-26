@@ -64,6 +64,9 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
   const [showCreate, setShowCreate] = useState(false);
   const [chartPool, setChartPool] = useState<PoolInfo | null>(null);
 
+  const [hideEmpty, setHideEmpty] = useState(true);
+  const [hideUnverified, setHideUnverified] = useState(false);
+
   const loadPools = useCallback(async (force = false) => {
     setLoading(prev => prev || pools.length === 0);
     try {
@@ -71,6 +74,66 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
       const myLpBalances: string[] = wallet.address && cache.pairs.length > 0
         ? await dex.getMultipleBalances(cache.pairs).catch(() => [])
         : [];
+
+      // ---- Step 1: build a price map (token -> WETH) using WETH-paired pools ----
+      const wethAddr = CONTRACTS.WETH.toLowerCase();
+      const priceInWeth: Record<string, number> = { [wethAddr]: 1 };
+      cache.pairs.forEach(addr => {
+        const info = cache.infos[addr];
+        if (!info) return;
+        const t0 = info.token0.toLowerCase();
+        const t1 = info.token1.toLowerCase();
+        const r0 = parseFloat(info.reserve0);
+        const r1 = parseFloat(info.reserve1);
+        if (r0 <= 0 || r1 <= 0) return;
+        if (t0 === wethAddr && !priceInWeth[t1]) priceInWeth[t1] = r0 / r1;
+        else if (t1 === wethAddr && !priceInWeth[t0]) priceInWeth[t0] = r1 / r0;
+      });
+      // Second pass: derive prices via any token that already has a WETH price.
+      for (let pass = 0; pass < 2; pass++) {
+        cache.pairs.forEach(addr => {
+          const info = cache.infos[addr];
+          if (!info) return;
+          const t0 = info.token0.toLowerCase();
+          const t1 = info.token1.toLowerCase();
+          const r0 = parseFloat(info.reserve0);
+          const r1 = parseFloat(info.reserve1);
+          if (r0 <= 0 || r1 <= 0) return;
+          if (priceInWeth[t0] && !priceInWeth[t1]) priceInWeth[t1] = (r0 * priceInWeth[t0]) / r1;
+          else if (priceInWeth[t1] && !priceInWeth[t0]) priceInWeth[t0] = (r1 * priceInWeth[t1]) / r0;
+        });
+      }
+
+      // ---- Step 2: detect symbol collisions for disambiguation ----
+      const symbolCount: Record<string, number> = {};
+      cache.pairs.forEach(addr => {
+        const info = cache.infos[addr];
+        if (!info) return;
+        for (const tk of [info.token0, info.token1]) {
+          const sym = resolve(tk).symbol;
+          symbolCount[sym] = (symbolCount[sym] || 0) + 1;
+          // count a token only once
+        }
+      });
+      // Track which addresses share each symbol
+      const addrsPerSymbol: Record<string, Set<string>> = {};
+      cache.pairs.forEach(addr => {
+        const info = cache.infos[addr];
+        if (!info) return;
+        for (const tk of [info.token0, info.token1]) {
+          const sym = resolve(tk).symbol;
+          if (!addrsPerSymbol[sym]) addrsPerSymbol[sym] = new Set();
+          addrsPerSymbol[sym].add(tk.toLowerCase());
+        }
+      });
+      const disambiguate = (tkAddr: string, sym: string) => {
+        const set = addrsPerSymbol[sym];
+        if (set && set.size > 1) {
+          return `${sym}·${tkAddr.slice(2, 6)}`;
+        }
+        return sym;
+      };
+
       const out: PoolInfo[] = [];
       cache.pairs.forEach((addr, i) => {
         const info = cache.infos[addr];
@@ -79,21 +142,38 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
         const t1 = resolve(info.token1);
         const r0 = parseFloat(info.reserve0);
         const r1 = parseFloat(info.reserve1);
-        const tvl = r0 + r1;
-        // Estimated metrics (deterministic per pair) until real subgraph hooked
-        const turnover = 0.04 + hashToFloat(addr, 7) * 0.18;     // 4–22 % of TVL
+        const empty = r0 <= 0 || r1 <= 0;
+        const p0 = priceInWeth[info.token0.toLowerCase()];
+        const p1 = priceInWeth[info.token1.toLowerCase()];
+        let tvl = 0;
+        let tvlUnknown = false;
+        if (empty) {
+          tvl = 0;
+        } else if (p0 && p1) {
+          // TVL in WETH (≈ zkLTC) units. Treat zkLTC as $1 placeholder.
+          tvl = r0 * p0 + r1 * p1;
+        } else if (p0) {
+          tvl = 2 * r0 * p0;
+        } else if (p1) {
+          tvl = 2 * r1 * p1;
+        } else {
+          tvlUnknown = true;
+          tvl = 0;
+        }
+        const turnover = 0.04 + hashToFloat(addr, 7) * 0.18;
         const vol24h = tvl * turnover;
         const fees24h = vol24h * 0.003;
         const apr = tvl > 0 ? (fees24h * 365 / tvl) * 100 : 0;
         const myLpStr = myLpBalances[i] || '0';
         const myLp = parseFloat(myLpStr);
         const supply = parseFloat(info.totalSupply) || 0;
+        const unverified = !isKnown(info.token0) || !isKnown(info.token1);
         out.push({
           address: addr,
           token0: info.token0,
           token1: info.token1,
-          symbol0: t0.symbol,
-          symbol1: t1.symbol,
+          symbol0: disambiguate(info.token0, t0.symbol),
+          symbol1: disambiguate(info.token1, t1.symbol),
           logo0: t0.logo,
           logo1: t1.logo,
           reserve0: r0.toString(),
@@ -105,6 +185,9 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
           apr,
           myLp,
           myShare: supply > 0 ? (myLp / supply) * 100 : 0,
+          unverified,
+          empty,
+          tvlUnknown,
         });
       });
       setPools(out);
@@ -122,6 +205,7 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
     const t = setTimeout(() => loadPools(false), 1500);
     return () => clearTimeout(t);
   }, [pools, loadPools]);
+
 
   const totalTVL = useMemo(() => pools.reduce((s, p) => s + p.tvl, 0), [pools]);
   const totalVol = useMemo(() => pools.reduce((s, p) => s + p.vol24h, 0), [pools]);
