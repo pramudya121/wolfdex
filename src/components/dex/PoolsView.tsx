@@ -235,13 +235,14 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
   // Totals: only count "trustworthy" pools — non-empty, priced, and verified.
   // Otherwise scam tokens with huge fake reserves balloon the headline numbers.
   const trustworthy = useMemo(
-    () => pools.filter(p => !p.empty && !p.tvlUnknown && !p.unverified),
+    () => pools.filter(p => !p.empty && !p.tvlUnknown && !p.unverified && !p.impostor),
     [pools],
   );
   const totalTVL = useMemo(() => trustworthy.reduce((s, p) => s + p.tvl, 0), [trustworthy]);
   const totalVol = useMemo(() => trustworthy.reduce((s, p) => s + p.vol24h, 0), [trustworthy]);
   const totalFees = useMemo(() => trustworthy.reduce((s, p) => s + p.fees24h, 0), [trustworthy]);
   const myPositionsCount = useMemo(() => pools.filter(p => p.myLp > 0).length, [pools]);
+  const impostorCount = useMemo(() => pools.filter(p => p.impostor).length, [pools]);
 
   const filtered = useMemo(() => {
     let list = pools.filter(p =>
@@ -251,8 +252,10 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
     if (onlyMine) list = list.filter(p => p.myLp > 0);
     if (hideEmpty) list = list.filter(p => !p.empty);
     if (hideUnverified) list = list.filter(p => !p.unverified);
+    if (hideImpostors) list = list.filter(p => !p.impostor);
     list.sort((a, b) => {
-      // Always demote empty / unknown pools to the bottom regardless of sort key
+      // Always demote impostor / empty / unknown pools to the bottom regardless of sort key
+      if (a.impostor !== b.impostor) return a.impostor ? 1 : -1;
       if (a.empty !== b.empty) return a.empty ? 1 : -1;
       if (a.tvlUnknown !== b.tvlUnknown) return a.tvlUnknown ? 1 : -1;
       switch (sortBy) {
