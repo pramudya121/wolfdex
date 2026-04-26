@@ -305,6 +305,22 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
             ⭐ My Positions {myPositionsCount > 0 && <span className="ml-1 px-1.5 py-0.5 rounded-md bg-wolf-gold/20 text-[9px]">{myPositionsCount}</span>}
           </button>
         )}
+        <button onClick={() => setHideEmpty(v => !v)}
+          title={hideEmpty ? 'Show empty pools' : 'Hide empty (zero-liquidity) pools'}
+          className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all border ${hideEmpty
+            ? 'bg-wolf-surface border-wolf-border/30 text-muted-foreground hover:text-foreground'
+            : 'bg-cyan-500/15 text-cyan-300 border-cyan-500/40'}`}
+        >
+          {hideEmpty ? '🚫 Empty' : '👁 Empty'}
+        </button>
+        <button onClick={() => setHideUnverified(v => !v)}
+          title={hideUnverified ? 'Show unverified-token pools' : 'Hide pools with unknown / unverified tokens'}
+          className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all border ${hideUnverified
+            ? 'bg-wolf-pink/15 text-wolf-pink border-wolf-pink/40'
+            : 'bg-wolf-surface border-wolf-border/30 text-muted-foreground hover:text-foreground'}`}
+        >
+          {hideUnverified ? '🛡 Verified only' : '⚠ Unverified'}
+        </button>
         <div className="flex gap-1 p-1 rounded-lg bg-wolf-surface border border-wolf-border/30">
           {(['grid', 'list'] as const).map(v => (
             <button key={v} onClick={() => setView(v)}
