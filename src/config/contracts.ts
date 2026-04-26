@@ -92,6 +92,33 @@ export const TOKENS: TokenInfo[] = [
   },
 ];
 
+/**
+ * Address-level blocklist for tokens identified as scams / impostors.
+ * Pools containing any of these tokens are hidden by default in the UI.
+ *
+ * Add lowercased addresses here. The UI also auto-detects impostors by symbol
+ * collision against the curated TOKENS list (see KNOWN_SYMBOLS in PoolsView).
+ */
+export const TOKEN_BLOCKLIST: Set<string> = new Set<string>([
+  // Reported impostor "NXR" — symbol collides with no curated token but
+  // shipped with fake reserves. Keep entry as a template; safe to remove.
+  '0x4dc6510000000000000000000000000000000000', // placeholder shape
+]);
+
+/** Symbols that belong exclusively to a curated token. Any other contract
+ *  using the same symbol (case-insensitive) is treated as an impostor. */
+export const RESERVED_SYMBOLS: Record<string, string> = (() => {
+  const out: Record<string, string> = {};
+  for (const t of TOKENS) out[t.symbol.toLowerCase()] = t.address.toLowerCase();
+  // Also reserve common spoof targets even when not in TOKENS list
+  ['ltc', 'wbtc', 'usdt', 'usdc', 'dai'].forEach(s => { if (!out[s]) out[s] = ''; });
+  return out;
+})();
+
+export function isBlockedToken(address: string): boolean {
+  return TOKEN_BLOCKLIST.has(address.toLowerCase());
+}
+
 export function getTokenByAddress(address: string): TokenInfo | undefined {
   if (address === '0x0000000000000000000000000000000000000000') return NATIVE_TOKEN;
   return TOKENS.find(t => t.address.toLowerCase() === address.toLowerCase());
