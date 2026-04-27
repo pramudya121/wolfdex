@@ -27,6 +27,39 @@ export interface RouteQuote {
   hops: number;        // path.length - 1
   amountOut: string;   // formatted ether string (best output)
   via: 'direct' | 'WETH';
+  /**
+   * Mid/spot price across the entire path BEFORE this trade lands
+   * (units: toToken per 1 fromToken). Computed from reserves of every hop.
+   */
+  spotPrice: number;
+  /** Effective execution price for THIS trade (toToken per 1 fromToken). */
+  executionPrice: number;
+  /** Price impact in percent — always >= 0. (spot - exec) / spot * 100. */
+  priceImpactPct: number;
+  /** Per-hop reserve snapshot for UI/diagnostics. */
+  hopReserves: Array<{ pair: string; reserveIn: string; reserveOut: string }>;
+}
+
+/** Result of a pre-flight validation check before submitting a swap tx. */
+export interface SwapPreflight {
+  ok: boolean;
+  warnings: string[];
+  errors: string[];
+  details: {
+    path: string[];
+    amountIn: string;          // formatted ether
+    amountOutMin: string;      // formatted ether (post-slippage floor)
+    deadline: number;          // unix seconds
+    deadlineIso: string;
+    slippageBips: number;
+    needsApproval: boolean;
+    currentAllowance: string;  // formatted ether
+    balance: string;           // formatted ether
+    pairExists: boolean[];     // one per hop
+    estimatedGas: string | null;
+    method: 'swapExactETHForTokens' | 'swapExactTokensForETH' | 'swapExactTokensForTokens' | 'wrap' | 'unwrap';
+    value: string;             // ETH value sent (formatted)
+  };
 }
 
 export function useDex(signer: ethers.Signer | null, address: string | null) {
