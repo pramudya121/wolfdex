@@ -6,6 +6,7 @@ import CometShower from "@/components/dex/CometShower";
 import AIAgentPanel from "@/components/dex/AIAgentPanel";
 import GlobalTxNotifier from "@/components/dex/GlobalTxNotifier";
 import GlobalLimitWatcher from "@/components/dex/GlobalLimitWatcher";
+import PageTransition from "@/components/dex/PageTransition";
 import { DexProvider, useDexContext } from "@/context/DexContext";
 import { Toaster } from "sonner";
 
