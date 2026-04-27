@@ -630,7 +630,7 @@ export function useDex(signer: ethers.Signer | null, address: string | null) {
   return {
     loading, txHash, error, setError,
     swap, addLiquidity, removeLiquidity,
-    getAmountsOut, getBestRoute, getTokenBalance, getMultipleBalances,
+    getAmountsOut, getBestRoute, previewSwap, getTokenBalance, getMultipleBalances,
     getPairAddress, getPairInfo, getAllPairs,
     approveToken, getErc20,
   };
