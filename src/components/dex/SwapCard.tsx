@@ -388,7 +388,7 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
         {/* Action button */}
         <button
           onClick={isConnected ? handleSwap : onConnectClick}
-          disabled={isConnected && (loading || !fromAmount || parseFloat(fromAmount) <= 0)}
+          disabled={isConnected && (loading || !fromAmount || parseFloat(fromAmount) <= 0 || !!(preflight && preflight.errors.length > 0))}
           className="w-full mt-4 py-4 rounded-2xl font-bold text-base transition-all wolf-btn-primary disabled:opacity-50 disabled:cursor-not-allowed text-lg"
         >
           {!isConnected ? 'Connect Wallet' : loading ? (
