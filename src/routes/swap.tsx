@@ -108,6 +108,7 @@ function SwapPage() {
                   swap={swap}
                   getAmountsOut={dex.getAmountsOut}
                   getBestRoute={dex.getBestRoute}
+                  previewSwap={dex.previewSwap}
                   getTokenBalance={dex.getTokenBalance}
                   loading={dex.loading}
                   txHash={dex.txHash}
