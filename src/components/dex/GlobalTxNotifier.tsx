@@ -81,13 +81,17 @@ export default function GlobalTxNotifier() {
         : undefined;
 
       if (t.status === 'pending') {
+        const id = `tx-${t.hash}`;
         toast.loading(`${icon} ${t.summary}`, {
-          id: `tx-${t.hash}`,
+          id,
           description: explorerUrl
             ? `Submitted • ${shortHash(t.hash)}`
             : 'Waiting for wallet confirmation…',
           action,
         });
+        if (t.hash.startsWith('pending-')) {
+          pendingBySummary.current.set(t.summary, id);
+        }
       } else if (t.status === 'success') {
         toast.success(`${icon} ${t.summary}`, {
           id: `tx-${t.hash}`,
