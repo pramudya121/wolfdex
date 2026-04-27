@@ -215,12 +215,15 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
         </div>
 
         {/* Price & impact */}
-        {rate && !wrapType && (
-          <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground px-1">
-            <span>1 {fromToken.symbol} = {rate} {toToken.symbol}</span>
-            <span>Impact ~{priceImpact}%</span>
-          </div>
-        )}
+        {rate && !wrapType && (() => {
+          const impactColor = priceImpact >= 5 ? 'text-wolf-red' : priceImpact >= 1 ? 'text-yellow-400' : 'text-wolf-green';
+          return (
+            <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground px-1">
+              <span>1 {fromToken.symbol} = {rate} {toToken.symbol}</span>
+              <span className={impactColor}>Impact {priceImpact < 0.01 ? '<0.01' : priceImpact.toFixed(2)}%</span>
+            </div>
+          );
+        })()}
 
         {/* Route info */}
         {fromAmount && toAmount && parseFloat(toAmount) > 0 && !wrapType && (
@@ -236,7 +239,6 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
             </div>
             <div className="flex items-center gap-1.5 flex-wrap">
               {(route?.path || []).map((addr, i) => {
-                // Map first/last hop back to display tokens (preserves native zkLTC label).
                 let display = getTokenByAddress(addr);
                 if (i === 0) display = fromToken;
                 if (i === (route!.path.length - 1)) display = toToken;
@@ -259,41 +261,48 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
           </motion.div>
         )}
 
-        {/* MEV Protection */}
-        {fromAmount && toAmount && parseFloat(toAmount) > 0 && !wrapType && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-3 p-3 rounded-xl bg-wolf-dark/40 border border-wolf-border/15">
-            <div className="flex items-center gap-2 mb-2">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-wolf-pink"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-              <span className="text-xs font-medium">MEV Protection</span>
+        {/* On-chain validation: errors */}
+        {preflight && preflight.errors.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+            className="mt-3 p-3 rounded-xl bg-wolf-red/10 border border-wolf-red/40 text-xs space-y-1"
+          >
+            <div className="flex items-center gap-2 font-semibold text-wolf-red">
+              <span>⛔</span><span>Cannot swap</span>
             </div>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-wolf-green/15 text-wolf-green text-xs font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-wolf-green" />
-              Low Risk
-            </div>
-            <p className="text-[10px] text-muted-foreground mt-1.5 flex items-center gap-1">
-              <span className="text-yellow-500">⚠</span> Unable to analyze risk - proceed with caution
-            </p>
+            {preflight.errors.map((e, i) => (
+              <div key={i} className="text-wolf-red/90">• {e}</div>
+            ))}
           </motion.div>
         )}
 
-        {/* Gas estimate */}
-        {fromAmount && toAmount && parseFloat(toAmount) > 0 && !wrapType && (
-          <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground px-1">
-            <div className="flex items-center gap-1.5">
-              <span>⛽</span>
-              <span>Estimated Gas</span>
-              <span className="font-medium text-foreground">~0.0003 zkLTC</span>
+        {/* On-chain validation: warnings */}
+        {preflight && preflight.errors.length === 0 && preflight.warnings.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+            className="mt-3 p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/40 text-xs space-y-1"
+          >
+            <div className="flex items-center gap-2 font-semibold text-yellow-400">
+              <span>⚠️</span><span>Heads up</span>
             </div>
-            <span className="text-wolf-green">$0.0005</span>
+            {preflight.warnings.map((w, i) => (
+              <div key={i} className="text-yellow-300/90">• {w}</div>
+            ))}
+          </motion.div>
+        )}
+
+        {/* High price-impact callout (always shown when impact ≥ 5%) */}
+        {!wrapType && priceImpact >= 5 && (
+          <div className="mt-3 p-2.5 rounded-xl bg-wolf-red/10 border border-wolf-red/40 text-xs text-wolf-red flex items-center gap-2">
+            <span>🔥</span>
+            <span>High price impact ({priceImpact.toFixed(2)}%) — your trade is large vs pool depth.</span>
           </div>
         )}
 
-        {/* Trade details */}
+        {/* Trade details (now backed by preflight data) */}
         {fromAmount && toAmount && parseFloat(toAmount) > 0 && (
           <button onClick={() => setShowTradeDetails(!showTradeDetails)}
             className="mt-3 w-full flex items-center justify-between text-xs text-muted-foreground px-1 py-2 hover:text-foreground transition-colors"
           >
-            <span>Trade details</span>
+            <span>Trade details {previewing && '(checking on-chain…)'}</span>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
               className={`transition-transform ${showTradeDetails ? 'rotate-180' : ''}`}
             ><path d="M6 9l6 6 6-6"/></svg>
@@ -305,20 +314,67 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
               <div className="p-3 rounded-xl bg-wolf-dark/40 text-xs space-y-2">
                 <div className="flex justify-between text-muted-foreground">
                   <span>Minimum received</span>
-                  <span className="text-foreground">{(parseFloat(toAmount) * (1 - parseFloat(slippage) / 100)).toFixed(6)} {toToken.symbol}</span>
+                  <span className="text-foreground tabular-nums">
+                    {preflight ? parseFloat(preflight.details.amountOutMin).toFixed(6) : (parseFloat(toAmount) * (1 - parseFloat(slippage) / 100)).toFixed(6)} {toToken.symbol}
+                  </span>
                 </div>
                 <div className="flex justify-between text-muted-foreground">
                   <span>Slippage tolerance</span>
-                  <span className="text-foreground">{slippage}%</span>
+                  <span className="text-foreground">{slippage}% ({preflight?.details.slippageBips ?? Math.round(parseFloat(slippage) * 100)} bips)</span>
                 </div>
                 <div className="flex justify-between text-muted-foreground">
                   <span>Price impact</span>
-                  <span className="text-wolf-green">~{priceImpact}%</span>
+                  <span className={priceImpact >= 5 ? 'text-wolf-red' : priceImpact >= 1 ? 'text-yellow-400' : 'text-wolf-green'}>
+                    {priceImpact < 0.01 ? '<0.01' : priceImpact.toFixed(2)}%
+                  </span>
                 </div>
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Network fee</span>
-                  <span className="text-foreground">~0.0003 zkLTC</span>
-                </div>
+                {route && route.spotPrice > 0 && (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Spot vs execution</span>
+                    <span className="text-foreground tabular-nums">
+                      {route.spotPrice.toPrecision(5)} → {route.executionPrice.toPrecision(5)}
+                    </span>
+                  </div>
+                )}
+                {preflight && (
+                  <>
+                    <div className="border-t border-wolf-border/20 pt-2 mt-2 text-[10px] uppercase tracking-wider text-muted-foreground">Tx request</div>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Method</span>
+                      <span className="text-foreground font-mono text-[10px]">{preflight.details.method}</span>
+                    </div>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Deadline</span>
+                      <span className="text-foreground tabular-nums">
+                        {new Date(preflight.details.deadline * 1000).toLocaleTimeString()} ({deadline}m)
+                      </span>
+                    </div>
+                    {preflight.details.value !== '0' && (
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Value sent</span>
+                        <span className="text-foreground tabular-nums">{parseFloat(preflight.details.value).toFixed(6)} zkLTC</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Allowance</span>
+                      <span className={preflight.details.needsApproval ? 'text-yellow-400' : 'text-wolf-green'}>
+                        {preflight.details.needsApproval ? 'approval required' : 'sufficient'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Pool liquidity</span>
+                      <span className={preflight.details.pairExists.every(Boolean) ? 'text-wolf-green' : 'text-wolf-red'}>
+                        {preflight.details.pairExists.every(Boolean) ? `verified (${preflight.details.pairExists.length} hop${preflight.details.pairExists.length > 1 ? 's' : ''})` : 'missing'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Estimated gas</span>
+                      <span className="text-foreground tabular-nums">
+                        {preflight.details.estimatedGas ? `${parseInt(preflight.details.estimatedGas).toLocaleString()} units` : '—'}
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
             </motion.div>
           )}
