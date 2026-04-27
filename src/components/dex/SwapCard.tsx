@@ -104,6 +104,11 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
 
   const handleSwap = async () => {
     if (!fromAmount || parseFloat(fromAmount) <= 0) return;
+    // Hard block on preflight errors so we don't burn gas on a guaranteed revert.
+    if (preflight && preflight.errors.length > 0) {
+      toast.error('Swap blocked', { description: preflight.errors[0] });
+      return;
+    }
     try {
       const hash = await swap(fromToken, toToken, fromAmount, toAmount || '0', parseFloat(slippage), parseFloat(deadline), route?.path);
       toast.success(`${buttonLabel} successful!`, {
