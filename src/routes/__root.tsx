@@ -6,6 +6,7 @@ import CometShower from "@/components/dex/CometShower";
 import AIAgentPanel from "@/components/dex/AIAgentPanel";
 import GlobalTxNotifier from "@/components/dex/GlobalTxNotifier";
 import GlobalLimitWatcher from "@/components/dex/GlobalLimitWatcher";
+import PageTransition from "@/components/dex/PageTransition";
 import { DexProvider, useDexContext } from "@/context/DexContext";
 import { Toaster } from "sonner";
 
@@ -84,20 +85,35 @@ function AppLayout() {
         onDisconnect={wallet.disconnect}
       />
       <main className="pt-20 pb-12 px-4 relative" style={{ zIndex: 1 }}>
-        <Outlet />
+        <PageTransition>
+          <Outlet />
+        </PageTransition>
       </main>
       <AIAgentPanel />
       <GlobalTxNotifier />
       <GlobalLimitWatcher />
-      <Toaster theme="dark" position="top-right" richColors closeButton expand visibleToasts={5} />
-      <footer className="border-t border-wolf-border/30 py-6 text-center text-xs text-muted-foreground">
-        <p>WOLFDEX © 2026 — Built on LitVM LiteForge Testnet (Chain ID: 4441)</p>
-        <div className="flex justify-center gap-4 mt-2">
-          <a href={`https://liteforge.explorer.caldera.xyz`} target="_blank" rel="noopener noreferrer" className="hover:text-wolf-gold transition-colors">Block Explorer</a>
-          <span>•</span>
-          <span>Factory: 0x5687...cA873</span>
-          <span>•</span>
-          <span>Router: 0xd289...86B4</span>
+      <Toaster
+        theme="dark"
+        position="top-right"
+        richColors
+        closeButton
+        expand
+        visibleToasts={5}
+        toastOptions={{
+          classNames: {
+            toast: 'wolf-toast',
+          },
+        }}
+      />
+      <footer className="relative border-t border-wolf-border/30 py-8 mt-12 text-center text-xs text-muted-foreground overflow-hidden">
+        <div className="pointer-events-none absolute inset-0 opacity-40 wolf-footer-shine" />
+        <p className="relative">WOLFDEX © 2026 — Built on LitVM LiteForge Testnet (Chain ID: 4441)</p>
+        <div className="relative flex flex-wrap justify-center gap-x-4 gap-y-2 mt-3">
+          <a href={`https://liteforge.explorer.caldera.xyz`} target="_blank" rel="noopener noreferrer" className="story-link hover:text-wolf-gold transition-colors">Block Explorer</a>
+          <span className="opacity-50">•</span>
+          <span className="font-mono opacity-80">Factory: 0x5687…cA873</span>
+          <span className="opacity-50">•</span>
+          <span className="font-mono opacity-80">Router: 0xd289…86B4</span>
         </div>
       </footer>
     </div>

@@ -191,6 +191,141 @@
     box-shadow: 0 0 25px -5px oklch(0.65 0.25 330 / 20%);
     transform: translateY(-2px);
   }
+
+  /* ── New polish utilities ─────────────────────────────────── */
+
+  /* Premium gradient text that subtly animates its hue */
+  .wolf-gradient-text-animated {
+    background: linear-gradient(120deg, oklch(0.7 0.25 330), oklch(0.78 0.16 85), oklch(0.7 0.22 300), oklch(0.7 0.25 330));
+    background-size: 300% 300%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: wolf-gradient-shift 8s ease infinite;
+  }
+
+  /* Glassmorphism surface — subtle frost */
+  .wolf-glass {
+    background: linear-gradient(145deg, oklch(0.18 0.025 280 / 55%), oklch(0.12 0.02 280 / 35%));
+    border: 1px solid oklch(0.65 0.25 330 / 18%);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+  }
+
+  /* Lift on hover — works for any card */
+  .wolf-lift {
+    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.3s ease, border-color 0.3s ease;
+    will-change: transform;
+  }
+  .wolf-lift:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 32px -10px oklch(0.65 0.25 330 / 25%), 0 0 0 1px oklch(0.65 0.25 330 / 35%);
+  }
+
+  /* Animated gradient ring border on focus / hover */
+  .wolf-gradient-border {
+    position: relative;
+    isolation: isolate;
+    border-radius: inherit;
+  }
+  .wolf-gradient-border::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: inherit;
+    background: conic-gradient(from var(--angle, 0deg), oklch(0.65 0.25 330), oklch(0.78 0.16 85), oklch(0.7 0.22 300), oklch(0.65 0.25 330));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+    animation: wolf-angle-spin 6s linear infinite;
+    opacity: 0.7;
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  /* Shimmer sweep on hover (for buttons / banners) */
+  .wolf-shimmer-hover {
+    position: relative;
+    overflow: hidden;
+  }
+  .wolf-shimmer-hover::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(115deg, transparent 30%, oklch(1 0 0 / 22%) 50%, transparent 70%);
+    transform: translateX(-120%);
+    transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: none;
+  }
+  .wolf-shimmer-hover:hover::after { transform: translateX(120%); }
+
+  /* Soft float — for hero badges / mascots */
+  .wolf-float {
+    animation: wolf-float-y 6s ease-in-out infinite;
+  }
+
+  /* Page-level entry stagger helpers (combine with style="animation-delay:") */
+  .wolf-rise {
+    opacity: 0;
+    animation: wolf-rise-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  /* Sonner override — make toasts feel native to WOLFDEX */
+  .wolf-toast {
+    background: linear-gradient(145deg, oklch(0.16 0.025 280 / 95%), oklch(0.12 0.02 280 / 95%)) !important;
+    border: 1px solid oklch(0.65 0.25 330 / 35%) !important;
+    box-shadow: 0 12px 36px -10px oklch(0.05 0.02 280 / 60%), 0 0 24px -8px oklch(0.65 0.25 330 / 25%) !important;
+    backdrop-filter: blur(14px);
+  }
+
+  /* Footer subtle moving glow */
+  .wolf-footer-shine {
+    background: radial-gradient(60% 80% at 50% 100%, oklch(0.65 0.25 330 / 25%), transparent 70%);
+    animation: wolf-footer-pulse 6s ease-in-out infinite;
+  }
+
+  /* Focus-visible ring shared across the app */
+  .wolf-focus-ring:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px oklch(0.11 0.02 280), 0 0 0 4px oklch(0.65 0.25 330 / 70%);
+  }
+
+  /* Scrollbar */
+  .wolf-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+  .wolf-scroll::-webkit-scrollbar-track { background: transparent; }
+  .wolf-scroll::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, oklch(0.65 0.25 330 / 60%), oklch(0.78 0.16 85 / 60%));
+    border-radius: 8px;
+  }
+  .wolf-scroll::-webkit-scrollbar-thumb:hover { background: oklch(0.65 0.25 330 / 90%); }
+}
+
+@property --angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes wolf-gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes wolf-angle-spin {
+  to { --angle: 360deg; }
+}
+@keyframes wolf-float-y {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+@keyframes wolf-rise-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes wolf-footer-pulse {
+  0%, 100% { opacity: 0.4; transform: translateY(0); }
+  50% { opacity: 0.7; transform: translateY(-4px); }
 }
 
 @keyframes wave {
