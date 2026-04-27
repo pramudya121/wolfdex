@@ -34,6 +34,10 @@ export default function GlobalTxNotifier() {
   const { txHistory } = useDexContext();
   // Track previous status per tx hash so we only toast on transitions.
   const seen = useRef<Map<string, string>>(new Map());
+  // Track pending placeholder toast ids by summary so we can dismiss them
+  // when the real hash arrives (some flows replace `pending-xxx` with a real
+  // hash, leaving the old loading toast hanging forever otherwise).
+  const pendingBySummary = useRef<Map<string, string>>(new Map());
   const initialized = useRef(false);
 
   useEffect(() => {
@@ -44,10 +48,30 @@ export default function GlobalTxNotifier() {
       return;
     }
 
+    // Detect hashes that disappeared from the list (e.g. a `pending-xxx`
+    // placeholder was replaced by a real hash) and dismiss their toasts.
+    const currentHashes = new Set(txHistory.all.map(t => t.hash));
+    for (const [hash, status] of Array.from(seen.current.entries())) {
+      if (!currentHashes.has(hash) && status === 'pending') {
+        toast.dismiss(`tx-${hash}`);
+        seen.current.delete(hash);
+      }
+    }
+
     for (const t of txHistory.all) {
       const prev = seen.current.get(t.hash);
       if (prev === t.status) continue;
       seen.current.set(t.hash, t.status);
+
+      // If a pending placeholder existed with the same summary, dismiss it
+      // so the new success/failed toast replaces it cleanly.
+      if (t.status !== 'pending') {
+        const staleId = pendingBySummary.current.get(t.summary);
+        if (staleId && staleId !== `tx-${t.hash}`) {
+          toast.dismiss(staleId);
+          pendingBySummary.current.delete(t.summary);
+        }
+      }
       const icon = ICON[t.kind] ?? '📡';
       const explorerUrl = t.hash && !t.hash.startsWith('pending-')
         ? `${CHAIN_CONFIG.blockExplorer}/tx/${t.hash}`
