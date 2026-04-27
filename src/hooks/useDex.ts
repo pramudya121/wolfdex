@@ -261,10 +261,17 @@ export function useDex(signer: ethers.Signer | null, address: string | null) {
     if (slippagePct != null && slippagePct >= 5) warnings.push(`Slippage ${slippagePct}% is high — accepting up to that much loss`);
     if (slippagePct != null && slippagePct <= 0.05) warnings.push('Slippage below 0.05% will likely revert in volatile markets');
 
-    // Balance check
+    // Balance check (read directly so we don't depend on a hook declared below)
     let balance = '0';
     try {
-      balance = await getTokenBalance(fromToken.address);
+      if (signer && address) {
+        if (fromNative) {
+          balance = ethers.utils.formatEther(await readProvider.getBalance(address));
+        } else {
+          const erc20 = new ethers.Contract(fromToken.address, ERC20_ABI, readProvider);
+          balance = ethers.utils.formatEther(await erc20.balanceOf(address));
+        }
+      }
       if (parseFloat(balance) < parseFloat(amountIn || '0')) {
         errors.push(`Insufficient ${fromToken.symbol} balance (have ${parseFloat(balance).toFixed(6)})`);
       }
