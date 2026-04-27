@@ -159,11 +159,53 @@ export function useDex(signer: ethers.Signer | null, address: string | null) {
     }
     if (!best) return null;
 
+    // Resolve every hop's pair address + reserves for accurate price-impact math.
+    const factory = new ethers.Contract(CONTRACTS.FACTORY, FACTORY_ABI, signer);
+    const hopReserves: Array<{ pair: string; reserveIn: string; reserveOut: string }> = [];
+    let spotPrice = 1; // toToken per fromToken across the chain
+    try {
+      for (let i = 0; i < best.path.length - 1; i++) {
+        const tokenIn = best.path[i];
+        const tokenOut = best.path[i + 1];
+        const pairAddr = await factory.getPair(tokenIn, tokenOut);
+        if (!pairAddr || pairAddr === ethers.constants.AddressZero) {
+          spotPrice = 0;
+          break;
+        }
+        const pair = new ethers.Contract(pairAddr, PAIR_ABI, signer);
+        const [reserves, token0] = await Promise.all([pair.getReserves(), pair.token0()]);
+        const inIs0 = String(token0).toLowerCase() === tokenIn.toLowerCase();
+        const reserveIn = inIs0 ? reserves[0] : reserves[1];
+        const reserveOut = inIs0 ? reserves[1] : reserves[0];
+        hopReserves.push({
+          pair: pairAddr,
+          reserveIn: ethers.utils.formatEther(reserveIn),
+          reserveOut: ethers.utils.formatEther(reserveOut),
+        });
+        // Spot rate for this hop = reserveOut / reserveIn (no fee, no slippage)
+        const rIn = parseFloat(ethers.utils.formatEther(reserveIn));
+        const rOut = parseFloat(ethers.utils.formatEther(reserveOut));
+        if (rIn <= 0) { spotPrice = 0; break; }
+        spotPrice *= rOut / rIn;
+      }
+    } catch { spotPrice = 0; }
+
+    const amtIn = parseFloat(amountIn);
+    const amtOut = parseFloat(ethers.utils.formatEther(best.out));
+    const executionPrice = amtIn > 0 ? amtOut / amtIn : 0;
+    const priceImpactPct = spotPrice > 0 && executionPrice > 0
+      ? Math.max(0, (1 - executionPrice / spotPrice) * 100)
+      : 0;
+
     return {
       path: best.path,
       hops: best.path.length - 1,
       amountOut: ethers.utils.formatEther(best.out),
       via: best.via,
+      spotPrice,
+      executionPrice,
+      priceImpactPct,
+      hopReserves,
     };
   }, [signer]);
 
