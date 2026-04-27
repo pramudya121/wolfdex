@@ -5,13 +5,14 @@ import { toast } from 'sonner';
 import TokenModal from './TokenModal';
 import TxSettingsPanel from './TxSettingsPanel';
 import { useTxSettings } from '@/context/DexContext';
-import type { RouteQuote } from '@/hooks/useDex';
+import type { RouteQuote, SwapPreflight } from '@/hooks/useDex';
 import { WolfSpinner } from './ui/WolfSkeleton';
 
 interface SwapCardProps {
   swap: (from: TokenInfo, to: TokenInfo, amountIn: string, amountOut: string, slippagePct?: number, deadlineMinutes?: number, routePath?: string[]) => Promise<string>;
   getAmountsOut: (amountIn: string, path: string[]) => Promise<string>;
   getBestRoute: (from: TokenInfo, to: TokenInfo, amountIn: string) => Promise<RouteQuote | null>;
+  previewSwap: (from: TokenInfo, to: TokenInfo, amountIn: string, amountOutExpected: string, slippagePct?: number, deadlineMinutes?: number, routePath?: string[]) => Promise<SwapPreflight>;
   getTokenBalance: (address: string) => Promise<string>;
   loading: boolean;
   txHash: string | null;
@@ -20,7 +21,7 @@ interface SwapCardProps {
   onConnectClick: () => void;
 }
 
-export default function SwapCard({ swap, getAmountsOut, getBestRoute, getTokenBalance, loading, txHash, error, isConnected, onConnectClick }: SwapCardProps) {
+export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwap, getTokenBalance, loading, txHash, error, isConnected, onConnectClick }: SwapCardProps) {
   const { slippage, deadline } = useTxSettings();
   const [fromToken, setFromToken] = useState<TokenInfo>(NATIVE_TOKEN);
   const [toToken, setToToken] = useState<TokenInfo>(TOKENS[1]);
@@ -32,8 +33,10 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, getTokenBa
   const [showToModal, setShowToModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showTradeDetails, setShowTradeDetails] = useState(false);
-  const [priceImpact, setPriceImpact] = useState('0.00');
+  const [priceImpact, setPriceImpact] = useState<number>(0);
   const [route, setRoute] = useState<RouteQuote | null>(null);
+  const [preflight, setPreflight] = useState<SwapPreflight | null>(null);
+  const [previewing, setPreviewing] = useState(false);
 
   const wrapType = isWrapUnwrap(fromToken.address, toToken.address);
   // Always show "Swap" — wrap/unwrap is just a swap with WETH under the hood.
@@ -53,6 +56,8 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, getTokenBa
       if (wrapType && fromAmount) setToAmount(fromAmount);
       else if (!fromAmount) setToAmount('');
       setRoute(null);
+      setPriceImpact(0);
+      setPreflight(null);
       return;
     }
     const timer = setTimeout(async () => {
@@ -61,17 +66,34 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, getTokenBa
       if (!best) {
         setRoute(null);
         setToAmount('0');
+        setPriceImpact(0);
+        setPreflight({
+          ok: false, warnings: [], errors: ['No route found — pair has no liquidity'],
+          details: { path: [], amountIn: '0', amountOutMin: '0', deadline: 0, deadlineIso: '', slippageBips: 0, needsApproval: false, currentAllowance: '0', balance: '0', pairExists: [], estimatedGas: null, method: 'swapExactTokensForTokens', value: '0' },
+        });
         return;
       }
       setRoute(best);
       setToAmount(best.amountOut);
-      if (parseFloat(best.amountOut) > 0) {
-        const impact = Math.abs((parseFloat(best.amountOut) / parseFloat(fromAmount) - 1) * 100);
-        setPriceImpact(Math.min(impact, 99.99).toFixed(2));
+      // Use the on-chain reserve-based price impact (toToken/fromToken).
+      setPriceImpact(best.priceImpactPct);
+
+      // Run pre-flight validation against on-chain state.
+      if (isConnected) {
+        setPreviewing(true);
+        try {
+          const pf = await previewSwap(
+            fromToken, toToken, fromAmount, best.amountOut,
+            parseFloat(slippage), parseFloat(deadline), best.path,
+          );
+          setPreflight(pf);
+        } finally { setPreviewing(false); }
+      } else {
+        setPreflight(null);
       }
     }, 500);
     return () => clearTimeout(timer);
-  }, [fromAmount, fromToken, toToken, getBestRoute, wrapType]);
+  }, [fromAmount, fromToken, toToken, getBestRoute, previewSwap, wrapType, slippage, deadline, isConnected]);
 
   const handleSwitch = () => {
     setFromToken(toToken);
