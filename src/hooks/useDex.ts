@@ -27,6 +27,39 @@ export interface RouteQuote {
   hops: number;        // path.length - 1
   amountOut: string;   // formatted ether string (best output)
   via: 'direct' | 'WETH';
+  /**
+   * Mid/spot price across the entire path BEFORE this trade lands
+   * (units: toToken per 1 fromToken). Computed from reserves of every hop.
+   */
+  spotPrice: number;
+  /** Effective execution price for THIS trade (toToken per 1 fromToken). */
+  executionPrice: number;
+  /** Price impact in percent — always >= 0. (spot - exec) / spot * 100. */
+  priceImpactPct: number;
+  /** Per-hop reserve snapshot for UI/diagnostics. */
+  hopReserves: Array<{ pair: string; reserveIn: string; reserveOut: string }>;
+}
+
+/** Result of a pre-flight validation check before submitting a swap tx. */
+export interface SwapPreflight {
+  ok: boolean;
+  warnings: string[];
+  errors: string[];
+  details: {
+    path: string[];
+    amountIn: string;          // formatted ether
+    amountOutMin: string;      // formatted ether (post-slippage floor)
+    deadline: number;          // unix seconds
+    deadlineIso: string;
+    slippageBips: number;
+    needsApproval: boolean;
+    currentAllowance: string;  // formatted ether
+    balance: string;           // formatted ether
+    pairExists: boolean[];     // one per hop
+    estimatedGas: string | null;
+    method: 'swapExactETHForTokens' | 'swapExactTokensForETH' | 'swapExactTokensForTokens' | 'wrap' | 'unwrap';
+    value: string;             // ETH value sent (formatted)
+  };
 }
 
 export function useDex(signer: ethers.Signer | null, address: string | null) {
@@ -126,13 +159,214 @@ export function useDex(signer: ethers.Signer | null, address: string | null) {
     }
     if (!best) return null;
 
+    // Resolve every hop's pair address + reserves for accurate price-impact math.
+    const factory = new ethers.Contract(CONTRACTS.FACTORY, FACTORY_ABI, signer);
+    const hopReserves: Array<{ pair: string; reserveIn: string; reserveOut: string }> = [];
+    let spotPrice = 1; // toToken per fromToken across the chain
+    try {
+      for (let i = 0; i < best.path.length - 1; i++) {
+        const tokenIn = best.path[i];
+        const tokenOut = best.path[i + 1];
+        const pairAddr = await factory.getPair(tokenIn, tokenOut);
+        if (!pairAddr || pairAddr === ethers.constants.AddressZero) {
+          spotPrice = 0;
+          break;
+        }
+        const pair = new ethers.Contract(pairAddr, PAIR_ABI, signer);
+        const [reserves, token0] = await Promise.all([pair.getReserves(), pair.token0()]);
+        const inIs0 = String(token0).toLowerCase() === tokenIn.toLowerCase();
+        const reserveIn = inIs0 ? reserves[0] : reserves[1];
+        const reserveOut = inIs0 ? reserves[1] : reserves[0];
+        hopReserves.push({
+          pair: pairAddr,
+          reserveIn: ethers.utils.formatEther(reserveIn),
+          reserveOut: ethers.utils.formatEther(reserveOut),
+        });
+        // Spot rate for this hop = reserveOut / reserveIn (no fee, no slippage)
+        const rIn = parseFloat(ethers.utils.formatEther(reserveIn));
+        const rOut = parseFloat(ethers.utils.formatEther(reserveOut));
+        if (rIn <= 0) { spotPrice = 0; break; }
+        spotPrice *= rOut / rIn;
+      }
+    } catch { spotPrice = 0; }
+
+    const amtIn = parseFloat(amountIn);
+    const amtOut = parseFloat(ethers.utils.formatEther(best.out));
+    const executionPrice = amtIn > 0 ? amtOut / amtIn : 0;
+    const priceImpactPct = spotPrice > 0 && executionPrice > 0
+      ? Math.max(0, (1 - executionPrice / spotPrice) * 100)
+      : 0;
+
     return {
       path: best.path,
       hops: best.path.length - 1,
       amountOut: ethers.utils.formatEther(best.out),
       via: best.via,
+      spotPrice,
+      executionPrice,
+      priceImpactPct,
+      hopReserves,
     };
   }, [signer]);
+
+  /**
+   * Pre-flight validation that runs entirely against on-chain state BEFORE
+   * the user signs a swap tx. Verifies pair existence, reserves, balance,
+   * allowance, slippage floor, deadline, and produces an estimated gas cost
+   * via `router.estimateGas`. Returns a structured result the UI can render
+   * as warnings/errors plus the exact tx-request payload.
+   */
+  const previewSwap = useCallback(async (
+    fromToken: TokenInfo,
+    toToken: TokenInfo,
+    amountIn: string,
+    amountOutExpected: string,
+    slippagePct?: number,
+    deadlineMinutes?: number,
+    routePath?: string[],
+  ): Promise<SwapPreflight> => {
+    const warnings: string[] = [];
+    const errors: string[] = [];
+    const slippageBips = pctToBips(slippagePct);
+    const wrapType = isWrapUnwrap(fromToken.address, toToken.address);
+    const fromNative = isNativeToken(fromToken.address);
+    const toNative = isNativeToken(toToken.address);
+    const fromAddr = fromNative ? CONTRACTS.WETH : fromToken.address;
+    const toAddr = toNative ? CONTRACTS.WETH : toToken.address;
+    const path = routePath && routePath.length >= 2 ? routePath : [fromAddr, toAddr];
+    const deadline = getDeadline(deadlineMinutes);
+
+    let parsedIn: ethers.BigNumber;
+    let parsedOutMin: ethers.BigNumber;
+    try {
+      parsedIn = ethers.utils.parseEther(amountIn || '0');
+      parsedOutMin = calcMinAmount(ethers.utils.parseEther(amountOutExpected || '0'), slippageBips);
+    } catch {
+      errors.push('Invalid amount format');
+      return {
+        ok: false, warnings, errors,
+        details: {
+          path, amountIn: '0', amountOutMin: '0', deadline, deadlineIso: new Date(deadline * 1000).toISOString(),
+          slippageBips, needsApproval: false, currentAllowance: '0', balance: '0',
+          pairExists: [], estimatedGas: null,
+          method: wrapType === 'wrap' ? 'wrap' : wrapType === 'unwrap' ? 'unwrap' : fromNative ? 'swapExactETHForTokens' : toNative ? 'swapExactTokensForETH' : 'swapExactTokensForTokens',
+          value: '0',
+        },
+      };
+    }
+
+    if (parsedIn.lte(0)) errors.push('Amount must be greater than zero');
+    if (deadlineMinutes != null && deadlineMinutes <= 0) errors.push('Deadline must be > 0 minutes');
+    if (deadlineMinutes != null && deadlineMinutes > 60 * 24) warnings.push('Deadline is over 24 hours — long-pending txs are MEV-prone');
+    if (slippagePct != null && slippagePct >= 5) warnings.push(`Slippage ${slippagePct}% is high — accepting up to that much loss`);
+    if (slippagePct != null && slippagePct <= 0.05) warnings.push('Slippage below 0.05% will likely revert in volatile markets');
+
+    // Balance check (read directly so we don't depend on a hook declared below)
+    let balance = '0';
+    try {
+      if (signer && address) {
+        if (fromNative) {
+          balance = ethers.utils.formatEther(await readProvider.getBalance(address));
+        } else {
+          const erc20 = new ethers.Contract(fromToken.address, ERC20_ABI, readProvider);
+          balance = ethers.utils.formatEther(await erc20.balanceOf(address));
+        }
+      }
+      if (parseFloat(balance) < parseFloat(amountIn || '0')) {
+        errors.push(`Insufficient ${fromToken.symbol} balance (have ${parseFloat(balance).toFixed(6)})`);
+      }
+    } catch { /* ignore */ }
+
+    // Allowance check (only when sending ERC20)
+    let currentAllowance = ethers.constants.MaxUint256.toString();
+    let needsApproval = false;
+    if (!fromNative && wrapType !== 'wrap' && wrapType !== 'unwrap' && signer && address) {
+      try {
+        const erc20 = new ethers.Contract(fromToken.address, ERC20_ABI, signer);
+        const allowance: ethers.BigNumber = await erc20.allowance(address, CONTRACTS.ROUTER);
+        currentAllowance = ethers.utils.formatEther(allowance);
+        if (allowance.lt(parsedIn)) {
+          needsApproval = true;
+          warnings.push(`Approval required: router needs permission to spend ${fromToken.symbol}`);
+        }
+      } catch { warnings.push('Unable to read current allowance'); }
+    }
+
+    // Pair existence + reserve sanity check for every hop
+    const pairExists: boolean[] = [];
+    if (wrapType !== 'wrap' && wrapType !== 'unwrap') {
+      try {
+        const factory = new ethers.Contract(CONTRACTS.FACTORY, FACTORY_ABI, signer ?? readProvider);
+        for (let i = 0; i < path.length - 1; i++) {
+          const p: string = await factory.getPair(path[i], path[i + 1]);
+          const exists = !!p && p !== ethers.constants.AddressZero;
+          pairExists.push(exists);
+          if (!exists) {
+            errors.push(`No liquidity pool exists for hop ${i + 1} (${path[i].slice(0, 6)}…→${path[i + 1].slice(0, 6)}…)`);
+          } else {
+            const pair = new ethers.Contract(p, PAIR_ABI, signer ?? readProvider);
+            const reserves = await pair.getReserves();
+            if (reserves[0].isZero() || reserves[1].isZero()) {
+              errors.push(`Pool for hop ${i + 1} has zero reserves`);
+            }
+          }
+        }
+      } catch { warnings.push('Unable to verify pair liquidity on-chain'); }
+    }
+
+    // Gas estimation (best-effort)
+    let estimatedGas: string | null = null;
+    if (errors.length === 0 && signer && address) {
+      try {
+        const router = new ethers.Contract(CONTRACTS.ROUTER, ROUTER_ABI, signer);
+        let gas: ethers.BigNumber;
+        if (wrapType === 'wrap') {
+          const weth = new ethers.Contract(CONTRACTS.WETH, WETH_ABI, signer);
+          gas = await weth.estimateGas.deposit({ value: parsedIn });
+        } else if (wrapType === 'unwrap') {
+          const weth = new ethers.Contract(CONTRACTS.WETH, WETH_ABI, signer);
+          gas = await weth.estimateGas.withdraw(parsedIn);
+        } else if (fromNative) {
+          gas = await router.estimateGas.swapExactETHForTokens(parsedOutMin, path, address, deadline, { value: parsedIn });
+        } else if (toNative) {
+          // estimateGas may revert if allowance is missing — only attempt when allowed
+          if (!needsApproval) {
+            gas = await router.estimateGas.swapExactTokensForETH(parsedIn, parsedOutMin, path, address, deadline);
+          } else gas = ethers.BigNumber.from(0);
+        } else {
+          if (!needsApproval) {
+            gas = await router.estimateGas.swapExactTokensForTokens(parsedIn, parsedOutMin, path, address, deadline);
+          } else gas = ethers.BigNumber.from(0);
+        }
+        estimatedGas = gas.gt(0) ? gas.toString() : null;
+      } catch (e: any) {
+        warnings.push(`Gas estimation failed: ${e.reason || e.message || 'tx may revert on-chain'}`);
+      }
+    }
+
+    return {
+      ok: errors.length === 0,
+      warnings, errors,
+      details: {
+        path,
+        amountIn: ethers.utils.formatEther(parsedIn),
+        amountOutMin: ethers.utils.formatEther(parsedOutMin),
+        deadline,
+        deadlineIso: new Date(deadline * 1000).toISOString(),
+        slippageBips,
+        needsApproval,
+        currentAllowance,
+        balance,
+        pairExists,
+        estimatedGas,
+        method: wrapType === 'wrap' ? 'wrap' : wrapType === 'unwrap' ? 'unwrap'
+          : fromNative ? 'swapExactETHForTokens'
+          : toNative ? 'swapExactTokensForETH'
+          : 'swapExactTokensForTokens',
+        value: fromNative ? ethers.utils.formatEther(parsedIn) : '0',
+      },
+    };
+  }, [signer, address, readProvider]);
 
   const swap = useCallback(async (fromToken: TokenInfo, toToken: TokenInfo, amountIn: string, amountOutMin: string, slippagePct?: number, deadlineMinutes?: number, routePath?: string[]) => {
     setLoading(true); setError(null); setTxHash(null);
@@ -396,7 +630,7 @@ export function useDex(signer: ethers.Signer | null, address: string | null) {
   return {
     loading, txHash, error, setError,
     swap, addLiquidity, removeLiquidity,
-    getAmountsOut, getBestRoute, getTokenBalance, getMultipleBalances,
+    getAmountsOut, getBestRoute, previewSwap, getTokenBalance, getMultipleBalances,
     getPairAddress, getPairInfo, getAllPairs,
     approveToken, getErc20,
   };
