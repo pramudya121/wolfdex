@@ -80,8 +80,8 @@ export default function Header({ address, balance, isConnected, isConnecting = f
       >
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2.5 group">
-            <img src={wolfLogo} alt="WOLFDEX" className="w-9 h-9 rounded-full ring-2 ring-wolf-red/40 group-hover:ring-wolf-red transition-all" />
-            <span className="text-xl font-bold wolf-gradient-text hidden sm:block">WOLFDEX</span>
+            <img src={wolfLogo} alt="WOLFDEX" className="w-9 h-9 rounded-full ring-2 ring-wolf-red/40 group-hover:ring-wolf-red transition-all group-hover:scale-105 duration-300" />
+            <span className="text-xl font-bold wolf-gradient-text-animated hidden sm:block tracking-tight">WOLFDEX</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-1">
@@ -89,13 +89,13 @@ export default function Header({ address, balance, isConnected, isConnecting = f
               const active = location.pathname === item.path;
               return (
                 <Link key={item.path} to={item.path}
-                  className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all relative ${
+                  className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors relative wolf-focus-ring ${
                     active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   {active && (
                     <motion.div layoutId="nav-active"
-                      className="absolute inset-0 rounded-lg bg-wolf-red/15 border border-wolf-red/30"
+                      className="absolute inset-0 rounded-lg bg-gradient-to-br from-wolf-red/20 via-wolf-pink/15 to-wolf-gold/10 border border-wolf-red/40 shadow-[0_0_20px_-6px_oklch(0.65_0.25_330_/_60%)]"
                       transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                     />
                   )}
