@@ -10,6 +10,8 @@ import BorderBeam from './ui/BorderBeam';
 import NumberTicker from './ui/NumberTicker';
 import SendTokenModal from './SendTokenModal';
 import { WolfSkeleton, WolfSkeletonOrb, WolfSkeletonCard } from './ui/WolfSkeleton';
+import EmptyState from './ui/EmptyState';
+import ChartTooltip from './ui/ChartTooltip';
 import { usePortfolioPnL } from '@/hooks/usePortfolioPnL';
 
 interface TokenBalance {
@@ -162,13 +164,22 @@ export default function PortfolioView({
 
   if (!isConnected) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh]">
-        <div className="text-6xl mb-4">🐺</div>
-        <h2 className="text-2xl font-bold wolf-gradient-text mb-4">Portfolio</h2>
-        <p className="text-muted-foreground mb-6">Connect your wallet to view your portfolio</p>
+      <div className="max-w-2xl mx-auto pt-6">
+        <EmptyState
+          emoji="🐺"
+          title="Wake the Pack"
+          description="Connect your wallet to summon the wolves and unlock your portfolio — tokens, LP positions, farms and PnL all in one den."
+          actions={
+            <button onClick={() => wallet.connect('metamask').catch(() => {})} className="wolf-btn-primary px-5 py-2.5 rounded-xl text-sm font-bold wolf-shimmer-hover">
+              🔗 Connect Wallet
+            </button>
+          }
+        />
       </div>
     );
   }
+
+  const hasNoActivity = balances.length === 0 && lpPositions.length === 0 && userFarmStakes.length === 0 && totalPendingByToken.length === 0;
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-6xl mx-auto">
@@ -264,27 +275,50 @@ export default function PortfolioView({
         </div>
       ) : (
         <>
+          {hasNoActivity && (
+            <div className="mb-6">
+              <EmptyState
+                emoji="🐾"
+                title="The hunt is yet to begin"
+                description="Your wallet is connected but the den is empty. Make your first swap, drop liquidity, or stake into a farm to summon the pack."
+                actions={
+                  <>
+                    <Link to="/swap" className="wolf-btn-primary px-4 py-2 rounded-lg text-xs font-bold wolf-shimmer-hover">🔄 Start Swapping</Link>
+                    <Link to="/liquidity" className="px-4 py-2 rounded-lg text-xs font-semibold bg-wolf-surface border border-wolf-border/40 hover:border-wolf-pink/40 transition-all">💧 Add Liquidity</Link>
+                    <Link to="/farming" className="px-4 py-2 rounded-lg text-xs font-semibold bg-wolf-surface border border-wolf-border/40 hover:border-wolf-gold/40 transition-all">🌾 Browse Farms</Link>
+                  </>
+                }
+              />
+            </div>
+          )}
           {/* Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-            <div className="wolf-card rounded-xl p-4">
-              <h3 className="font-bold text-sm mb-3">📈 Portfolio History</h3>
+            <div className="wolf-chart-glass rounded-xl p-4">
+              <h3 className="font-bold text-sm mb-3 flex items-center gap-2">📈 Portfolio History
+                <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-normal">{historyData.length}d</span>
+              </h3>
               <ResponsiveContainer width="100%" height={180}>
                 <AreaChart data={historyData}>
                   <defs>
                     <linearGradient id="portGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.45} />
                       <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                  <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#888' }} />
-                  <YAxis tick={{ fontSize: 9, fill: '#888' }} />
-                  <Tooltip contentStyle={{ background: '#1a1a2e', border: '1px solid #333', borderRadius: 8, fontSize: 11 }} />
-                  <Area type="monotone" dataKey="value" stroke="#10b981" fill="url(#portGrad)" strokeWidth={2} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.25 0.03 290 / 35%)" />
+                  <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#888' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 9, fill: '#888' }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    cursor={{ stroke: 'oklch(0.65 0.25 330 / 35%)', strokeWidth: 1 }}
+                    content={<ChartTooltip
+                      valueFormatter={(v) => `$${Number(v).toLocaleString(undefined, { maximumFractionDigits: 4 })}`}
+                    />}
+                  />
+                  <Area type="monotone" dataKey="value" name="Equity" stroke="#10b981" fill="url(#portGrad)" strokeWidth={2.2} animationDuration={650} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-            <div className="wolf-card rounded-xl p-4">
+            <div className="wolf-chart-glass rounded-xl p-4">
               <h3 className="font-bold text-sm mb-3">🍩 Token Allocation</h3>
               {tokenPieData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={180}>
@@ -292,10 +326,10 @@ export default function PortfolioView({
                     <Pie data={tokenPieData} dataKey="value" cx="50%" cy="50%" innerRadius={40} outerRadius={70} paddingAngle={2}>
                       {tokenPieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                     </Pie>
-                    <Tooltip contentStyle={{ background: '#1a1a2e', border: '1px solid #333', borderRadius: 8, fontSize: 11 }} />
+                    <Tooltip content={<ChartTooltip valueFormatter={(v) => Number(v).toLocaleString(undefined, { maximumFractionDigits: 4 })} />} />
                   </PieChart>
                 </ResponsiveContainer>
-              ) : <p className="text-center text-muted-foreground py-10 text-sm">No tokens</p>}
+              ) : <p className="text-center text-muted-foreground py-10 text-sm">No tokens yet</p>}
               <div className="flex flex-wrap gap-2 mt-2">
                 {tokenPieData.slice(0, 5).map((d, i) => (
                   <span key={d.name} className="flex items-center gap-1 text-[10px]">
@@ -304,7 +338,7 @@ export default function PortfolioView({
                 ))}
               </div>
             </div>
-            <div className="wolf-card rounded-xl p-4">
+            <div className="wolf-chart-glass rounded-xl p-4">
               <h3 className="font-bold text-sm mb-3">🍩 LP Allocation</h3>
               {lpPieData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={180}>
@@ -312,10 +346,10 @@ export default function PortfolioView({
                     <Pie data={lpPieData} dataKey="value" cx="50%" cy="50%" innerRadius={40} outerRadius={70} paddingAngle={2}>
                       {lpPieData.map((_, i) => <Cell key={i} fill={COLORS[(i + 3) % COLORS.length]} />)}
                     </Pie>
-                    <Tooltip contentStyle={{ background: '#1a1a2e', border: '1px solid #333', borderRadius: 8, fontSize: 11 }} />
+                    <Tooltip content={<ChartTooltip valueFormatter={(v) => `${Number(v).toLocaleString(undefined, { maximumFractionDigits: 6 })} LP`} />} />
                   </PieChart>
                 </ResponsiveContainer>
-              ) : <p className="text-center text-muted-foreground py-10 text-sm">No LP positions</p>}
+              ) : <p className="text-center text-muted-foreground py-10 text-sm">No LP positions yet</p>}
               <div className="flex flex-wrap gap-2 mt-2">
                 {lpPieData.slice(0, 5).map((d, i) => (
                   <span key={d.name} className="flex items-center gap-1 text-[10px]">
