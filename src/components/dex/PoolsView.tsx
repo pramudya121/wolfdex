@@ -585,7 +585,7 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
                   >Add</Link>
                 </div>
               </div>
-            </motion.div>
+            </div>
           ))}
         </div>
       )}
