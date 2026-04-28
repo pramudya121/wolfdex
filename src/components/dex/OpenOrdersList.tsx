@@ -67,16 +67,23 @@ export default function OpenOrdersList({ orders, onCancel, onFill, account }: Pr
 
   if (orders.length === 0) {
     return (
-      <div className="text-center py-12 text-sm text-muted-foreground">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"
-          className="mx-auto mb-3 opacity-40"
-        >
-          <circle cx="12" cy="12" r="10"/>
-          <path d="M12 6v6l4 2"/>
-        </svg>
-        <p>No on-chain limit orders yet.</p>
-        <p className="text-xs mt-1 opacity-70">Place an order — it'll be escrowed by LimitOrderDEX and visible across all devices.</p>
-      </div>
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+        className="wolf-glass rounded-2xl text-center py-10 px-6 relative overflow-hidden"
+      >
+        <div className="pointer-events-none absolute inset-x-0 -top-16 h-44 bg-[radial-gradient(closest-side,oklch(0.65_0.25_330/20%),transparent)]" />
+        <div className="relative inline-flex items-center justify-center mb-3">
+          <div className="wolf-empty-orb" />
+          <div className="wolf-paw-orbit" />
+          <div className="wolf-empty-mascot text-3xl">⏳</div>
+        </div>
+        <p className="font-bold text-base wolf-gradient-text-animated relative">No on-chain limit orders yet</p>
+        <p className="text-xs mt-1 text-muted-foreground max-w-sm mx-auto relative">
+          Place an order — it'll be escrowed by LimitOrderDEX and visible across all devices in real time.
+        </p>
+      </motion.div>
     );
   }
 
@@ -94,8 +101,9 @@ export default function OpenOrdersList({ orders, onCancel, onFill, account }: Pr
 
           return (
             <motion.div key={o.id}
-              initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: 20 }}
-              className="rounded-xl bg-wolf-dark/60 border border-wolf-border/20 p-3"
+              initial={{ opacity: 0, y: -8, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              className="wolf-glass wolf-shimmer-hover rounded-xl p-3 hover:border-wolf-pink/40 transition-colors"
             >
               <div className="flex items-center justify-between gap-2 mb-2">
                 <div className="flex items-center gap-2 min-w-0">

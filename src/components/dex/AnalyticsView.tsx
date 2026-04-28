@@ -241,7 +241,13 @@ export default function AnalyticsView() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Top Tokens */}
             <div className="wolf-chart-glass wolf-lift rounded-xl p-4">
-              <div className="space-y-2">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-bold text-sm flex items-center gap-2">
+                  <span className="text-base">🪙</span> Top Tokens
+                </h3>
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground">By 24h price</span>
+              </div>
+              <div className="space-y-1">
                 {topTokens.map((t, i) => (
                   <div key={t.address} className="flex items-center justify-between py-2 px-2 rounded-lg hover:bg-wolf-surface/50 transition-all">
                     <div className="flex items-center gap-3">
@@ -265,7 +271,13 @@ export default function AnalyticsView() {
 
             {/* Top Pools */}
             <div className="wolf-chart-glass wolf-lift rounded-xl p-4">
-              <div className="space-y-2">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-bold text-sm flex items-center gap-2">
+                  <span className="text-base">🏊</span> Top Pools
+                </h3>
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground">By TVL</span>
+              </div>
+              <div className="space-y-1">
                 {pools.slice().sort((a, b) => b.tvl - a.tvl).slice(0, 6).map((p, i) => (
                   <button key={p.address} onClick={() => setSelectedPair(p)} className="w-full flex items-center justify-between py-2 px-2 rounded-lg hover:bg-wolf-surface/50 transition-all text-left group">
                     <div className="flex items-center gap-3">
