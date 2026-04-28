@@ -490,8 +490,10 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map((pool, i) => (
-            <motion.div key={pool.address} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i * 0.02, 0.2) }}
-              className="wolf-pool-card rounded-xl p-4 relative overflow-hidden"
+            <div
+              key={pool.address}
+              style={{ animationDelay: `${Math.min(i * 50, 400)}ms` }}
+              className="wolf-pool-rise wolf-pool-card wolf-lift rounded-xl p-4 relative"
             >
               <div className="absolute top-2 right-2 flex gap-1">
                 {pool.impostor && (
