@@ -10,6 +10,8 @@ import BorderBeam from './ui/BorderBeam';
 import NumberTicker from './ui/NumberTicker';
 import SendTokenModal from './SendTokenModal';
 import { WolfSkeleton, WolfSkeletonOrb, WolfSkeletonCard } from './ui/WolfSkeleton';
+import EmptyState from './ui/EmptyState';
+import ChartTooltip from './ui/ChartTooltip';
 import { usePortfolioPnL } from '@/hooks/usePortfolioPnL';
 
 interface TokenBalance {
@@ -162,13 +164,22 @@ export default function PortfolioView({
 
   if (!isConnected) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh]">
-        <div className="text-6xl mb-4">🐺</div>
-        <h2 className="text-2xl font-bold wolf-gradient-text mb-4">Portfolio</h2>
-        <p className="text-muted-foreground mb-6">Connect your wallet to view your portfolio</p>
+      <div className="max-w-2xl mx-auto pt-6">
+        <EmptyState
+          emoji="🐺"
+          title="Wake the Pack"
+          description="Connect your wallet to summon the wolves and unlock your portfolio — tokens, LP positions, farms and PnL all in one den."
+          actions={
+            <button onClick={() => wallet.connect?.()} className="wolf-btn-primary px-5 py-2.5 rounded-xl text-sm font-bold wolf-shimmer-hover">
+              🔗 Connect Wallet
+            </button>
+          }
+        />
       </div>
     );
   }
+
+  const hasNoActivity = balances.length === 0 && lpPositions.length === 0 && userFarmStakes.length === 0 && totalPendingByToken.length === 0;
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-6xl mx-auto">
