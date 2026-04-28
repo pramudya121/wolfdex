@@ -6,6 +6,8 @@ import { useDexContext } from '@/context/DexContext';
 import PairChart from './PairChart';
 import { AnimatePresence } from 'framer-motion';
 import { useHistoricalAnalytics, type Bucket } from '@/hooks/useHistoricalAnalytics';
+import ChartTooltip from './ui/ChartTooltip';
+import EmptyState from './ui/EmptyState';
 
 interface PoolData {
   symbol0: string; symbol1: string; reserve0: string; reserve1: string;
@@ -168,9 +170,12 @@ export default function AnalyticsView() {
           {/* Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
             {/* TVL Chart */}
-            <div className="wolf-card rounded-xl p-4">
+            <div className="wolf-chart-glass wolf-lift rounded-xl p-4">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-sm">Total Value Locked</h3>
+                <h3 className="font-bold text-sm flex items-center gap-2">
+                  <span className="text-base">🔒</span> Total Value Locked
+                  <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-normal">{chartPeriod}</span>
+                </h3>
                 <div className="flex gap-1">
                   {(['7d', '30d', '90d'] as const).map(p => (
                     <button key={p} onClick={() => setChartPeriod(p)}
@@ -179,35 +184,54 @@ export default function AnalyticsView() {
                   ))}
                 </div>
               </div>
-              <ResponsiveContainer width="100%" height={200}>
+              <ResponsiveContainer width="100%" height={210}>
                 <AreaChart data={chartData}>
                   <defs>
                     <linearGradient id="tvlGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#e040a0" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#e040a0" stopOpacity={0} />
+                      <stop offset="5%" stopColor="oklch(0.65 0.25 330)" stopOpacity={0.45} />
+                      <stop offset="95%" stopColor="oklch(0.65 0.25 330)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#888' }} />
-                  <YAxis tick={{ fontSize: 10, fill: '#888' }} />
-                  <Tooltip contentStyle={{ background: '#1a1a2e', border: '1px solid #333', borderRadius: 8, fontSize: 12 }} />
-                  <Area type="monotone" dataKey="tvl" stroke="#e040a0" fill="url(#tvlGrad)" strokeWidth={2} isAnimationActive={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.25 0.03 290 / 35%)" />
+                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#888' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 10, fill: '#888' }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    cursor={{ stroke: 'oklch(0.65 0.25 330 / 40%)', strokeWidth: 1 }}
+                    content={<ChartTooltip
+                      valueFormatter={(v) => `$${Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
+                    />}
+                  />
+                  <Area type="monotone" dataKey="tvl" name="TVL" stroke="oklch(0.65 0.25 330)" fill="url(#tvlGrad)" strokeWidth={2.2} animationDuration={650} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
 
             {/* Volume Chart */}
-            <div className="wolf-card rounded-xl p-4">
+            <div className="wolf-chart-glass wolf-lift rounded-xl p-4">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-sm">Trading Volume</h3>
+                <h3 className="font-bold text-sm flex items-center gap-2">
+                  <span className="text-base">📊</span> Trading Volume
+                  <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-normal">per {chartBucket}</span>
+                </h3>
               </div>
-              <ResponsiveContainer width="100%" height={200}>
+              <ResponsiveContainer width="100%" height={210}>
                 <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#888' }} />
-                  <YAxis tick={{ fontSize: 10, fill: '#888' }} />
-                  <Tooltip contentStyle={{ background: '#1a1a2e', border: '1px solid #333', borderRadius: 8, fontSize: 12 }} />
-                  <Bar dataKey="volume" fill="#e040a0" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                  <defs>
+                    <linearGradient id="volGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%"   stopColor="oklch(0.78 0.16 85)" stopOpacity={0.95} />
+                      <stop offset="100%" stopColor="oklch(0.65 0.25 330)" stopOpacity={0.7} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.25 0.03 290 / 35%)" />
+                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#888' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 10, fill: '#888' }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    cursor={{ fill: 'oklch(0.65 0.25 330 / 8%)' }}
+                    content={<ChartTooltip
+                      valueFormatter={(v, k) => k === 'volume' ? `$${Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : String(v)}
+                    />}
+                  />
+                  <Bar dataKey="volume" name="Volume" fill="url(#volGrad)" radius={[6, 6, 0, 0]} animationDuration={650} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
