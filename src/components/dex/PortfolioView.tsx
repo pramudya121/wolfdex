@@ -170,7 +170,7 @@ export default function PortfolioView({
           title="Wake the Pack"
           description="Connect your wallet to summon the wolves and unlock your portfolio — tokens, LP positions, farms and PnL all in one den."
           actions={
-            <button onClick={() => wallet.connect?.()} className="wolf-btn-primary px-5 py-2.5 rounded-xl text-sm font-bold wolf-shimmer-hover">
+            <button onClick={() => wallet.connect('metamask').catch(() => {})} className="wolf-btn-primary px-5 py-2.5 rounded-xl text-sm font-bold wolf-shimmer-hover">
               🔗 Connect Wallet
             </button>
           }
