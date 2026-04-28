@@ -101,8 +101,9 @@ export default function OpenOrdersList({ orders, onCancel, onFill, account }: Pr
 
           return (
             <motion.div key={o.id}
-              initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: 20 }}
-              className="rounded-xl bg-wolf-dark/60 border border-wolf-border/20 p-3"
+              initial={{ opacity: 0, y: -8, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              className="wolf-glass wolf-shimmer-hover rounded-xl p-3 hover:border-wolf-pink/40 transition-colors"
             >
               <div className="flex items-center justify-between gap-2 mb-2">
                 <div className="flex items-center gap-2 min-w-0">
