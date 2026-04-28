@@ -134,9 +134,9 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
 
   return (
     <>
-      <div className="moving-border-wrap w-full max-w-[420px] mx-auto wolf-glow">
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18, ease: 'easeOut' }}
-          className="moving-border-inner rounded-2xl p-5 overflow-hidden"
+      <div className="moving-border-wrap w-full max-w-[440px] mx-auto wolf-glow">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+          className="moving-border-inner wolf-swap-glass rounded-2xl p-5 overflow-hidden relative"
         >
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
@@ -389,15 +389,29 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
         <button
           onClick={isConnected ? handleSwap : onConnectClick}
           disabled={isConnected && (loading || !fromAmount || parseFloat(fromAmount) <= 0 || !!(preflight && preflight.errors.length > 0))}
-          className="w-full mt-4 py-4 rounded-2xl font-bold text-base transition-all wolf-btn-primary disabled:opacity-50 disabled:cursor-not-allowed text-lg"
+          className="w-full mt-4 py-4 rounded-2xl font-bold text-base transition-all wolf-btn-primary wolf-shimmer-hover disabled:opacity-50 disabled:cursor-not-allowed text-lg relative overflow-hidden"
         >
-          {!isConnected ? 'Connect Wallet' : loading ? (
+          {!isConnected ? '🔗 Connect Wallet' : loading ? (
             <span className="flex items-center justify-center gap-2">
               <WolfSpinner size={20} />
-              Processing...
+              Submitting…
             </span>
-          ) : buttonLabel}
+          ) : (preflight && preflight.errors.length > 0 ? '⛔ ' + (preflight.errors[0].length > 24 ? 'Cannot swap' : preflight.errors[0]) : buttonLabel)}
         </button>
+
+        {/* Live tx progress bar while pending */}
+        {loading && (
+          <div className="mt-3">
+            <div className="wolf-tx-progress" />
+            <div className="flex items-center justify-between mt-2 text-[10px] uppercase tracking-wider text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-wolf-pink animate-pulse" />
+                Submitting to LitVM
+              </span>
+              <span className="text-wolf-pink font-bold">awaiting confirmation</span>
+            </div>
+          </div>
+        )}
 
         {txHash && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
