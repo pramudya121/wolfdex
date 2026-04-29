@@ -89,7 +89,9 @@ export function usePairOHLC(
       const logs = await pair.queryFilter(filter, from, head);
       if (logs.length === 0) {
         setCandles([]);
-        writeCache({ candles: [], fetchedAt: Date.now(), pair: pairAddress, interval, invert });
+        const now = Date.now();
+        writeCache({ candles: [], fetchedAt: now, pair: pairAddress, interval, invert });
+        setFetchedAt(now);
         setLatestBlock(head);
         return;
       }
@@ -151,7 +153,9 @@ export function usePairOHLC(
       }
       setCandles(out);
       setLatestBlock(head);
-      writeCache({ candles: out, fetchedAt: Date.now(), pair: pairAddress, interval, invert });
+      const now = Date.now();
+      setFetchedAt(now);
+      writeCache({ candles: out, fetchedAt: now, pair: pairAddress, interval, invert });
     } catch (e: any) {
       setError(e?.message || 'Failed to load price history');
     } finally {
@@ -166,5 +170,12 @@ export function usePairOHLC(
     fetchOnce(false);
   }, [fetchOnce]);
 
-  return { candles, loading, error, latestBlock, refresh: () => fetchOnce(true) };
+  // Auto-refresh every 30s so candles stay live without a subgraph.
+  useEffect(() => {
+    if (!pairAddress) return;
+    const id = window.setInterval(() => { fetchOnce(true); }, 30_000);
+    return () => window.clearInterval(id);
+  }, [fetchOnce, pairAddress]);
+
+  return { candles, loading, error, latestBlock, fetchedAt, refresh: () => fetchOnce(true) };
 }
