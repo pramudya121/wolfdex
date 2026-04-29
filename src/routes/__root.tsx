@@ -7,7 +7,6 @@ import AIAgentPanel from "@/components/dex/AIAgentPanel";
 import GlobalTxNotifier from "@/components/dex/GlobalTxNotifier";
 import GlobalLimitWatcher from "@/components/dex/GlobalLimitWatcher";
 import PageTransition from "@/components/dex/PageTransition";
-import CommandBar from "@/components/dex/CommandBar";
 import { DexProvider, useDexContext } from "@/context/DexContext";
 import { Toaster } from "sonner";
 
@@ -91,7 +90,6 @@ function AppLayout() {
         </PageTransition>
       </main>
       <AIAgentPanel />
-      <CommandBar />
       <GlobalTxNotifier />
       <GlobalLimitWatcher />
       <Toaster

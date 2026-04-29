@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { TOKENS, type TokenInfo } from '@/config/contracts';
 import { useCustomTokens } from '@/hooks/useCustomTokens';
 import { useDexContext } from '@/context/DexContext';
-import TokenLogo from './ui/TokenLogo';
 import { toast } from 'sonner';
 
 interface TokenModalProps {
@@ -118,7 +117,7 @@ export default function TokenModal({ isOpen, onClose, onSelect, excludeAddress }
                   <button key={t.address} onClick={() => { onSelect(t); onClose(); setSearch(''); }}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-wolf-surface hover:bg-wolf-surface-hover border border-wolf-border/30 text-sm transition-all"
                   >
-                    <TokenLogo address={t.address} symbol={t.symbol} logo={t.logo} size={20} />
+                    <img src={t.logo} alt={t.symbol} className="w-5 h-5 rounded-full" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                     <span>{t.symbol}</span>
                     {bal > 0 && (
                       <span className="text-[10px] text-wolf-gold font-bold">{fmtBal(bal)}</span>
@@ -147,7 +146,7 @@ export default function TokenModal({ isOpen, onClose, onSelect, excludeAddress }
                     <button onClick={() => { onSelect(t); onClose(); setSearch(''); }}
                       className="flex-1 flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-wolf-surface-hover transition-all text-left"
                     >
-                      <TokenLogo address={t.address} symbol={t.symbol} logo={t.logo} size={32} />
+                      <img src={t.logo} alt={t.symbol} className="w-8 h-8 rounded-full" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
                       <div className="flex-1 min-w-0">
                         <div className="font-medium flex items-center gap-2">
                           {t.symbol}

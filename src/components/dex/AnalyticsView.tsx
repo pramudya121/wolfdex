@@ -4,7 +4,6 @@ import { getTokenByAddress, TOKENS } from '@/config/contracts';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useDexContext } from '@/context/DexContext';
 import PairChart from './PairChart';
-import IndexerStatusBadge from './IndexerStatusBadge';
 import { AnimatePresence } from 'framer-motion';
 import { useHistoricalAnalytics, type Bucket } from '@/hooks/useHistoricalAnalytics';
 
@@ -23,7 +22,7 @@ export default function AnalyticsView() {
   const [selectedPair, setSelectedPair] = useState<PoolData | null>(null);
 
   const windowDays = chartPeriod === '7d' ? 7 : chartPeriod === '30d' ? 30 : 90;
-  const { series: historySeries, loading: historyLoading, refresh: refreshHistory, fetchedAt: historyFetchedAt, latestBlock: historyBlock } =
+  const { series: historySeries, loading: historyLoading, refresh: refreshHistory } =
     useHistoricalAnalytics({ bucket: chartBucket, windowDays });
 
   const load = useCallback(async (force = false) => {
@@ -43,8 +42,8 @@ export default function AnalyticsView() {
           symbol1: tok1?.symbol || info.token1.slice(0, 6),
           reserve0: r0.toString(),
           reserve1: r1.toString(),
-          logo0: tok0?.logo || '/images/token-anon.svg',
-          logo1: tok1?.logo || '/images/token-anon.svg',
+          logo0: tok0?.logo || '/images/wdex-logo.png',
+          logo1: tok1?.logo || '/images/wdex-logo.png',
           tvl: r0 + r1,
           address: addr,
         });
@@ -83,15 +82,7 @@ export default function AnalyticsView() {
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-wolf-pink/10 border border-wolf-pink/30 text-[10px] font-bold text-wolf-pink uppercase tracking-widest mb-3 relative">
           <span className="w-1.5 h-1.5 rounded-full bg-wolf-green animate-pulse" /> Live · LitVM
         </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          <h1 className="text-3xl sm:text-4xl font-black wolf-gradient-text mb-1 relative">Protocol Analytics</h1>
-          <IndexerStatusBadge
-            dataFetchedAt={historyFetchedAt}
-            dataLatestBlock={historyBlock}
-            loading={historyLoading}
-            onRefresh={refreshHistory}
-          />
-        </div>
+        <h1 className="text-3xl sm:text-4xl font-black wolf-gradient-text mb-1 relative">Protocol Analytics</h1>
         <p className="text-muted-foreground text-sm relative">Real-time on-chain insights for WOLFDEX</p>
       </div>
 
@@ -232,7 +223,7 @@ export default function AnalyticsView() {
                   <div key={t.address} className="flex items-center justify-between py-2 px-2 rounded-lg hover:bg-wolf-surface/50 transition-all">
                     <div className="flex items-center gap-3">
                       <span className="text-xs text-muted-foreground w-4">{i + 1}</span>
-                      <img src={t.logo} alt="" className="w-6 h-6 rounded-full" onError={e => { (e.target as HTMLImageElement).src = '/images/token-anon.svg'; }} />
+                      <img src={t.logo} alt="" className="w-6 h-6 rounded-full" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
                       <div>
                         <span className="font-medium text-sm">{t.symbol}</span>
                         <span className="text-[10px] text-muted-foreground ml-1">{t.name}</span>
@@ -258,8 +249,8 @@ export default function AnalyticsView() {
                     <div className="flex items-center gap-3">
                       <span className="text-xs text-muted-foreground w-4">{i + 1}</span>
                       <div className="flex -space-x-1.5">
-                        <img src={p.logo0} alt="" className="w-5 h-5 rounded-full ring-1 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/token-anon.svg'; }} />
-                        <img src={p.logo1} alt="" className="w-5 h-5 rounded-full ring-1 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/token-anon.svg'; }} />
+                        <img src={p.logo0} alt="" className="w-5 h-5 rounded-full ring-1 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
+                        <img src={p.logo1} alt="" className="w-5 h-5 rounded-full ring-1 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
                       </div>
                       <span className="font-medium text-sm group-hover:text-wolf-gold transition-colors">{p.symbol0}/{p.symbol1}</span>
                     </div>
@@ -292,8 +283,8 @@ export default function AnalyticsView() {
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="flex -space-x-2">
-                    <img src={selectedPair.logo0} alt="" className="w-8 h-8 rounded-full ring-2 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/token-anon.svg'; }} />
-                    <img src={selectedPair.logo1} alt="" className="w-8 h-8 rounded-full ring-2 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/token-anon.svg'; }} />
+                    <img src={selectedPair.logo0} alt="" className="w-8 h-8 rounded-full ring-2 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
+                    <img src={selectedPair.logo1} alt="" className="w-8 h-8 rounded-full ring-2 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
                   </div>
                   <div>
                     <h3 className="font-bold text-lg">{selectedPair.symbol0}/{selectedPair.symbol1}</h3>

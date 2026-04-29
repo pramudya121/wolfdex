@@ -65,7 +65,7 @@ function resolveToken(addr: string): TokenInfo {
     symbol: addr.slice(0, 6) + '…' + addr.slice(-4),
     name: 'Unknown',
     decimals: 18,
-    logo: '/images/token-anon.svg',
+    logo: '/images/wdex-logo.png',
   };
 }
 

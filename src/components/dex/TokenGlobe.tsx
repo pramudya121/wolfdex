@@ -130,7 +130,7 @@ export default function TokenGlobe() {
                     <img
                       src={tok.logo}
                       alt={tok.symbol}
-                      onError={e => { (e.target as HTMLImageElement).src = '/images/token-anon.svg'; }}
+                      onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }}
                     />
                     <span className="orbit-token-label">{tok.symbol}</span>
                   </div>

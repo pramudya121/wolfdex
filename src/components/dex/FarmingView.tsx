@@ -94,8 +94,8 @@ function FarmCard({ pool, farming, allPools }: { pool: FarmPool; farming: Farmin
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="relative">
-              <img src={pool.stakingLogo} alt="" className="w-10 h-10 rounded-full ring-2 ring-wolf-pink/40" onError={e => { (e.target as HTMLImageElement).src = '/images/token-anon.svg'; }} />
-              <img src={pool.rewardLogo} alt="" className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full ring-2 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/token-anon.svg'; }} />
+              <img src={pool.stakingLogo} alt="" className="w-10 h-10 rounded-full ring-2 ring-wolf-pink/40" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
+              <img src={pool.rewardLogo} alt="" className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full ring-2 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
             </div>
             <div>
               <div className="font-bold text-base">Stake {pool.stakingSymbol}</div>
