@@ -4,6 +4,7 @@ import { getTokenByAddress, TOKENS } from '@/config/contracts';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useDexContext } from '@/context/DexContext';
 import PairChart from './PairChart';
+import IndexerStatusBadge from './IndexerStatusBadge';
 import { AnimatePresence } from 'framer-motion';
 import { useHistoricalAnalytics, type Bucket } from '@/hooks/useHistoricalAnalytics';
 
@@ -22,7 +23,7 @@ export default function AnalyticsView() {
   const [selectedPair, setSelectedPair] = useState<PoolData | null>(null);
 
   const windowDays = chartPeriod === '7d' ? 7 : chartPeriod === '30d' ? 30 : 90;
-  const { series: historySeries, loading: historyLoading, refresh: refreshHistory } =
+  const { series: historySeries, loading: historyLoading, refresh: refreshHistory, fetchedAt: historyFetchedAt, latestBlock: historyBlock } =
     useHistoricalAnalytics({ bucket: chartBucket, windowDays });
 
   const load = useCallback(async (force = false) => {
@@ -82,7 +83,15 @@ export default function AnalyticsView() {
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-wolf-pink/10 border border-wolf-pink/30 text-[10px] font-bold text-wolf-pink uppercase tracking-widest mb-3 relative">
           <span className="w-1.5 h-1.5 rounded-full bg-wolf-green animate-pulse" /> Live · LitVM
         </div>
-        <h1 className="text-3xl sm:text-4xl font-black wolf-gradient-text mb-1 relative">Protocol Analytics</h1>
+        <div className="flex items-center gap-3 flex-wrap">
+          <h1 className="text-3xl sm:text-4xl font-black wolf-gradient-text mb-1 relative">Protocol Analytics</h1>
+          <IndexerStatusBadge
+            dataFetchedAt={historyFetchedAt}
+            dataLatestBlock={historyBlock}
+            loading={historyLoading}
+            onRefresh={refreshHistory}
+          />
+        </div>
         <p className="text-muted-foreground text-sm relative">Real-time on-chain insights for WOLFDEX</p>
       </div>
 

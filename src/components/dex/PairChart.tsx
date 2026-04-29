@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from 'recharts';
 import { usePairOHLC, type Candle } from '@/hooks/usePairOHLC';
+import IndexerStatusBadge from './IndexerStatusBadge';
 
 /**
  * Per-pair OHLC chart powered by on-chain Swap event indexing.
@@ -30,7 +31,7 @@ export default function PairChart({
 }) {
   const [interval, setInterval] = useState(3600);
   const [invert, setInvert] = useState(false);
-  const { candles, loading, error, refresh } = usePairOHLC(pairAddress, { interval, invert });
+  const { candles, loading, error, refresh, fetchedAt, latestBlock } = usePairOHLC(pairAddress, { interval, invert });
 
   const data = useMemo(() =>
     candles.map((c: Candle) => ({
@@ -60,8 +61,17 @@ export default function PairChart({
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
         <div>
-          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-            {base ?? 'BASE'} / {quote ?? 'QUOTE'}
+          <div className="flex items-center gap-2">
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              {base ?? 'BASE'} / {quote ?? 'QUOTE'}
+            </div>
+            <IndexerStatusBadge
+              dataFetchedAt={fetchedAt}
+              dataLatestBlock={latestBlock}
+              loading={loading}
+              onRefresh={refresh}
+              freshThresholdMs={45_000}
+            />
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-xl font-bold font-mono text-wolf-gold">
