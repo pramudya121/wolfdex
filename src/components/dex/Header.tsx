@@ -107,6 +107,18 @@ export default function Header({ address, balance, isConnected, isConnecting = f
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={() => {
+                window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }));
+              }}
+              aria-label="Open command bar"
+              title="Command bar (⌘K)"
+              className="hidden sm:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-wolf-surface border border-wolf-border/40 hover:border-wolf-red/40 text-xs text-muted-foreground hover:text-foreground transition-all"
+            >
+              <span>🔎</span>
+              <span className="hidden md:inline">Search</span>
+              <kbd className="hidden md:inline px-1 py-0.5 rounded bg-wolf-dark/60 border border-wolf-border/30 text-[10px] font-mono">⌘K</kbd>
+            </button>
             <TxHistoryPopover />
             {isConnected ? (
               <div className="flex items-center gap-2">
