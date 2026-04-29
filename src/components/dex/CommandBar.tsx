@@ -25,7 +25,7 @@ export default function CommandBar() {
   const { customTokens } = useCustomTokens();
   const { wallet, setShowWalletModal } = useDexContext();
 
-  // Open on ⌘K / Ctrl+K, close on Esc
+  // Open on ⌘K / Ctrl+K, close on Esc, plus custom event from header button
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;
@@ -36,8 +36,13 @@ export default function CommandBar() {
         setOpen(false);
       }
     };
+    const onOpen = () => setOpen(true);
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('wolfdex:command-bar-open', onOpen);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('wolfdex:command-bar-open', onOpen);
+    };
   }, [open]);
 
   useEffect(() => {
