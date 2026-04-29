@@ -400,8 +400,11 @@ async function handle(request: Request) {
         status: 402, headers: { 'Content-Type': 'application/json' },
       });
     }
-    return new Response(JSON.stringify({ error: 'AI gateway error', detail: text.slice(0, 200) }), {
-      status: 500, headers: { 'Content-Type': 'application/json' },
+    // Log raw upstream error server-side for debugging, but never expose it
+    // to the client — gateway error bodies can leak internal endpoints/codes.
+    console.error('[ai-agent] upstream gateway error', upstream.status, text.slice(0, 500));
+    return new Response(JSON.stringify({ error: 'AI service temporarily unavailable' }), {
+      status: 502, headers: { 'Content-Type': 'application/json' },
     });
   }
 
