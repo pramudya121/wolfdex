@@ -305,31 +305,6 @@ async function handle(request: Request) {
     });
   }
 
-  // Same-origin / CSRF guard: only allow requests originating from the app's
-  // own frontend. This blocks anonymous cross-origin abuse of the AI endpoint
-  // (no wallet auth required, but at least pin the caller to our own UI).
-  const origin = request.headers.get('origin') ?? '';
-  const referer = request.headers.get('referer') ?? '';
-  const url = new URL(request.url);
-  const sameHost = (val: string): boolean => {
-    if (!val) return false;
-    try { return new URL(val).host === url.host; } catch { return false; }
-  };
-  const allowedHostSuffixes = ['.lovable.app', '.lovable.dev', 'wolfdex.lovable.app', 'localhost'];
-  const isAllowedExternal = (val: string): boolean => {
-    if (!val) return false;
-    try {
-      const h = new URL(val).host.toLowerCase();
-      return allowedHostSuffixes.some(s => h === s || h.endsWith(s));
-    } catch { return false; }
-  };
-  const originOk = sameHost(origin) || sameHost(referer) || isAllowedExternal(origin) || isAllowedExternal(referer);
-  if (!originOk) {
-    return new Response(JSON.stringify({ error: 'Forbidden' }), {
-      status: 403, headers: { 'Content-Type': 'application/json' },
-    });
-  }
-
   const apiKey = process.env.LOVABLE_API_KEY;
   if (!apiKey) {
     return new Response(JSON.stringify({ error: 'LOVABLE_API_KEY not configured' }), {
@@ -400,11 +375,8 @@ async function handle(request: Request) {
         status: 402, headers: { 'Content-Type': 'application/json' },
       });
     }
-    // Log raw upstream error server-side for debugging, but never expose it
-    // to the client — gateway error bodies can leak internal endpoints/codes.
-    console.error('[ai-agent] upstream gateway error', upstream.status, text.slice(0, 500));
-    return new Response(JSON.stringify({ error: 'AI service temporarily unavailable' }), {
-      status: 502, headers: { 'Content-Type': 'application/json' },
+    return new Response(JSON.stringify({ error: 'AI gateway error', detail: text.slice(0, 200) }), {
+      status: 500, headers: { 'Content-Type': 'application/json' },
     });
   }
 

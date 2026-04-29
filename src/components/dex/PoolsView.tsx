@@ -5,7 +5,6 @@ import { Link } from '@tanstack/react-router';
 import { useDexContext } from '@/context/DexContext';
 import CreatePairModal from './CreatePairModal';
 import { WolfSkeleton, WolfSkeletonText } from './ui/WolfSkeleton';
-import EmptyState from './ui/EmptyState';
 import PairChart from './PairChart';
 
 import { useTokenResolver } from '@/hooks/useTokenResolver';
@@ -436,19 +435,11 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <EmptyState
-          emoji={onlyMine ? '⭐' : '🌊'}
-          title={onlyMine ? 'No LP positions yet' : 'No pools match your search'}
-          description={onlyMine
-            ? 'Drop liquidity into any pair to start earning 0.3% trading fees and stake LP tokens in farms.'
-            : 'Try a different symbol, switch the filters, or be the first to spawn a brand new pair.'}
-          actions={
-            <>
-              <Link to="/liquidity" className="wolf-btn-primary px-4 py-2 rounded-lg text-xs font-bold wolf-shimmer-hover">💧 Add Liquidity</Link>
-              <button onClick={() => setShowCreate(true)} className="px-4 py-2 rounded-lg text-xs font-semibold bg-wolf-surface border border-wolf-border/40 hover:border-wolf-pink/40 transition-all">+ Create Pair</button>
-            </>
-          }
-        />
+        <div className="wolf-card rounded-2xl p-12 text-center">
+          <div className="text-5xl mb-3">🌊</div>
+          <p className="text-muted-foreground text-lg">{onlyMine ? 'You have no LP positions yet' : 'No pools match your search'}</p>
+          <p className="text-sm text-muted-foreground mt-2">{onlyMine ? 'Add liquidity to a pool to see it here.' : 'Try a different symbol or create a new pair.'}</p>
+        </div>
       ) : view === 'list' ? (
         <div className="wolf-card rounded-xl overflow-hidden">
           <div className="grid grid-cols-12 gap-2 px-4 py-3 text-[10px] uppercase tracking-wider text-muted-foreground bg-wolf-surface/40 border-b border-wolf-border/20 font-semibold">
@@ -490,10 +481,8 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map((pool, i) => (
-            <div
-              key={pool.address}
-              style={{ animationDelay: `${Math.min(i * 50, 400)}ms` }}
-              className="wolf-pool-rise wolf-pool-card wolf-lift rounded-xl p-4 relative"
+            <motion.div key={pool.address} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i * 0.02, 0.2) }}
+              className="wolf-pool-card rounded-xl p-4 relative overflow-hidden"
             >
               <div className="absolute top-2 right-2 flex gap-1">
                 {pool.impostor && (
@@ -585,7 +574,7 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
                   >Add</Link>
                 </div>
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
       )}

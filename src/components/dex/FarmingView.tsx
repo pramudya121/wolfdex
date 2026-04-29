@@ -7,7 +7,6 @@ import { type FarmPool, type FarmingApi } from '@/hooks/useFarming';
 import { useDexContext } from '@/context/DexContext';
 import BorderBeam from './ui/BorderBeam';
 import ShimmerButton from './ui/ShimmerButton';
-import EmptyState from './ui/EmptyState';
 
 interface Props {
   isOpen?: boolean;
@@ -21,7 +20,7 @@ function formatNum(s: string, max = 6) {
   return n.toLocaleString(undefined, { maximumFractionDigits: max });
 }
 
-function FarmCard({ pool, farming, allPools, index = 0 }: { pool: FarmPool; farming: FarmingApi; allPools: FarmPool[]; index?: number }) {
+function FarmCard({ pool, farming, allPools }: { pool: FarmPool; farming: FarmingApi; allPools: FarmPool[] }) {
   const { wallet, txHistory } = useDexContext();
   const user = farming.userInfos[pool.pid];
   const [amount, setAmount] = useState('');
@@ -89,14 +88,8 @@ function FarmCard({ pool, farming, allPools, index = 0 }: { pool: FarmPool; farm
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 24, scale: 0.97 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.55, delay: index * 0.06, ease: [0.22, 1, 0.36, 1] }}
-      className="wolf-pool-rise"
-    >
     <BorderBeam rounded="rounded-2xl">
-      <div className="wolf-pool-card wolf-shimmer-hover rounded-2xl p-5">
+      <div className="wolf-pool-card rounded-2xl p-5">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
@@ -284,7 +277,6 @@ function FarmCard({ pool, farming, allPools, index = 0 }: { pool: FarmPool; farm
         </div>
       </div>
     </BorderBeam>
-    </motion.div>
   );
 }
 
@@ -519,22 +511,22 @@ export default function FarmingView(_: Props) {
           ))}
         </div>
       ) : farming.pools.length === 0 ? (
-        <EmptyState
-          emoji="🌱"
-          title="The pack hasn't planted yet"
-          description={farming.isOwner
-            ? 'Be the first — open the admin panel to seed a farm and start the harvest.'
-            : 'No farms are live right now. Check back soon — the wolves are sharpening their tools.'}
-          actions={farming.isOwner ? (
-            <button onClick={() => setShowAdmin(true)} className="wolf-btn-primary px-5 py-2 rounded-xl text-sm font-bold">
+        <div className="wolf-card rounded-2xl p-12 text-center">
+          <div className="text-5xl mb-3">🌱</div>
+          <p className="font-bold text-lg">No farms live yet</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {farming.isOwner ? 'Be the first — open the admin panel to add a pool.' : 'Check back soon — pools will appear here once added.'}
+          </p>
+          {farming.isOwner && (
+            <button onClick={() => setShowAdmin(true)} className="wolf-btn-primary px-5 py-2 rounded-xl text-sm font-bold mt-4">
               ➕ Add First Pool
             </button>
-          ) : null}
-        />
+          )}
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {farming.pools.map((pool, i) => (
-            <FarmCard key={pool.pid} pool={pool} farming={farming} allPools={farming.pools} index={i} />
+          {farming.pools.map(pool => (
+            <FarmCard key={pool.pid} pool={pool} farming={farming} allPools={farming.pools} />
           ))}
         </div>
       )}
