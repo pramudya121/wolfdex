@@ -78,13 +78,14 @@ export default function Header({ address, balance, isConnected, isConnecting = f
         className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl border-b border-wolf-border/40"
         style={{ background: 'linear-gradient(180deg, oklch(0.1 0.02 20 / 95%), oklch(0.1 0.02 20 / 80%))' }}
       >
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5 group">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 h-16 flex items-center justify-between gap-2">
+          <Link to="/" className="flex items-center gap-2.5 group shrink-0">
             <img src={wolfLogo} alt="WOLFDEX" className="w-9 h-9 rounded-full ring-2 ring-wolf-red/40 group-hover:ring-wolf-red transition-all group-hover:scale-105 duration-300" />
-            <span className="text-xl font-bold wolf-gradient-text-animated hidden sm:block tracking-tight">WOLFDEX</span>
+            <span className="text-lg sm:text-xl font-bold wolf-gradient-text-animated hidden xs:block sm:block tracking-tight">WOLFDEX</span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-1">
+          {/* Desktop nav (≥1024px) */}
+          <nav className="hidden lg:flex items-center gap-1">
             {NAV_ITEMS.map(item => {
               const active = location.pathname === item.path;
               return (
@@ -105,32 +106,38 @@ export default function Header({ address, balance, isConnected, isConnecting = f
             })}
           </nav>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <TxHistoryPopover />
             {isConnected ? (
               <div className="flex items-center gap-2">
-                <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-wolf-surface border border-wolf-border/40 text-sm">
+                <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-wolf-surface border border-wolf-border/40 text-sm">
                   <span className="text-wolf-gold font-medium">{parseFloat(balance).toFixed(4)}</span>
                   <span className="text-muted-foreground">zkLTC</span>
                 </div>
                 <button onClick={onDisconnect}
-                  className="px-3 py-1.5 rounded-lg bg-wolf-surface border border-wolf-border/40 text-sm font-medium hover:border-wolf-red/50 transition-all flex items-center gap-1.5"
+                  className="px-2.5 sm:px-3 py-1.5 rounded-lg bg-wolf-surface border border-wolf-border/40 text-xs sm:text-sm font-medium hover:border-wolf-red/50 transition-all flex items-center gap-1.5"
                 >
                   <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                  {shortAddr}
+                  <span className="hidden xs:inline">{shortAddr}</span>
+                  <span className="xs:hidden">{address?.slice(0,4)}…</span>
                 </button>
               </div>
             ) : (
               <button onClick={() => setShowWallet(true)}
                 disabled={isConnecting}
-                className="wolf-btn-primary px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 disabled:opacity-80"
+                className="wolf-btn-primary px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 disabled:opacity-80"
               >
                 {isConnecting && <WolfSpinner size={14} />}
-                {isConnecting ? 'Connecting…' : 'Connect Wallet'}
+                <span className="hidden sm:inline">{isConnecting ? 'Connecting…' : 'Connect Wallet'}</span>
+                <span className="sm:hidden">{isConnecting ? '…' : 'Connect'}</span>
               </button>
             )}
-            <button onClick={() => setMobileNav(!mobileNav)} className="md:hidden p-2 text-foreground">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <button
+              onClick={() => setMobileNav(!mobileNav)}
+              aria-label="Toggle navigation"
+              className="lg:hidden p-2 rounded-lg text-foreground hover:bg-wolf-surface border border-transparent hover:border-wolf-border/40 transition-colors"
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 {mobileNav ? <path d="M18 6L6 18M6 6l12 12" /> : <path d="M3 12h18M3 6h18M3 18h18" />}
               </svg>
             </button>
@@ -139,17 +146,57 @@ export default function Header({ address, balance, isConnected, isConnecting = f
 
         <AnimatePresence>
           {mobileNav && (
-            <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="md:hidden overflow-hidden border-t border-wolf-border/30">
-              <div className="p-3 space-y-1">
-                {NAV_ITEMS.map(item => (
-                  <Link key={item.path} to={item.path} onClick={() => setMobileNav(false)}
-                    className={`block px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                      location.pathname === item.path ? 'bg-wolf-red/15 text-foreground' : 'text-muted-foreground'
-                    }`}
-                  >{item.label}</Link>
-                ))}
-              </div>
-            </motion.div>
+            <>
+              {/* backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="lg:hidden fixed inset-0 top-16 bg-black/50 backdrop-blur-sm z-40"
+                onClick={() => setMobileNav(false)}
+              />
+              {/* drawer */}
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ type: 'spring', stiffness: 320, damping: 32 }}
+                className="lg:hidden absolute left-0 right-0 top-full overflow-hidden border-t border-wolf-border/30 z-50"
+                style={{ background: 'linear-gradient(180deg, oklch(0.1 0.02 20 / 98%), oklch(0.08 0.02 20 / 98%))' }}
+              >
+                <div className="max-w-7xl mx-auto p-3 sm:p-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {NAV_ITEMS.map((item, i) => {
+                      const active = location.pathname === item.path;
+                      return (
+                        <motion.div
+                          key={item.path}
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.025 }}
+                        >
+                          <Link
+                            to={item.path}
+                            onClick={() => setMobileNav(false)}
+                            className={`block px-4 py-3 rounded-xl text-sm font-medium text-center transition-all border ${
+                              active
+                                ? 'bg-gradient-to-br from-wolf-red/25 via-wolf-pink/15 to-wolf-gold/10 border-wolf-red/50 text-foreground shadow-[0_0_18px_-6px_oklch(0.65_0.25_330_/_60%)]'
+                                : 'bg-wolf-surface/60 border-wolf-border/30 text-muted-foreground hover:text-foreground hover:border-wolf-red/30'
+                            }`}
+                          >
+                            {item.label}
+                          </Link>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                  {isConnected && (
+                    <div className="md:hidden mt-3 flex items-center justify-between px-4 py-2.5 rounded-xl bg-wolf-surface border border-wolf-border/40">
+                      <span className="text-xs text-muted-foreground uppercase tracking-wider">Balance</span>
+                      <span className="text-sm font-bold text-wolf-gold">{parseFloat(balance).toFixed(4)} <span className="text-muted-foreground font-normal">zkLTC</span></span>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            </>
           )}
         </AnimatePresence>
       </motion.header>
