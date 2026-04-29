@@ -75,6 +75,7 @@ export function useHistoricalAnalytics(opts?: { bucket?: Bucket; windowDays?: nu
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [latestBlock, setLatestBlock] = useState(0);
+  const [fetchedAt, setFetchedAt] = useState(0);
 
   const fetchOnce = useCallback(async (force = false) => {
     setError(null);
@@ -88,7 +89,7 @@ export function useHistoricalAnalytics(opts?: { bucket?: Bucket; windowDays?: nu
 
       if (!force) {
         const c = readCache(bucket, windowDays, pairsHash);
-        if (c) { setSeries(c.series); return; }
+        if (c) { setSeries(c.series); setFetchedAt(c.fetchedAt); return; }
       }
 
       setLoading(true);
@@ -200,7 +201,9 @@ export function useHistoricalAnalytics(opts?: { bucket?: Bucket; windowDays?: nu
       out.push(...futurePoints.reverse());
 
       setSeries(out);
-      writeCache({ series: out, fetchedAt: Date.now(), bucket, windowDays, pairsHash });
+      const now2 = Date.now();
+      setFetchedAt(now2);
+      writeCache({ series: out, fetchedAt: now2, bucket, windowDays, pairsHash });
     } catch (e: any) {
       setError(e?.message || 'Failed to load historical analytics');
     } finally {
@@ -210,7 +213,14 @@ export function useHistoricalAnalytics(opts?: { bucket?: Bucket; windowDays?: nu
 
   useEffect(() => { fetchOnce(false); }, [fetchOnce]);
 
-  return { series, loading, error, latestBlock, refresh: () => fetchOnce(true) };
+  // Auto-refresh in the background every 60s so charts stay live without
+  // a subgraph. Cache layer ensures this is cheap when nothing changed.
+  useEffect(() => {
+    const id = window.setInterval(() => { fetchOnce(true); }, 60_000);
+    return () => window.clearInterval(id);
+  }, [fetchOnce]);
+
+  return { series, loading, error, latestBlock, fetchedAt, refresh: () => fetchOnce(true) };
 }
 
 function getWeekNum(d: Date) {
