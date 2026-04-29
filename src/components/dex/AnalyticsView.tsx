@@ -42,8 +42,8 @@ export default function AnalyticsView() {
           symbol1: tok1?.symbol || info.token1.slice(0, 6),
           reserve0: r0.toString(),
           reserve1: r1.toString(),
-          logo0: tok0?.logo || '/images/wdex-logo.png',
-          logo1: tok1?.logo || '/images/wdex-logo.png',
+          logo0: tok0?.logo || '/images/token-anon.svg',
+          logo1: tok1?.logo || '/images/token-anon.svg',
           tvl: r0 + r1,
           address: addr,
         });

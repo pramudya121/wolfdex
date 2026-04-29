@@ -118,8 +118,8 @@ export default function PortfolioView({
               pairAddress: pairAddr,
               symbol0: tok0?.symbol || (info?.token0.slice(0, 6) ?? '?'),
               symbol1: tok1?.symbol || (info?.token1.slice(0, 6) ?? '?'),
-              logo0: tok0?.logo || '/images/wdex-logo.png',
-              logo1: tok1?.logo || '/images/wdex-logo.png',
+              logo0: tok0?.logo || '/images/token-anon.svg',
+              logo1: tok1?.logo || '/images/token-anon.svg',
               lpBalance: lpBal, share: totalSup > 0 ? (b / totalSup) * 100 : 0,
             });
           }
