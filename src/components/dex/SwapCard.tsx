@@ -248,7 +248,7 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
                 if (i === 0) display = fromToken;
                 if (i === (route!.path.length - 1)) display = toToken;
                 const symbol = display?.symbol || addr.slice(0, 6);
-                const logo = display?.logo || '/images/wdex-logo.png';
+                const logo = display?.logo || '/images/token-anon.svg';
                 return (
                   <div key={`${addr}-${i}`} className="flex items-center gap-1.5">
                     <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-wolf-surface text-xs border border-wolf-border/30">

@@ -118,8 +118,8 @@ export default function PortfolioView({
               pairAddress: pairAddr,
               symbol0: tok0?.symbol || (info?.token0.slice(0, 6) ?? '?'),
               symbol1: tok1?.symbol || (info?.token1.slice(0, 6) ?? '?'),
-              logo0: tok0?.logo || '/images/wdex-logo.png',
-              logo1: tok1?.logo || '/images/wdex-logo.png',
+              logo0: tok0?.logo || '/images/token-anon.svg',
+              logo1: tok1?.logo || '/images/token-anon.svg',
               lpBalance: lpBal, share: totalSup > 0 ? (b / totalSup) * 100 : 0,
             });
           }
@@ -189,7 +189,7 @@ export default function PortfolioView({
               <div className="flex flex-wrap gap-2 mt-1">
                 {totalPendingByToken.map(t => (
                   <span key={t.symbol} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-wolf-surface/60 border border-wolf-border/30 text-xs font-bold">
-                    <img src={t.logo} alt="" className="w-4 h-4 rounded-full" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
+                    <img src={t.logo} alt="" className="w-4 h-4 rounded-full" onError={e => { (e.target as HTMLImageElement).src = '/images/token-anon.svg'; }} />
                     {t.total.toLocaleString(undefined, { maximumFractionDigits: 6 })} {t.symbol}
                   </span>
                 ))}
@@ -337,7 +337,7 @@ export default function PortfolioView({
                 {balances.length > 0 ? balances.map(b => (
                   <div key={b.token.address} className="flex items-center justify-between py-3 px-3 rounded-lg hover:bg-wolf-surface/50 transition-all border-b border-wolf-border/10 last:border-0 group">
                     <div className="flex items-center gap-3">
-                      <img src={b.token.logo} alt="" className="w-8 h-8 rounded-full" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
+                      <img src={b.token.logo} alt="" className="w-8 h-8 rounded-full" onError={e => { (e.target as HTMLImageElement).src = '/images/token-anon.svg'; }} />
                       <div>
                         <div className="font-medium text-sm">{b.token.symbol}</div>
                         <div className="text-[10px] text-muted-foreground">{b.token.name}</div>
@@ -423,8 +423,8 @@ export default function PortfolioView({
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <div className="relative">
-                          <img src={pool.stakingLogo} alt="" className="w-7 h-7 rounded-full ring-1 ring-wolf-pink/30" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
-                          <img src={pool.rewardLogo} alt="" className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full ring-1 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
+                          <img src={pool.stakingLogo} alt="" className="w-7 h-7 rounded-full ring-1 ring-wolf-pink/30" onError={e => { (e.target as HTMLImageElement).src = '/images/token-anon.svg'; }} />
+                          <img src={pool.rewardLogo} alt="" className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full ring-1 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/token-anon.svg'; }} />
                         </div>
                         <div>
                           <div className="font-bold text-xs">{pool.stakingSymbol} → {pool.rewardSymbol}</div>

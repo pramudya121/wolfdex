@@ -32,7 +32,9 @@ export function useCustomTokens() {
     const token: TokenInfo = {
       address: ethers.utils.getAddress(address),
       symbol, name, decimals,
-      logo: '/images/wdex-logo.png',
+      // Imported tokens are unverified — keep logo empty so the UI renders
+      // an anonymous placeholder instead of the WDEX brand logo.
+      logo: '',
     };
     setCustomTokens(prev => {
       if (prev.some(t => t.address.toLowerCase() === token.address.toLowerCase())) return prev;

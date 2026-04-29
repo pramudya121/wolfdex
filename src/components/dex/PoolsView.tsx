@@ -454,8 +454,8 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
             <div key={pool.address} className="grid grid-cols-12 gap-2 px-4 py-3 items-center text-sm border-b border-wolf-border/10 last:border-0 hover:bg-wolf-surface/30 transition-colors">
               <div className="col-span-3 flex items-center gap-2 min-w-0">
                 <div className="flex -space-x-2 shrink-0">
-                  <img src={pool.logo0} alt="" className="w-7 h-7 rounded-full ring-2 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
-                  <img src={pool.logo1} alt="" className="w-7 h-7 rounded-full ring-2 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
+                  <img src={pool.logo0} alt="" className="w-7 h-7 rounded-full ring-2 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/token-anon.svg'; }} />
+                  <img src={pool.logo1} alt="" className="w-7 h-7 rounded-full ring-2 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/token-anon.svg'; }} />
                 </div>
                 <div className="min-w-0">
                   <div className="font-bold truncate flex items-center gap-1.5">
@@ -509,8 +509,8 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <div className="flex -space-x-2">
-                    <img src={pool.logo0} alt="" className="w-8 h-8 rounded-full ring-2 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
-                    <img src={pool.logo1} alt="" className="w-8 h-8 rounded-full ring-2 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
+                    <img src={pool.logo0} alt="" className="w-8 h-8 rounded-full ring-2 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/token-anon.svg'; }} />
+                    <img src={pool.logo1} alt="" className="w-8 h-8 rounded-full ring-2 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/token-anon.svg'; }} />
                   </div>
                   <div>
                     <span className="font-bold text-sm">{pool.symbol0}/{pool.symbol1}</span>
@@ -537,14 +537,14 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
               <div className="space-y-1.5 mb-3">
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-1.5">
-                    <img src={pool.logo0} alt="" className="w-4 h-4 rounded-full" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
+                    <img src={pool.logo0} alt="" className="w-4 h-4 rounded-full" onError={e => { (e.target as HTMLImageElement).src = '/images/token-anon.svg'; }} />
                     <span className="text-muted-foreground">{pool.symbol0}</span>
                   </div>
                   <span className="font-medium">{parseFloat(pool.reserve0).toFixed(4)}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-1.5">
-                    <img src={pool.logo1} alt="" className="w-4 h-4 rounded-full" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
+                    <img src={pool.logo1} alt="" className="w-4 h-4 rounded-full" onError={e => { (e.target as HTMLImageElement).src = '/images/token-anon.svg'; }} />
                     <span className="text-muted-foreground">{pool.symbol1}</span>
                   </div>
                   <span className="font-medium">{parseFloat(pool.reserve1).toFixed(4)}</span>
@@ -601,8 +601,8 @@ export default function PoolsView({ isConnected }: { isConnected: boolean }) {
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="flex -space-x-2">
-                    <img src={chartPool.logo0} alt="" className="w-8 h-8 rounded-full ring-2 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
-                    <img src={chartPool.logo1} alt="" className="w-8 h-8 rounded-full ring-2 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
+                    <img src={chartPool.logo0} alt="" className="w-8 h-8 rounded-full ring-2 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/token-anon.svg'; }} />
+                    <img src={chartPool.logo1} alt="" className="w-8 h-8 rounded-full ring-2 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/token-anon.svg'; }} />
                   </div>
                   <div>
                     <h3 className="font-bold text-lg">{chartPool.symbol0}/{chartPool.symbol1}</h3>
