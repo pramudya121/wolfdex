@@ -71,12 +71,13 @@ export function usePairOHLC(
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [latestBlock, setLatestBlock] = useState(0);
+  const [fetchedAt, setFetchedAt] = useState(0);
 
   const fetchOnce = useCallback(async (force = false) => {
     if (!pairAddress) return;
     if (!force) {
       const c = readCache(pairAddress, interval, invert);
-      if (c) { setCandles(c.candles); return; }
+      if (c) { setCandles(c.candles); setFetchedAt(c.fetchedAt); return; }
     }
     setLoading(true); setError(null);
     try {
