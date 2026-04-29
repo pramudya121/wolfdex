@@ -44,7 +44,7 @@ export function useTokenResolver() {
   useEffect(() => { hydrate(); }, []);
 
   const resolve = useCallback((address: string): TokenInfo => {
-    if (!address) return { address: '0x0', symbol: '?', name: '?', decimals: 18, logo: '/images/wdex-logo.png' };
+    if (!address) return { address: '0x0', symbol: '?', name: '?', decimals: 18, logo: '' };
     const key = address.toLowerCase();
 
     // 1. Static list
@@ -65,7 +65,7 @@ export function useTokenResolver() {
       symbol: address.slice(0, 6) + '…' + address.slice(-4),
       name: 'Unknown token',
       decimals: 18,
-      logo: '/images/wdex-logo.png',
+      logo: '',
     };
     // fire-and-forget on-chain resolution
     (async () => {
@@ -83,7 +83,7 @@ export function useTokenResolver() {
           symbol: String(sym),
           name: String(nm || sym),
           decimals: Number(dec) || 18,
-          logo: '/images/wdex-logo.png',
+          logo: '',
         };
         memCache.set(key, info);
         persist();
