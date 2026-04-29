@@ -146,7 +146,7 @@ export default function TokenModal({ isOpen, onClose, onSelect, excludeAddress }
                     <button onClick={() => { onSelect(t); onClose(); setSearch(''); }}
                       className="flex-1 flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-wolf-surface-hover transition-all text-left"
                     >
-                      <img src={t.logo} alt={t.symbol} className="w-8 h-8 rounded-full" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
+                      <img src={t.logo} alt={t.symbol} className="w-8 h-8 rounded-full" onError={e => { (e.target as HTMLImageElement).src = '/images/token-anon.svg'; }} />
                       <div className="flex-1 min-w-0">
                         <div className="font-medium flex items-center gap-2">
                           {t.symbol}

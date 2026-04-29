@@ -223,7 +223,7 @@ export default function AnalyticsView() {
                   <div key={t.address} className="flex items-center justify-between py-2 px-2 rounded-lg hover:bg-wolf-surface/50 transition-all">
                     <div className="flex items-center gap-3">
                       <span className="text-xs text-muted-foreground w-4">{i + 1}</span>
-                      <img src={t.logo} alt="" className="w-6 h-6 rounded-full" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
+                      <img src={t.logo} alt="" className="w-6 h-6 rounded-full" onError={e => { (e.target as HTMLImageElement).src = '/images/token-anon.svg'; }} />
                       <div>
                         <span className="font-medium text-sm">{t.symbol}</span>
                         <span className="text-[10px] text-muted-foreground ml-1">{t.name}</span>
@@ -249,8 +249,8 @@ export default function AnalyticsView() {
                     <div className="flex items-center gap-3">
                       <span className="text-xs text-muted-foreground w-4">{i + 1}</span>
                       <div className="flex -space-x-1.5">
-                        <img src={p.logo0} alt="" className="w-5 h-5 rounded-full ring-1 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
-                        <img src={p.logo1} alt="" className="w-5 h-5 rounded-full ring-1 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
+                        <img src={p.logo0} alt="" className="w-5 h-5 rounded-full ring-1 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/token-anon.svg'; }} />
+                        <img src={p.logo1} alt="" className="w-5 h-5 rounded-full ring-1 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/token-anon.svg'; }} />
                       </div>
                       <span className="font-medium text-sm group-hover:text-wolf-gold transition-colors">{p.symbol0}/{p.symbol1}</span>
                     </div>
@@ -283,8 +283,8 @@ export default function AnalyticsView() {
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="flex -space-x-2">
-                    <img src={selectedPair.logo0} alt="" className="w-8 h-8 rounded-full ring-2 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
-                    <img src={selectedPair.logo1} alt="" className="w-8 h-8 rounded-full ring-2 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
+                    <img src={selectedPair.logo0} alt="" className="w-8 h-8 rounded-full ring-2 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/token-anon.svg'; }} />
+                    <img src={selectedPair.logo1} alt="" className="w-8 h-8 rounded-full ring-2 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/token-anon.svg'; }} />
                   </div>
                   <div>
                     <h3 className="font-bold text-lg">{selectedPair.symbol0}/{selectedPair.symbol1}</h3>

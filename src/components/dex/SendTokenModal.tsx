@@ -127,7 +127,7 @@ export default function SendTokenModal({ open, onClose, initialToken }: Props) {
                   className="w-full mt-1 flex items-center justify-between px-3 py-2.5 rounded-lg bg-wolf-surface/60 border border-wolf-border/30 hover:border-wolf-pink/40 transition-all"
                 >
                   <span className="flex items-center gap-2">
-                    <img src={token.logo} alt="" className="w-6 h-6 rounded-full" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
+                    <img src={token.logo} alt="" className="w-6 h-6 rounded-full" onError={e => { (e.target as HTMLImageElement).src = '/images/token-anon.svg'; }} />
                     <span className="font-bold text-sm">{token.symbol}</span>
                     <span className="text-[10px] text-muted-foreground">{token.name}</span>
                   </span>
@@ -141,7 +141,7 @@ export default function SendTokenModal({ open, onClose, initialToken }: Props) {
                         onClick={() => { setToken(t); setShowTokenList(false); }}
                         className="w-full flex items-center gap-2 px-3 py-2 hover:bg-wolf-surface text-left"
                       >
-                        <img src={t.logo} alt="" className="w-5 h-5 rounded-full" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
+                        <img src={t.logo} alt="" className="w-5 h-5 rounded-full" onError={e => { (e.target as HTMLImageElement).src = '/images/token-anon.svg'; }} />
                         <span className="font-bold text-sm">{t.symbol}</span>
                         <span className="text-[10px] text-muted-foreground ml-auto">{t.name}</span>
                       </button>
