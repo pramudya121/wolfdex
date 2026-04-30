@@ -309,13 +309,37 @@ export default function FaucetView() {
 // ===================== Admin =====================
 function AdminPanel({ slots, cooldown, reload }: { slots: FaucetSlot[]; cooldown: number; reload: () => void }) {
   const { wallet } = useDexContext();
-  const { signer, address } = wallet;
+  const { signer, address, provider } = wallet;
   const [busy, setBusy] = useState<string | null>(null);
   const [newCooldown, setNewCooldown] = useState(String(cooldown));
   const [amounts, setAmounts] = useState<Record<number, string>>({});
   const [maxes, setMaxes] = useState<Record<number, string>>({});
   const [tokenAddrs, setTokenAddrs] = useState<Record<number, string>>({});
   const [refills, setRefills] = useState<Record<number, string>>({});
+  const [withdraws, setWithdraws] = useState<Record<number, { amount: string; to: string }>>({});
+  const [resetUsers, setResetUsers] = useState<Record<number, string>>({});
+  const [walletBals, setWalletBals] = useState<Record<number, string>>({});
+
+  // Load user wallet balance for each token (so admin can see what they actually own)
+  useEffect(() => {
+    if (!address || !provider) return;
+    let cancelled = false;
+    (async () => {
+      const out: Record<number, string> = {};
+      await Promise.all(slots.map(async s => {
+        if (!s.tokenAddress || s.tokenAddress === ethers.constants.AddressZero) {
+          out[s.index] = '0'; return;
+        }
+        try {
+          const erc = new ethers.Contract(s.tokenAddress, ERC20_ABI, provider);
+          const b = await erc.balanceOf(address);
+          out[s.index] = ethers.utils.formatUnits(b, s.decimals);
+        } catch { out[s.index] = '0'; }
+      }));
+      if (!cancelled) setWalletBals(out);
+    })();
+    return () => { cancelled = true; };
+  }, [slots, address, provider]);
 
   useEffect(() => { setNewCooldown(String(cooldown)); }, [cooldown]);
   useEffect(() => {
@@ -356,31 +380,81 @@ function AdminPanel({ slots, cooldown, reload }: { slots: FaucetSlot[]; cooldown
   };
 
   const refill = async (s: FaucetSlot) => {
-    if (!signer) return;
+    if (!signer || !faucet || !address) { toast.error('Connect wallet'); return; }
     const v = refills[s.index];
     const n = parseFloat(v);
     if (!Number.isFinite(n) || n <= 0) return toast.error('Invalid amount');
-    const raw = ethers.utils.parseUnits(v, s.decimals);
-    // approve first
+    if (!s.tokenAddress || s.tokenAddress === ethers.constants.AddressZero) {
+      return toast.error(`Slot #${s.index} has no token configured. Set a token address first.`);
+    }
+    let raw: ethers.BigNumber;
+    try { raw = ethers.utils.parseUnits(v, s.decimals); }
+    catch { return toast.error('Invalid amount format'); }
+
+    setBusy(`refill-${s.index}`);
     try {
-      setBusy(`refill-${s.index}`);
       const erc = new ethers.Contract(s.tokenAddress, ERC20_ABI, signer);
-      const owner = address!;
-      const allowance: ethers.BigNumber = await erc.allowance(owner, CONTRACTS.FAUCET);
+
+      // Pre-flight: check wallet balance
+      const myBal: ethers.BigNumber = await erc.balanceOf(address);
+      if (myBal.lt(raw)) {
+        const have = ethers.utils.formatUnits(myBal, s.decimals);
+        toast.error(`Insufficient balance. You have ${parseFloat(have).toLocaleString(undefined, { maximumFractionDigits: 6 })} ${s.token?.symbol || ''}, need ${v}.`);
+        setBusy(null); return;
+      }
+
+      // Approve (handle USDT-style: must reset to 0 first if non-zero allowance)
+      const allowance: ethers.BigNumber = await erc.allowance(address, CONTRACTS.FAUCET);
       if (allowance.lt(raw)) {
+        if (allowance.gt(0)) {
+          try {
+            toast.info('Resetting allowance…');
+            const z = await erc.approve(CONTRACTS.FAUCET, 0);
+            await z.wait();
+          } catch { /* some tokens allow direct increase, continue */ }
+        }
         toast.info('Approving token…');
         const a = await erc.approve(CONTRACTS.FAUCET, raw);
         await a.wait();
       }
+
+      // Pre-flight estimateGas with explicit reason surfacing
+      try {
+        await faucet.estimateGas.refill(s.index, raw);
+      } catch (estErr: any) {
+        const reason = estErr?.error?.data?.message || estErr?.data?.message || estErr?.reason || estErr?.message || 'Pre-flight failed';
+        toast.error(`Refill would revert: ${reason}`);
+        setBusy(null); return;
+      }
+
       toast.info('Refilling…');
-      const tx = await faucet!.refill(s.index, raw);
+      const tx = await faucet.refill(s.index, raw);
       await tx.wait();
       toast.success(`Refilled ${v} ${s.token?.symbol || `#${s.index}`}`);
       setRefills(r => ({ ...r, [s.index]: '' }));
       reload();
     } catch (e: any) {
-      toast.error(e?.reason || e?.message || 'Refill failed');
+      toast.error(e?.reason || e?.data?.message || e?.message || 'Refill failed');
     } finally { setBusy(null); }
+  };
+
+  const adminWithdraw = async (s: FaucetSlot) => {
+    if (!faucet) { toast.error('Connect wallet'); return; }
+    const cfg = withdraws[s.index] || { amount: '', to: '' };
+    const n = parseFloat(cfg.amount);
+    if (!Number.isFinite(n) || n <= 0) return toast.error('Invalid amount');
+    if (!ethers.utils.isAddress(cfg.to)) return toast.error('Invalid recipient');
+    let raw: ethers.BigNumber;
+    try { raw = ethers.utils.parseUnits(cfg.amount, s.decimals); }
+    catch { return toast.error('Invalid amount'); }
+    run(`wd-${s.index}`, () => faucet.adminWithdraw(s.index, raw, cfg.to), `Withdrew ${cfg.amount} ${s.token?.symbol || `#${s.index}`}`);
+  };
+
+  const resetUserCount = (s: FaucetSlot) => {
+    if (!faucet) { toast.error('Connect wallet'); return; }
+    const u = resetUsers[s.index];
+    if (!u || !ethers.utils.isAddress(u)) return toast.error('Invalid user address');
+    run(`ru-${s.index}`, () => faucet.setUserClaimCount(u, s.index, 0), `Reset claim count for ${u.slice(0, 6)}…${u.slice(-4)}`);
   };
 
   return (
@@ -481,16 +555,63 @@ function AdminPanel({ slots, cooldown, reload }: { slots: FaucetSlot[]; cooldown
 
                   {/* refill */}
                   <div className="rounded-lg bg-wolf-surface/40 border border-wolf-border/20 p-3">
-                    <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Deposit Liquidity</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Deposit Liquidity</label>
+                      <span className="text-[10px] text-muted-foreground">
+                        Wallet: <span className="font-mono text-foreground">{parseFloat(walletBals[s.index] || '0').toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
+                      </span>
+                    </div>
                     <div className="flex gap-2 mt-1">
                       <input value={refills[s.index] || ''} onChange={e => setRefills(r => ({ ...r, [s.index]: e.target.value }))}
                         className="flex-1 bg-wolf-surface border border-wolf-border/40 rounded-md px-2 py-1.5 text-[11px] font-mono" placeholder={`Amount in ${sym}`} />
+                      <button
+                        onClick={() => setRefills(r => ({ ...r, [s.index]: walletBals[s.index] || '0' }))}
+                        className="px-2 py-1.5 rounded-md bg-wolf-surface border border-wolf-border/40 text-[10px] font-bold hover:bg-wolf-border/40">
+                        Max
+                      </button>
                       <button onClick={() => refill(s)} disabled={busy === `refill-${s.index}`}
                         className="px-2 py-1.5 rounded-md bg-wolf-green/20 border border-wolf-green/40 text-[11px] font-bold text-wolf-green hover:bg-wolf-green/30 disabled:opacity-50">
                         {busy === `refill-${s.index}` ? '…' : 'Refill'}
                       </button>
                     </div>
-                    <p className="text-[10px] text-muted-foreground mt-1">Approves &amp; transfers tokens into the faucet.</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">Auto-checks balance, approves &amp; transfers tokens into the faucet pool.</p>
+                  </div>
+
+                  {/* adminWithdraw */}
+                  <div className="rounded-lg bg-wolf-surface/40 border border-wolf-border/20 p-3">
+                    <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Admin Withdraw</label>
+                    <div className="grid grid-cols-1 gap-2 mt-1">
+                      <input
+                        value={withdraws[s.index]?.to || ''}
+                        onChange={e => setWithdraws(w => ({ ...w, [s.index]: { ...(w[s.index] || { amount: '', to: '' }), to: e.target.value } }))}
+                        className="bg-wolf-surface border border-wolf-border/40 rounded-md px-2 py-1.5 text-[11px] font-mono" placeholder="Recipient 0x…" />
+                      <div className="flex gap-2">
+                        <input
+                          value={withdraws[s.index]?.amount || ''}
+                          onChange={e => setWithdraws(w => ({ ...w, [s.index]: { ...(w[s.index] || { amount: '', to: '' }), amount: e.target.value } }))}
+                          className="flex-1 bg-wolf-surface border border-wolf-border/40 rounded-md px-2 py-1.5 text-[11px] font-mono" placeholder={`Max ${parseFloat(s.faucetBalance).toLocaleString(undefined, { maximumFractionDigits: 4 })}`} />
+                        <button onClick={() => adminWithdraw(s)} disabled={busy === `wd-${s.index}`}
+                          className="px-2 py-1.5 rounded-md bg-wolf-red/20 border border-wolf-red/40 text-[11px] font-bold text-wolf-red hover:bg-wolf-red/30 disabled:opacity-50">
+                          {busy === `wd-${s.index}` ? '…' : 'Withdraw'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* setUserClaimCount (reset) */}
+                  <div className="rounded-lg bg-wolf-surface/40 border border-wolf-border/20 p-3 md:col-span-2">
+                    <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Reset User Claim Count</label>
+                    <div className="flex gap-2 mt-1">
+                      <input
+                        value={resetUsers[s.index] || ''}
+                        onChange={e => setResetUsers(r => ({ ...r, [s.index]: e.target.value }))}
+                        className="flex-1 bg-wolf-surface border border-wolf-border/40 rounded-md px-2 py-1.5 text-[11px] font-mono" placeholder="User 0x…" />
+                      <button onClick={() => resetUserCount(s)} disabled={busy === `ru-${s.index}`}
+                        className="px-2 py-1.5 rounded-md bg-wolf-pink/20 border border-wolf-pink/40 text-[11px] font-bold hover:bg-wolf-pink/30 disabled:opacity-50">
+                        {busy === `ru-${s.index}` ? '…' : 'Reset to 0'}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-1">Sets the user's claim counter back to 0 for this token (lets them claim again after hitting max).</p>
                   </div>
                 </div>
               </div>
