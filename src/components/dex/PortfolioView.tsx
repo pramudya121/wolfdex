@@ -11,6 +11,7 @@ import NumberTicker from './ui/NumberTicker';
 import SendTokenModal from './SendTokenModal';
 import { WolfSkeleton, WolfSkeletonOrb, WolfSkeletonCard } from './ui/WolfSkeleton';
 import { usePortfolioPnL } from '@/hooks/usePortfolioPnL';
+import TxHistoryPopover from './TxHistoryPopover';
 
 interface TokenBalance {
   token: TokenInfo;
@@ -172,9 +173,12 @@ export default function PortfolioView({
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-6xl mx-auto">
-      <div className="text-center mb-6">
-        <h1 className="text-3xl sm:text-4xl font-black wolf-gradient-text mb-1">Portfolio</h1>
-        <p className="text-muted-foreground text-sm">Your tokens and liquidity positions</p>
+      <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
+        <div className="text-center sm:text-left">
+          <h1 className="text-3xl sm:text-4xl font-black wolf-gradient-text mb-1">Portfolio</h1>
+          <p className="text-muted-foreground text-sm">Your tokens, liquidity positions, and recent activity</p>
+        </div>
+        <TxHistoryPopover />
       </div>
 
       {/* Pending rewards (real, aggregated from all farms) */}

@@ -195,3 +195,37 @@ export const LIMIT_ORDER_ABI = [
   'event OrderFilled(bytes32 indexed orderHash, address indexed taker, uint256 filledSell, uint256 filledBuy, uint256 fee)',
   'event OrderCancelled(bytes32 indexed orderHash, address indexed maker)',
 ];
+
+/**
+ * MultiToken Faucet — 7 ERC20 tokens claimable with cooldown + max claims.
+ * Source: 0x5E0B3DE95ACeeF2d46CEAF3e287370D23d90B603 on LitVM LiteForge.
+ *
+ * Flow:
+ *  - User calls claim(tokenIndex) → contract transfers claimAmounts[tokenIndex]
+ *    of tokens[tokenIndex] to msg.sender, subject to cooldown + maxClaims.
+ *  - claimAll() iterates every configured token.
+ *  - Owner manages tokens (setToken), payouts (setClaimAmount), cooldown,
+ *    per-user/per-token cap (setMaxClaims), refills liquidity (refill), and
+ *    can withdraw via adminWithdraw.
+ */
+export const FAUCET_ABI = [
+  // --- writes (user) ---
+  'function claim(uint8 tokenIndex)',
+  'function claimAll()',
+  // --- writes (admin) ---
+  'function adminWithdraw(uint8 tokenIndex, uint256 amount, address to)',
+  'function refill(uint8 tokenIndex, uint256 amount)',
+  'function setClaimAmount(uint8 tokenIndex, uint256 amount)',
+  'function setCooldown(uint256 seconds_)',
+  'function setMaxClaims(uint8 tokenIndex, uint256 max)',
+  'function setToken(uint8 tokenIndex, address tokenAddress)',
+  'function setUserClaimCount(address user, uint8 tokenIndex, uint256 count)',
+  // --- reads ---
+  'function owner() view returns (address)',
+  'function cooldown() view returns (uint256)',
+  'function tokens(uint256) view returns (address)',
+  'function claimAmounts(uint256) view returns (uint256)',
+  'function maxClaims(uint256) view returns (uint256)',
+  'function lastClaimed(address, uint8) view returns (uint256)',
+  'function userClaimCount(address, uint8) view returns (uint256)',
+];

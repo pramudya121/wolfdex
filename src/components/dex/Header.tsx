@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import wolfLogo from '@/assets/wolf-logo.png';
 import type { WalletType } from '@/hooks/useWallet';
-import TxHistoryPopover from './TxHistoryPopover';
+
 import { WolfSkeleton, WolfSkeletonOrb, WolfSpinner } from './ui/WolfSkeleton';
 
 const NAV_ITEMS = [
@@ -16,6 +16,7 @@ const NAV_ITEMS = [
   { path: '/casino', label: 'Casino' },
   { path: '/analytics', label: 'Analytics' },
   { path: '/portfolio', label: 'Portfolio' },
+  { path: '/faucet', label: 'Faucet' },
   { path: '/docs', label: 'Docs' },
 ] as const;
 
@@ -106,7 +107,6 @@ export default function Header({ address, balance, isConnected, isConnecting = f
           </nav>
 
           <div className="flex items-center gap-3">
-            <TxHistoryPopover />
             {isConnected ? (
               <div className="flex items-center gap-2">
                 <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-wolf-surface border border-wolf-border/40 text-sm">
