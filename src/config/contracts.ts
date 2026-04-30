@@ -19,7 +19,25 @@ export const CONTRACTS = {
   // On-chain limit-order book — fully signed orders settled by makers/takers.
   // Source: 0xD20d411eCA0398095277DBA86FB8B2166c2079fF on LitVM LiteForge.
   LIMIT_ORDER: '0xD20d411eCA0398095277DBA86FB8B2166c2079fF',
+  // Multi-token faucet — claim test tokens with cooldown + max-claims.
+  // Source: 0x5E0B3DE95ACeeF2d46CEAF3e287370D23d90B603 on LitVM LiteForge.
+  FAUCET: '0x5E0B3DE95ACeeF2d46CEAF3e287370D23d90B603',
 };
+
+/**
+ * Faucet token list — order MUST match the on-chain `tokens(uint256)` slots
+ * configured by the contract owner via setToken(tokenIndex, tokenAddress).
+ * Each entry references a curated TOKENS symbol so the UI can show logos.
+ */
+export const FAUCET_TOKENS: { index: number; symbol: string }[] = [
+  { index: 0, symbol: 'wzkLTC' },
+  { index: 1, symbol: 'BNB' },
+  { index: 2, symbol: 'MON' },
+  { index: 3, symbol: 'HYPE' },
+  { index: 4, symbol: 'ETH' },
+  { index: 5, symbol: 'LITVM' },
+  { index: 6, symbol: 'WDEX' },
+];
 
 export interface TokenInfo {
   address: string;
