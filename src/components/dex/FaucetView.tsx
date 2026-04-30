@@ -555,16 +555,63 @@ function AdminPanel({ slots, cooldown, reload }: { slots: FaucetSlot[]; cooldown
 
                   {/* refill */}
                   <div className="rounded-lg bg-wolf-surface/40 border border-wolf-border/20 p-3">
-                    <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Deposit Liquidity</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Deposit Liquidity</label>
+                      <span className="text-[10px] text-muted-foreground">
+                        Wallet: <span className="font-mono text-foreground">{parseFloat(walletBals[s.index] || '0').toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
+                      </span>
+                    </div>
                     <div className="flex gap-2 mt-1">
                       <input value={refills[s.index] || ''} onChange={e => setRefills(r => ({ ...r, [s.index]: e.target.value }))}
                         className="flex-1 bg-wolf-surface border border-wolf-border/40 rounded-md px-2 py-1.5 text-[11px] font-mono" placeholder={`Amount in ${sym}`} />
+                      <button
+                        onClick={() => setRefills(r => ({ ...r, [s.index]: walletBals[s.index] || '0' }))}
+                        className="px-2 py-1.5 rounded-md bg-wolf-surface border border-wolf-border/40 text-[10px] font-bold hover:bg-wolf-border/40">
+                        Max
+                      </button>
                       <button onClick={() => refill(s)} disabled={busy === `refill-${s.index}`}
                         className="px-2 py-1.5 rounded-md bg-wolf-green/20 border border-wolf-green/40 text-[11px] font-bold text-wolf-green hover:bg-wolf-green/30 disabled:opacity-50">
                         {busy === `refill-${s.index}` ? '…' : 'Refill'}
                       </button>
                     </div>
-                    <p className="text-[10px] text-muted-foreground mt-1">Approves &amp; transfers tokens into the faucet.</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">Auto-checks balance, approves &amp; transfers tokens into the faucet pool.</p>
+                  </div>
+
+                  {/* adminWithdraw */}
+                  <div className="rounded-lg bg-wolf-surface/40 border border-wolf-border/20 p-3">
+                    <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Admin Withdraw</label>
+                    <div className="grid grid-cols-1 gap-2 mt-1">
+                      <input
+                        value={withdraws[s.index]?.to || ''}
+                        onChange={e => setWithdraws(w => ({ ...w, [s.index]: { ...(w[s.index] || { amount: '', to: '' }), to: e.target.value } }))}
+                        className="bg-wolf-surface border border-wolf-border/40 rounded-md px-2 py-1.5 text-[11px] font-mono" placeholder="Recipient 0x…" />
+                      <div className="flex gap-2">
+                        <input
+                          value={withdraws[s.index]?.amount || ''}
+                          onChange={e => setWithdraws(w => ({ ...w, [s.index]: { ...(w[s.index] || { amount: '', to: '' }), amount: e.target.value } }))}
+                          className="flex-1 bg-wolf-surface border border-wolf-border/40 rounded-md px-2 py-1.5 text-[11px] font-mono" placeholder={`Max ${parseFloat(s.faucetBalance).toLocaleString(undefined, { maximumFractionDigits: 4 })}`} />
+                        <button onClick={() => adminWithdraw(s)} disabled={busy === `wd-${s.index}`}
+                          className="px-2 py-1.5 rounded-md bg-wolf-red/20 border border-wolf-red/40 text-[11px] font-bold text-wolf-red hover:bg-wolf-red/30 disabled:opacity-50">
+                          {busy === `wd-${s.index}` ? '…' : 'Withdraw'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* setUserClaimCount (reset) */}
+                  <div className="rounded-lg bg-wolf-surface/40 border border-wolf-border/20 p-3 md:col-span-2">
+                    <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Reset User Claim Count</label>
+                    <div className="flex gap-2 mt-1">
+                      <input
+                        value={resetUsers[s.index] || ''}
+                        onChange={e => setResetUsers(r => ({ ...r, [s.index]: e.target.value }))}
+                        className="flex-1 bg-wolf-surface border border-wolf-border/40 rounded-md px-2 py-1.5 text-[11px] font-mono" placeholder="User 0x…" />
+                      <button onClick={() => resetUserCount(s)} disabled={busy === `ru-${s.index}`}
+                        className="px-2 py-1.5 rounded-md bg-wolf-pink/20 border border-wolf-pink/40 text-[11px] font-bold hover:bg-wolf-pink/30 disabled:opacity-50">
+                        {busy === `ru-${s.index}` ? '…' : 'Reset to 0'}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-1">Sets the user's claim counter back to 0 for this token (lets them claim again after hitting max).</p>
                   </div>
                 </div>
               </div>
