@@ -380,31 +380,81 @@ function AdminPanel({ slots, cooldown, reload }: { slots: FaucetSlot[]; cooldown
   };
 
   const refill = async (s: FaucetSlot) => {
-    if (!signer) return;
+    if (!signer || !faucet || !address) { toast.error('Connect wallet'); return; }
     const v = refills[s.index];
     const n = parseFloat(v);
     if (!Number.isFinite(n) || n <= 0) return toast.error('Invalid amount');
-    const raw = ethers.utils.parseUnits(v, s.decimals);
-    // approve first
+    if (!s.tokenAddress || s.tokenAddress === ethers.constants.AddressZero) {
+      return toast.error(`Slot #${s.index} has no token configured. Set a token address first.`);
+    }
+    let raw: ethers.BigNumber;
+    try { raw = ethers.utils.parseUnits(v, s.decimals); }
+    catch { return toast.error('Invalid amount format'); }
+
+    setBusy(`refill-${s.index}`);
     try {
-      setBusy(`refill-${s.index}`);
       const erc = new ethers.Contract(s.tokenAddress, ERC20_ABI, signer);
-      const owner = address!;
-      const allowance: ethers.BigNumber = await erc.allowance(owner, CONTRACTS.FAUCET);
+
+      // Pre-flight: check wallet balance
+      const myBal: ethers.BigNumber = await erc.balanceOf(address);
+      if (myBal.lt(raw)) {
+        const have = ethers.utils.formatUnits(myBal, s.decimals);
+        toast.error(`Insufficient balance. You have ${parseFloat(have).toLocaleString(undefined, { maximumFractionDigits: 6 })} ${s.token?.symbol || ''}, need ${v}.`);
+        setBusy(null); return;
+      }
+
+      // Approve (handle USDT-style: must reset to 0 first if non-zero allowance)
+      const allowance: ethers.BigNumber = await erc.allowance(address, CONTRACTS.FAUCET);
       if (allowance.lt(raw)) {
+        if (allowance.gt(0)) {
+          try {
+            toast.info('Resetting allowance…');
+            const z = await erc.approve(CONTRACTS.FAUCET, 0);
+            await z.wait();
+          } catch { /* some tokens allow direct increase, continue */ }
+        }
         toast.info('Approving token…');
         const a = await erc.approve(CONTRACTS.FAUCET, raw);
         await a.wait();
       }
+
+      // Pre-flight estimateGas with explicit reason surfacing
+      try {
+        await faucet.estimateGas.refill(s.index, raw);
+      } catch (estErr: any) {
+        const reason = estErr?.error?.data?.message || estErr?.data?.message || estErr?.reason || estErr?.message || 'Pre-flight failed';
+        toast.error(`Refill would revert: ${reason}`);
+        setBusy(null); return;
+      }
+
       toast.info('Refilling…');
-      const tx = await faucet!.refill(s.index, raw);
+      const tx = await faucet.refill(s.index, raw);
       await tx.wait();
       toast.success(`Refilled ${v} ${s.token?.symbol || `#${s.index}`}`);
       setRefills(r => ({ ...r, [s.index]: '' }));
       reload();
     } catch (e: any) {
-      toast.error(e?.reason || e?.message || 'Refill failed');
+      toast.error(e?.reason || e?.data?.message || e?.message || 'Refill failed');
     } finally { setBusy(null); }
+  };
+
+  const adminWithdraw = async (s: FaucetSlot) => {
+    if (!faucet) { toast.error('Connect wallet'); return; }
+    const cfg = withdraws[s.index] || { amount: '', to: '' };
+    const n = parseFloat(cfg.amount);
+    if (!Number.isFinite(n) || n <= 0) return toast.error('Invalid amount');
+    if (!ethers.utils.isAddress(cfg.to)) return toast.error('Invalid recipient');
+    let raw: ethers.BigNumber;
+    try { raw = ethers.utils.parseUnits(cfg.amount, s.decimals); }
+    catch { return toast.error('Invalid amount'); }
+    run(`wd-${s.index}`, () => faucet.adminWithdraw(s.index, raw, cfg.to), `Withdrew ${cfg.amount} ${s.token?.symbol || `#${s.index}`}`);
+  };
+
+  const resetUserCount = (s: FaucetSlot) => {
+    if (!faucet) { toast.error('Connect wallet'); return; }
+    const u = resetUsers[s.index];
+    if (!u || !ethers.utils.isAddress(u)) return toast.error('Invalid user address');
+    run(`ru-${s.index}`, () => faucet.setUserClaimCount(u, s.index, 0), `Reset claim count for ${u.slice(0, 6)}…${u.slice(-4)}`);
   };
 
   return (
