@@ -309,13 +309,37 @@ export default function FaucetView() {
 // ===================== Admin =====================
 function AdminPanel({ slots, cooldown, reload }: { slots: FaucetSlot[]; cooldown: number; reload: () => void }) {
   const { wallet } = useDexContext();
-  const { signer, address } = wallet;
+  const { signer, address, provider } = wallet;
   const [busy, setBusy] = useState<string | null>(null);
   const [newCooldown, setNewCooldown] = useState(String(cooldown));
   const [amounts, setAmounts] = useState<Record<number, string>>({});
   const [maxes, setMaxes] = useState<Record<number, string>>({});
   const [tokenAddrs, setTokenAddrs] = useState<Record<number, string>>({});
   const [refills, setRefills] = useState<Record<number, string>>({});
+  const [withdraws, setWithdraws] = useState<Record<number, { amount: string; to: string }>>({});
+  const [resetUsers, setResetUsers] = useState<Record<number, string>>({});
+  const [walletBals, setWalletBals] = useState<Record<number, string>>({});
+
+  // Load user wallet balance for each token (so admin can see what they actually own)
+  useEffect(() => {
+    if (!address || !provider) return;
+    let cancelled = false;
+    (async () => {
+      const out: Record<number, string> = {};
+      await Promise.all(slots.map(async s => {
+        if (!s.tokenAddress || s.tokenAddress === ethers.constants.AddressZero) {
+          out[s.index] = '0'; return;
+        }
+        try {
+          const erc = new ethers.Contract(s.tokenAddress, ERC20_ABI, provider);
+          const b = await erc.balanceOf(address);
+          out[s.index] = ethers.utils.formatUnits(b, s.decimals);
+        } catch { out[s.index] = '0'; }
+      }));
+      if (!cancelled) setWalletBals(out);
+    })();
+    return () => { cancelled = true; };
+  }, [slots, address, provider]);
 
   useEffect(() => { setNewCooldown(String(cooldown)); }, [cooldown]);
   useEffect(() => {
