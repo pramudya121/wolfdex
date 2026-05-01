@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ethers } from 'ethers';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { CONTRACTS, FAUCET_TOKENS, getTokenBySymbol, type TokenInfo } from '@/config/contracts';
+import { CONTRACTS, FAUCET_TOKENS, getTokenByAddress, getTokenBySymbol, type TokenInfo } from '@/config/contracts';
 import { FAUCET_ABI, ERC20_ABI } from '@/config/abis';
 import { useDexContext } from '@/context/DexContext';
 import BorderBeam from './ui/BorderBeam';
@@ -10,6 +10,7 @@ import BorderBeam from './ui/BorderBeam';
 interface FaucetSlot {
   index: number;
   token: TokenInfo | undefined;
+  expectedToken: TokenInfo | undefined;
   tokenAddress: string;
   claimAmount: string;        // formatted
   claimAmountRaw: ethers.BigNumber;
@@ -18,6 +19,8 @@ interface FaucetSlot {
   lastClaimed: number;        // unix seconds
   faucetBalance: string;      // formatted
   decimals: number;
+  isConfigured: boolean;
+  configWarning?: string;
 }
 
 function fmtSecs(s: number) {
@@ -70,14 +73,17 @@ export default function FaucetView() {
       const userAddr = address ?? ethers.constants.AddressZero;
       const next: FaucetSlot[] = await Promise.all(
         FAUCET_TOKENS.map(async ({ index, symbol }) => {
-          const token = getTokenBySymbol(symbol);
-          let tokenAddress = token?.address || ethers.constants.AddressZero;
-          let decimals = token?.decimals ?? 18;
+          const expectedToken = getTokenBySymbol(symbol);
+          let token = expectedToken;
+          let tokenAddress = ethers.constants.AddressZero;
+          let decimals = expectedToken?.decimals ?? 18;
           let claimRaw = ethers.BigNumber.from(0);
           let maxC = 0;
           let userC = 0;
           let last = 0;
           let bal = '0';
+          let isConfigured = false;
+          let configWarning = '';
           try {
             const [tAddr, amt, mx, uc, lc] = await Promise.all([
               faucetRead.tokens(index).catch(() => ethers.constants.AddressZero),
@@ -90,12 +96,15 @@ export default function FaucetView() {
                 ? Promise.resolve(ethers.BigNumber.from(0))
                 : faucetRead.lastClaimed(userAddr, index).catch(() => ethers.BigNumber.from(0)),
             ]);
-            if (tAddr && tAddr !== ethers.constants.AddressZero) tokenAddress = tAddr;
+            if (tAddr && tAddr !== ethers.constants.AddressZero) {
+              tokenAddress = tAddr;
+              isConfigured = true;
+            }
             claimRaw = amt;
             maxC = mx.toNumber();
             userC = uc.toNumber();
             last = lc.toNumber();
-            if (tokenAddress !== ethers.constants.AddressZero) {
+            if (isConfigured) {
               try {
                 const erc = new ethers.Contract(tokenAddress, ERC20_ABI, readProvider);
                 const [d, b] = await Promise.all([
@@ -104,15 +113,18 @@ export default function FaucetView() {
                 ]);
                 decimals = typeof d === 'number' ? d : decimals;
                 bal = ethers.utils.formatUnits(b, decimals);
+                token = getTokenByAddress(tokenAddress) || expectedToken;
               } catch { /* ignore */ }
+            } else if (amt.gt(0) || mx.gt(0)) {
+              configWarning = 'Token address belum di-set di contract';
             }
           } catch { /* ignore */ }
           return {
-            index, token, tokenAddress,
-            claimAmount: ethers.utils.formatUnits(claimRaw, decimals),
-            claimAmountRaw: claimRaw,
+            index, token, expectedToken, tokenAddress,
+            claimAmount: isConfigured ? ethers.utils.formatUnits(claimRaw, decimals) : '0',
+            claimAmountRaw: isConfigured ? claimRaw : ethers.BigNumber.from(0),
             maxClaims: maxC, userClaims: userC, lastClaimed: last,
-            faucetBalance: bal, decimals,
+            faucetBalance: bal, decimals, isConfigured, configWarning,
           };
         }),
       );
@@ -232,12 +244,14 @@ export default function FaucetView() {
               const remaining = Math.max(0, nextAt - now);
               const ready = remaining === 0;
               const reachedMax = slot.maxClaims > 0 && slot.userClaims >= slot.maxClaims;
-              const empty = !slot.claimAmountRaw.gt(0);
+              const empty = !slot.isConfigured || !slot.claimAmountRaw.gt(0);
               const disabled = !isConnected || !!busy || !ready || reachedMax || empty;
               const reason = !isConnected
                 ? 'Connect wallet'
+                : !slot.isConfigured
+                ? 'Belum aktif'
                 : empty
-                ? 'Not configured'
+                ? 'Belum diatur'
                 : reachedMax
                 ? 'Max reached'
                 : !ready
@@ -256,10 +270,17 @@ export default function FaucetView() {
                          onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
                     <div className="flex-1 min-w-0">
                       <div className="font-bold text-sm truncate">{sym}</div>
-                      <div className="text-[10px] text-muted-foreground truncate">{slot.token?.name || 'Unknown'}</div>
+                       <div className="text-[10px] text-muted-foreground truncate">{slot.token?.name || slot.expectedToken?.name || 'Unknown'}</div>
                     </div>
                     <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-wolf-surface/60 border border-wolf-border/30 text-muted-foreground">#{slot.index}</span>
                   </div>
+
+                  {!slot.isConfigured && (
+                    <div className="mb-3 rounded-md border border-wolf-red/30 bg-wolf-red/10 px-3 py-2 text-[10px] text-wolf-red">
+                      Slot ini belum aktif di contract. Admin harus set token address dulu sebelum claim / refill bisa dipakai.
+                      {slot.configWarning ? ` ${slot.configWarning}.` : ''}
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 gap-2 text-[10px] mb-3">
                     <div className="rounded-md bg-wolf-surface/50 border border-wolf-border/20 p-2">
@@ -319,6 +340,8 @@ function AdminPanel({ slots, cooldown, reload }: { slots: FaucetSlot[]; cooldown
   const [withdraws, setWithdraws] = useState<Record<number, { amount: string; to: string }>>({});
   const [resetUsers, setResetUsers] = useState<Record<number, string>>({});
   const [walletBals, setWalletBals] = useState<Record<number, string>>({});
+  const configuredCount = useMemo(() => slots.filter(s => s.isConfigured).length, [slots]);
+  const unconfiguredSlots = useMemo(() => slots.filter(s => !s.isConfigured), [slots]);
 
   // Load user wallet balance for each token (so admin can see what they actually own)
   useEffect(() => {
@@ -349,7 +372,7 @@ function AdminPanel({ slots, cooldown, reload }: { slots: FaucetSlot[]; cooldown
     slots.forEach(s => {
       a[s.index] = s.claimAmount;
       m[s.index] = String(s.maxClaims);
-      t[s.index] = s.tokenAddress;
+      t[s.index] = s.isConfigured ? s.tokenAddress : (s.expectedToken?.address || '');
     });
     setAmounts(a); setMaxes(m); setTokenAddrs(t);
   }, [slots]);
@@ -381,6 +404,10 @@ function AdminPanel({ slots, cooldown, reload }: { slots: FaucetSlot[]; cooldown
 
   const refill = async (s: FaucetSlot) => {
     if (!signer || !faucet || !address) { toast.error('Connect wallet'); return; }
+    if (!s.isConfigured) {
+      toast.error(`Slot ${s.expectedToken?.symbol || `#${s.index}`} belum aktif di contract. Set token address dulu.`);
+      return;
+    }
     const v = refills[s.index];
     const n = parseFloat(v);
     if (!Number.isFinite(n) || n <= 0) return toast.error('Invalid amount');
@@ -459,6 +486,30 @@ function AdminPanel({ slots, cooldown, reload }: { slots: FaucetSlot[]; cooldown
 
   return (
     <div className="space-y-5">
+      <div className="wolf-card rounded-xl p-4 border border-wolf-gold/20">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h3 className="font-bold text-sm">Faucet Setup Status</h3>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              {configuredCount}/{slots.length} slot sudah aktif on-chain.
+            </p>
+          </div>
+          {unconfiguredSlots.length > 0 && (
+            <div className="flex flex-col gap-2 md:items-end">
+              <div className="rounded-lg border border-wolf-red/30 bg-wolf-red/10 px-3 py-2 text-[11px] text-wolf-red">
+                Slot belum aktif: {unconfiguredSlots.map(s => s.expectedToken?.symbol || `#${s.index}`).join(', ')}
+              </div>
+              <button
+                onClick={() => setTokenAddrs(prev => Object.fromEntries(slots.map(s => [s.index, s.isConfigured ? s.tokenAddress : (s.expectedToken?.address || prev[s.index] || '')])))}
+                className="rounded-lg border border-wolf-border/30 bg-wolf-surface px-3 py-2 text-[11px] font-bold text-muted-foreground hover:text-foreground"
+              >
+                Isi semua address default WolfDex
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="wolf-card rounded-xl p-4">
         <h3 className="font-bold text-sm mb-3 flex items-center gap-2">⏱️ Global Cooldown</h3>
         <div className="flex items-center gap-2">
@@ -489,7 +540,7 @@ function AdminPanel({ slots, cooldown, reload }: { slots: FaucetSlot[]; cooldown
                        onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
                   <div className="flex-1">
                     <div className="font-bold text-sm">{sym} <span className="text-[10px] text-muted-foreground">slot #{s.index}</span></div>
-                    <div className="text-[10px] font-mono text-muted-foreground truncate">{s.tokenAddress}</div>
+                    <div className="text-[10px] font-mono text-muted-foreground truncate">{s.isConfigured ? s.tokenAddress : 'Belum ada token address di contract'}</div>
                   </div>
                   <div className="text-right text-[10px]">
                     <div className="text-muted-foreground">Pool</div>
@@ -511,6 +562,19 @@ function AdminPanel({ slots, cooldown, reload }: { slots: FaucetSlot[]; cooldown
                         {busy === `tk-${s.index}` ? '…' : 'Set'}
                       </button>
                     </div>
+                    {!!s.expectedToken?.address && !s.isConfigured && (
+                      <button
+                        onClick={() => setTokenAddrs(t => ({ ...t, [s.index]: s.expectedToken?.address || '' }))}
+                        className="mt-2 rounded-md border border-wolf-border/30 bg-wolf-surface px-2 py-1 text-[10px] font-bold text-muted-foreground hover:text-foreground"
+                      >
+                        Use curated {s.expectedToken.symbol} address
+                      </button>
+                    )}
+                    {s.expectedToken && s.tokenAddress && s.isConfigured && s.expectedToken.address.toLowerCase() !== s.tokenAddress.toLowerCase() && (
+                      <p className="mt-2 text-[10px] text-wolf-gold">
+                        Slot ini memakai address berbeda dari token default WolfDex. Cek ulang sebelum refill.
+                      </p>
+                    )}
                   </div>
 
                   {/* setClaimAmount */}
@@ -575,6 +639,9 @@ function AdminPanel({ slots, cooldown, reload }: { slots: FaucetSlot[]; cooldown
                       </button>
                     </div>
                     <p className="text-[10px] text-muted-foreground mt-1">Auto-checks balance, approves &amp; transfers tokens into the faucet pool.</p>
+                    {!s.isConfigured && (
+                      <p className="text-[10px] text-wolf-red mt-1">Deposit liquidity dikunci sampai token address slot ini di-set di contract.</p>
+                    )}
                   </div>
 
                   {/* adminWithdraw */}
