@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ethers } from 'ethers';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { CONTRACTS, FAUCET_TOKENS, getTokenBySymbol, type TokenInfo } from '@/config/contracts';
+import { CONTRACTS, FAUCET_TOKENS, getTokenByAddress, getTokenBySymbol, type TokenInfo } from '@/config/contracts';
 import { FAUCET_ABI, ERC20_ABI } from '@/config/abis';
 import { useDexContext } from '@/context/DexContext';
 import BorderBeam from './ui/BorderBeam';
@@ -10,6 +10,7 @@ import BorderBeam from './ui/BorderBeam';
 interface FaucetSlot {
   index: number;
   token: TokenInfo | undefined;
+  expectedToken: TokenInfo | undefined;
   tokenAddress: string;
   claimAmount: string;        // formatted
   claimAmountRaw: ethers.BigNumber;
@@ -18,6 +19,8 @@ interface FaucetSlot {
   lastClaimed: number;        // unix seconds
   faucetBalance: string;      // formatted
   decimals: number;
+  isConfigured: boolean;
+  configWarning?: string;
 }
 
 function fmtSecs(s: number) {
@@ -70,14 +73,17 @@ export default function FaucetView() {
       const userAddr = address ?? ethers.constants.AddressZero;
       const next: FaucetSlot[] = await Promise.all(
         FAUCET_TOKENS.map(async ({ index, symbol }) => {
-          const token = getTokenBySymbol(symbol);
-          let tokenAddress = token?.address || ethers.constants.AddressZero;
-          let decimals = token?.decimals ?? 18;
+          const expectedToken = getTokenBySymbol(symbol);
+          let token = expectedToken;
+          let tokenAddress = ethers.constants.AddressZero;
+          let decimals = expectedToken?.decimals ?? 18;
           let claimRaw = ethers.BigNumber.from(0);
           let maxC = 0;
           let userC = 0;
           let last = 0;
           let bal = '0';
+          let isConfigured = false;
+          let configWarning = '';
           try {
             const [tAddr, amt, mx, uc, lc] = await Promise.all([
               faucetRead.tokens(index).catch(() => ethers.constants.AddressZero),
@@ -90,12 +96,15 @@ export default function FaucetView() {
                 ? Promise.resolve(ethers.BigNumber.from(0))
                 : faucetRead.lastClaimed(userAddr, index).catch(() => ethers.BigNumber.from(0)),
             ]);
-            if (tAddr && tAddr !== ethers.constants.AddressZero) tokenAddress = tAddr;
+            if (tAddr && tAddr !== ethers.constants.AddressZero) {
+              tokenAddress = tAddr;
+              isConfigured = true;
+            }
             claimRaw = amt;
             maxC = mx.toNumber();
             userC = uc.toNumber();
             last = lc.toNumber();
-            if (tokenAddress !== ethers.constants.AddressZero) {
+            if (isConfigured) {
               try {
                 const erc = new ethers.Contract(tokenAddress, ERC20_ABI, readProvider);
                 const [d, b] = await Promise.all([
@@ -104,15 +113,18 @@ export default function FaucetView() {
                 ]);
                 decimals = typeof d === 'number' ? d : decimals;
                 bal = ethers.utils.formatUnits(b, decimals);
+                token = getTokenByAddress(tokenAddress) || expectedToken;
               } catch { /* ignore */ }
+            } else if (amt.gt(0) || mx.gt(0)) {
+              configWarning = 'Token address belum di-set di contract';
             }
           } catch { /* ignore */ }
           return {
-            index, token, tokenAddress,
-            claimAmount: ethers.utils.formatUnits(claimRaw, decimals),
-            claimAmountRaw: claimRaw,
+            index, token, expectedToken, tokenAddress,
+            claimAmount: isConfigured ? ethers.utils.formatUnits(claimRaw, decimals) : '0',
+            claimAmountRaw: isConfigured ? claimRaw : ethers.BigNumber.from(0),
             maxClaims: maxC, userClaims: userC, lastClaimed: last,
-            faucetBalance: bal, decimals,
+            faucetBalance: bal, decimals, isConfigured, configWarning,
           };
         }),
       );
