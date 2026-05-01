@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { CONTRACTS, FAUCET_TOKENS, getTokenByAddress, getTokenBySymbol, type TokenInfo } from '@/config/contracts';
 import { FAUCET_ABI, ERC20_ABI } from '@/config/abis';
 import { useDexContext } from '@/context/DexContext';
+import { getReadProvider, decodeRpcError } from '@/lib/rpc';
 import BorderBeam from './ui/BorderBeam';
 
 interface FaucetSlot {
