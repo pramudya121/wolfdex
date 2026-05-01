@@ -372,7 +372,7 @@ function AdminPanel({ slots, cooldown, reload }: { slots: FaucetSlot[]; cooldown
     slots.forEach(s => {
       a[s.index] = s.claimAmount;
       m[s.index] = String(s.maxClaims);
-      t[s.index] = s.tokenAddress;
+      t[s.index] = s.isConfigured ? s.tokenAddress : (s.expectedToken?.address || '');
     });
     setAmounts(a); setMaxes(m); setTokenAddrs(t);
   }, [slots]);
@@ -495,8 +495,16 @@ function AdminPanel({ slots, cooldown, reload }: { slots: FaucetSlot[]; cooldown
             </p>
           </div>
           {unconfiguredSlots.length > 0 && (
-            <div className="rounded-lg border border-wolf-red/30 bg-wolf-red/10 px-3 py-2 text-[11px] text-wolf-red">
-              Slot belum aktif: {unconfiguredSlots.map(s => s.expectedToken?.symbol || `#${s.index}`).join(', ')}
+            <div className="flex flex-col gap-2 md:items-end">
+              <div className="rounded-lg border border-wolf-red/30 bg-wolf-red/10 px-3 py-2 text-[11px] text-wolf-red">
+                Slot belum aktif: {unconfiguredSlots.map(s => s.expectedToken?.symbol || `#${s.index}`).join(', ')}
+              </div>
+              <button
+                onClick={() => setTokenAddrs(prev => Object.fromEntries(slots.map(s => [s.index, s.isConfigured ? s.tokenAddress : (s.expectedToken?.address || prev[s.index] || '')])))}
+                className="rounded-lg border border-wolf-border/30 bg-wolf-surface px-3 py-2 text-[11px] font-bold text-muted-foreground hover:text-foreground"
+              >
+                Isi semua address default WolfDex
+              </button>
             </div>
           )}
         </div>
