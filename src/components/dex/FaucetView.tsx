@@ -505,8 +505,7 @@ function AdminPanel({ slots, cooldown, reload }: { slots: FaucetSlot[]; cooldown
       try {
         await faucet.estimateGas.refill(s.index, raw);
       } catch (estErr: any) {
-        const reason = estErr?.error?.data?.message || estErr?.data?.message || estErr?.reason || estErr?.message || 'Pre-flight failed';
-        toast.error(`Refill would revert: ${reason}`);
+        toast.error(`Refill akan revert: ${decodeRpcError(estErr)}`);
         setBusy(null); return;
       }
 
