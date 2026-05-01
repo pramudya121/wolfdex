@@ -340,6 +340,8 @@ function AdminPanel({ slots, cooldown, reload }: { slots: FaucetSlot[]; cooldown
   const [withdraws, setWithdraws] = useState<Record<number, { amount: string; to: string }>>({});
   const [resetUsers, setResetUsers] = useState<Record<number, string>>({});
   const [walletBals, setWalletBals] = useState<Record<number, string>>({});
+  const configuredCount = useMemo(() => slots.filter(s => s.isConfigured).length, [slots]);
+  const unconfiguredSlots = useMemo(() => slots.filter(s => !s.isConfigured), [slots]);
 
   // Load user wallet balance for each token (so admin can see what they actually own)
   useEffect(() => {
@@ -484,6 +486,22 @@ function AdminPanel({ slots, cooldown, reload }: { slots: FaucetSlot[]; cooldown
 
   return (
     <div className="space-y-5">
+      <div className="wolf-card rounded-xl p-4 border border-wolf-gold/20">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h3 className="font-bold text-sm">Faucet Setup Status</h3>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              {configuredCount}/{slots.length} slot sudah aktif on-chain.
+            </p>
+          </div>
+          {unconfiguredSlots.length > 0 && (
+            <div className="rounded-lg border border-wolf-red/30 bg-wolf-red/10 px-3 py-2 text-[11px] text-wolf-red">
+              Slot belum aktif: {unconfiguredSlots.map(s => s.expectedToken?.symbol || `#${s.index}`).join(', ')}
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="wolf-card rounded-xl p-4">
         <h3 className="font-bold text-sm mb-3 flex items-center gap-2">⏱️ Global Cooldown</h3>
         <div className="flex items-center gap-2">
