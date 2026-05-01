@@ -51,10 +51,7 @@ export default function FaucetView() {
     return () => clearInterval(i);
   }, []);
 
-  const readProvider = useMemo(() => {
-    if (provider) return provider;
-    return new ethers.providers.JsonRpcProvider('https://liteforge.rpc.caldera.xyz/http');
-  }, [provider]);
+  const readProvider = useMemo(() => provider ?? getReadProvider(), [provider]);
 
   const faucetRead = useMemo(
     () => new ethers.Contract(CONTRACTS.FAUCET, FAUCET_ABI, readProvider),
