@@ -402,6 +402,10 @@ function AdminPanel({ slots, cooldown, reload }: { slots: FaucetSlot[]; cooldown
 
   const refill = async (s: FaucetSlot) => {
     if (!signer || !faucet || !address) { toast.error('Connect wallet'); return; }
+    if (!s.isConfigured) {
+      toast.error(`Slot ${s.expectedToken?.symbol || `#${s.index}`} belum aktif di contract. Set token address dulu.`);
+      return;
+    }
     const v = refills[s.index];
     const n = parseFloat(v);
     if (!Number.isFinite(n) || n <= 0) return toast.error('Invalid amount');
@@ -510,7 +514,7 @@ function AdminPanel({ slots, cooldown, reload }: { slots: FaucetSlot[]; cooldown
                        onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
                   <div className="flex-1">
                     <div className="font-bold text-sm">{sym} <span className="text-[10px] text-muted-foreground">slot #{s.index}</span></div>
-                    <div className="text-[10px] font-mono text-muted-foreground truncate">{s.tokenAddress}</div>
+                    <div className="text-[10px] font-mono text-muted-foreground truncate">{s.isConfigured ? s.tokenAddress : 'Belum ada token address di contract'}</div>
                   </div>
                   <div className="text-right text-[10px]">
                     <div className="text-muted-foreground">Pool</div>
@@ -532,6 +536,19 @@ function AdminPanel({ slots, cooldown, reload }: { slots: FaucetSlot[]; cooldown
                         {busy === `tk-${s.index}` ? '…' : 'Set'}
                       </button>
                     </div>
+                    {!!s.expectedToken?.address && !s.isConfigured && (
+                      <button
+                        onClick={() => setTokenAddrs(t => ({ ...t, [s.index]: s.expectedToken?.address || '' }))}
+                        className="mt-2 rounded-md border border-wolf-border/30 bg-wolf-surface px-2 py-1 text-[10px] font-bold text-muted-foreground hover:text-foreground"
+                      >
+                        Use curated {s.expectedToken.symbol} address
+                      </button>
+                    )}
+                    {s.expectedToken && s.tokenAddress && s.isConfigured && s.expectedToken.address.toLowerCase() !== s.tokenAddress.toLowerCase() && (
+                      <p className="mt-2 text-[10px] text-wolf-gold">
+                        Slot ini memakai address berbeda dari token default WolfDex. Cek ulang sebelum refill.
+                      </p>
+                    )}
                   </div>
 
                   {/* setClaimAmount */}
@@ -596,6 +613,9 @@ function AdminPanel({ slots, cooldown, reload }: { slots: FaucetSlot[]; cooldown
                       </button>
                     </div>
                     <p className="text-[10px] text-muted-foreground mt-1">Auto-checks balance, approves &amp; transfers tokens into the faucet pool.</p>
+                    {!s.isConfigured && (
+                      <p className="text-[10px] text-wolf-red mt-1">Deposit liquidity dikunci sampai token address slot ini di-set di contract.</p>
+                    )}
                   </div>
 
                   {/* adminWithdraw */}
