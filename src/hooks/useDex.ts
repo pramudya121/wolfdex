@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { CONTRACTS, isNativeToken, isWrappedNative, isWrapUnwrap, CHAIN_CONFIG, type TokenInfo } from '@/config/contracts';
 import { ROUTER_ABI, WETH_ABI, ERC20_ABI, FACTORY_ABI, PAIR_ABI, MULTICALL_ABI } from '@/config/abis';
+import { getReadProvider } from '@/lib/rpc';
 
 const DEFAULT_DEADLINE_MINUTES = 20;
 const DEFAULT_SLIPPAGE_BIPS = 50; // 0.5%
@@ -69,7 +70,7 @@ export function useDex(signer: ethers.Signer | null, address: string | null) {
 
   // Read-only fallback provider (used when no wallet is connected so Pools/Analytics
   // load instantly without requiring a connection)
-  const readProvider = signer?.provider ?? new ethers.providers.JsonRpcProvider(CHAIN_CONFIG.rpcUrl);
+  const readProvider = signer?.provider ?? getReadProvider();
 
   const getRouter = useCallback(() => {
     if (!signer) throw new Error('Wallet not connected');
@@ -547,7 +548,7 @@ export function useDex(signer: ethers.Signer | null, address: string | null) {
   ): Promise<string[]> => {
     if (!address) return tokenAddresses.map(() => '0');
     // Use a public read provider so this works even when not connected via signer
-    const readProvider = signer?.provider ?? new ethers.providers.JsonRpcProvider(CHAIN_CONFIG.rpcUrl);
+    const readProvider = signer?.provider ?? getReadProvider();
 
     // Try multicall first
     try {

@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { CONTRACTS, FAUCET_TOKENS, getTokenByAddress, getTokenBySymbol, type TokenInfo } from '@/config/contracts';
 import { FAUCET_ABI, ERC20_ABI } from '@/config/abis';
 import { useDexContext } from '@/context/DexContext';
+import { getReadProvider, decodeRpcError } from '@/lib/rpc';
 import BorderBeam from './ui/BorderBeam';
 
 interface FaucetSlot {
@@ -50,10 +51,7 @@ export default function FaucetView() {
     return () => clearInterval(i);
   }, []);
 
-  const readProvider = useMemo(() => {
-    if (provider) return provider;
-    return new ethers.providers.JsonRpcProvider('https://liteforge.rpc.caldera.xyz/http');
-  }, [provider]);
+  const readProvider = useMemo(() => provider ?? getReadProvider(), [provider]);
 
   const faucetRead = useMemo(
     () => new ethers.Contract(CONTRACTS.FAUCET, FAUCET_ABI, readProvider),
@@ -145,33 +143,91 @@ export default function FaucetView() {
     return new ethers.Contract(CONTRACTS.FAUCET, FAUCET_ABI, signer);
   }, [isConnected, signer]);
 
+  /** Reason a slot can't be claimed RIGHT NOW (or null if it's ready). */
+  const slotBlockReason = useCallback((slot: FaucetSlot, nowSec: number): string | null => {
+    if (!slot.isConfigured) return 'belum aktif di contract';
+    if (!slot.claimAmountRaw.gt(0)) return 'claim amount belum di-set';
+    if (parseFloat(slot.faucetBalance) <= 0) return 'pool kosong';
+    if (slot.maxClaims > 0 && slot.userClaims >= slot.maxClaims) return 'max claim tercapai';
+    const nextAt = slot.lastClaimed + cooldown;
+    if (nowSec < nextAt) return `tunggu ${fmtSecs(nextAt - nowSec)}`;
+    return null;
+  }, [cooldown]);
+
   const claimOne = useCallback(async (slot: FaucetSlot) => {
     const c = requireSigner(); if (!c) return;
+    const block = slotBlockReason(slot, Math.floor(Date.now() / 1000));
+    if (block) { toast.error(`${slot.token?.symbol || `#${slot.index}`}: ${block}`); return; }
     setBusy(`claim-${slot.index}`);
     try {
+      // Pre-flight estimate so we surface the contract reason BEFORE wallet popup.
+      try { await c.estimateGas.claim(slot.index); }
+      catch (estErr: any) {
+        toast.error(`Tidak bisa claim ${slot.token?.symbol || ''}: ${decodeRpcError(estErr)}`);
+        setBusy(null); return;
+      }
       const tx = await c.claim(slot.index);
       toast.info('Claim submitted…');
       await tx.wait();
       toast.success(`Claimed ${parseFloat(slot.claimAmount).toLocaleString(undefined, { maximumFractionDigits: 6 })} ${slot.token?.symbol || `#${slot.index}`}`);
       load();
     } catch (e: any) {
-      toast.error(e?.reason || e?.data?.message || e?.message || 'Claim failed');
+      toast.error(decodeRpcError(e));
     } finally { setBusy(null); }
-  }, [requireSigner, load]);
+  }, [requireSigner, load, slotBlockReason]);
 
+  /**
+   * Claim All — done CLIENT-SIDE per slot (NOT via contract.claimAll()).
+   *
+   * Why: claimAll() on-chain is atomic over all 7 slots. If even ONE slot is
+   * still in cooldown / max-reached / empty pool, the whole tx reverts with
+   * "Wait for cooldown" and the user gets nothing. By looping per slot here
+   * we skip ineligible slots gracefully and still claim the ready ones.
+   */
   const claimAll = useCallback(async () => {
     const c = requireSigner(); if (!c) return;
+    const nowSec = Math.floor(Date.now() / 1000);
+    const ready: FaucetSlot[] = [];
+    const skipped: { sym: string; reason: string }[] = [];
+    for (const s of slots) {
+      const r = slotBlockReason(s, nowSec);
+      if (r) skipped.push({ sym: s.token?.symbol || `#${s.index}`, reason: r });
+      else ready.push(s);
+    }
+    if (ready.length === 0) {
+      toast.error('Tidak ada token yang siap di-claim sekarang', {
+        description: skipped.slice(0, 3).map(x => `${x.sym}: ${x.reason}`).join(' · '),
+      });
+      return;
+    }
     setBusy('claim-all');
-    try {
-      const tx = await c.claimAll();
-      toast.info('Claim-all submitted…');
-      await tx.wait();
-      toast.success('Claimed all available tokens');
-      load();
-    } catch (e: any) {
-      toast.error(e?.reason || e?.data?.message || e?.message || 'Claim-all failed');
-    } finally { setBusy(null); }
-  }, [requireSigner, load]);
+    let ok = 0;
+    const failed: string[] = [];
+    for (const s of ready) {
+      try {
+        try { await c.estimateGas.claim(s.index); }
+        catch (estErr: any) {
+          failed.push(`${s.token?.symbol || `#${s.index}`}: ${decodeRpcError(estErr)}`);
+          continue;
+        }
+        const tx = await c.claim(s.index);
+        await tx.wait();
+        ok++;
+        toast.success(`Claimed ${s.token?.symbol || `#${s.index}`}`);
+      } catch (e: any) {
+        failed.push(`${s.token?.symbol || `#${s.index}`}: ${decodeRpcError(e)}`);
+      }
+    }
+    if (ok > 0) {
+      toast.success(`${ok} token berhasil di-claim${skipped.length ? ` · ${skipped.length} dilewati` : ''}`, {
+        description: failed.length ? failed.slice(0, 2).join(' · ') : undefined,
+      });
+    } else {
+      toast.error('Claim All gagal', { description: failed.slice(0, 2).join(' · ') });
+    }
+    load();
+    setBusy(null);
+  }, [requireSigner, load, slots, slotBlockReason]);
 
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-5xl mx-auto">
@@ -392,7 +448,7 @@ function AdminPanel({ slots, cooldown, reload }: { slots: FaucetSlot[]; cooldown
       toast.success(ok);
       reload();
     } catch (e: any) {
-      toast.error(e?.reason || e?.data?.message || e?.message || 'Tx failed');
+      toast.error(decodeRpcError(e));
     } finally { setBusy(null); }
   }, [faucet, reload]);
 
@@ -449,8 +505,7 @@ function AdminPanel({ slots, cooldown, reload }: { slots: FaucetSlot[]; cooldown
       try {
         await faucet.estimateGas.refill(s.index, raw);
       } catch (estErr: any) {
-        const reason = estErr?.error?.data?.message || estErr?.data?.message || estErr?.reason || estErr?.message || 'Pre-flight failed';
-        toast.error(`Refill would revert: ${reason}`);
+        toast.error(`Refill akan revert: ${decodeRpcError(estErr)}`);
         setBusy(null); return;
       }
 
@@ -461,7 +516,7 @@ function AdminPanel({ slots, cooldown, reload }: { slots: FaucetSlot[]; cooldown
       setRefills(r => ({ ...r, [s.index]: '' }));
       reload();
     } catch (e: any) {
-      toast.error(e?.reason || e?.data?.message || e?.message || 'Refill failed');
+      toast.error(decodeRpcError(e));
     } finally { setBusy(null); }
   };
 
