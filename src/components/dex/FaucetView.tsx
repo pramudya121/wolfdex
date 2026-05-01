@@ -244,12 +244,14 @@ export default function FaucetView() {
               const remaining = Math.max(0, nextAt - now);
               const ready = remaining === 0;
               const reachedMax = slot.maxClaims > 0 && slot.userClaims >= slot.maxClaims;
-              const empty = !slot.claimAmountRaw.gt(0);
+              const empty = !slot.isConfigured || !slot.claimAmountRaw.gt(0);
               const disabled = !isConnected || !!busy || !ready || reachedMax || empty;
               const reason = !isConnected
                 ? 'Connect wallet'
+                : !slot.isConfigured
+                ? 'Belum aktif'
                 : empty
-                ? 'Not configured'
+                ? 'Belum diatur'
                 : reachedMax
                 ? 'Max reached'
                 : !ready
@@ -268,10 +270,17 @@ export default function FaucetView() {
                          onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
                     <div className="flex-1 min-w-0">
                       <div className="font-bold text-sm truncate">{sym}</div>
-                      <div className="text-[10px] text-muted-foreground truncate">{slot.token?.name || 'Unknown'}</div>
+                       <div className="text-[10px] text-muted-foreground truncate">{slot.token?.name || slot.expectedToken?.name || 'Unknown'}</div>
                     </div>
                     <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-wolf-surface/60 border border-wolf-border/30 text-muted-foreground">#{slot.index}</span>
                   </div>
+
+                  {!slot.isConfigured && (
+                    <div className="mb-3 rounded-md border border-wolf-red/30 bg-wolf-red/10 px-3 py-2 text-[10px] text-wolf-red">
+                      Slot ini belum aktif di contract. Admin harus set token address dulu sebelum claim / refill bisa dipakai.
+                      {slot.configWarning ? ` ${slot.configWarning}.` : ''}
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 gap-2 text-[10px] mb-3">
                     <div className="rounded-md bg-wolf-surface/50 border border-wolf-border/20 p-2">
