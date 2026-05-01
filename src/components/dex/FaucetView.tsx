@@ -448,7 +448,7 @@ function AdminPanel({ slots, cooldown, reload }: { slots: FaucetSlot[]; cooldown
       toast.success(ok);
       reload();
     } catch (e: any) {
-      toast.error(e?.reason || e?.data?.message || e?.message || 'Tx failed');
+      toast.error(decodeRpcError(e));
     } finally { setBusy(null); }
   }, [faucet, reload]);
 
@@ -516,7 +516,7 @@ function AdminPanel({ slots, cooldown, reload }: { slots: FaucetSlot[]; cooldown
       setRefills(r => ({ ...r, [s.index]: '' }));
       reload();
     } catch (e: any) {
-      toast.error(e?.reason || e?.data?.message || e?.message || 'Refill failed');
+      toast.error(decodeRpcError(e));
     } finally { setBusy(null); }
   };
 
