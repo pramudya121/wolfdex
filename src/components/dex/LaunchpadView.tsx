@@ -234,7 +234,9 @@ export default function LaunchpadView() {
         symbol: symClean,
         totalSupply: String(supplyNum),
         logo: finalLogo,
+        creator: myAddr || undefined,
       }, ...prev]);
+      setTotalDeployed(n => n + 1);
 
       // Reset form
       setName(''); setSymbol(''); setSupply('1000000'); setLogoDataUrl('');
