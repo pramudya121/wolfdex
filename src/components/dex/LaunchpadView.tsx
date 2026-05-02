@@ -66,7 +66,7 @@ export default function LaunchpadView() {
   const symClean = useMemo(() => symbol.trim().toUpperCase().replace(/\s+/g, ''), [symbol]);
   const supplyNum = useMemo(() => Number(supply.replace(/[, ]/g, '')) || 0, [supply]);
 
-  const myAddr = wallet.account?.toLowerCase() || '';
+  const myAddr = wallet.address?.toLowerCase() || '';
   const filteredDeployed = useMemo(() => {
     const q = search.trim().toLowerCase();
     return deployed.filter(t => {
