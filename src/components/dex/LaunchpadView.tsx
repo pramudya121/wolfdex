@@ -55,13 +55,35 @@ export default function LaunchpadView() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [deployed, setDeployed] = useState<DeployedRow[]>([]);
+  const [totalDeployed, setTotalDeployed] = useState(0);
   const [loadingList, setLoadingList] = useState(true);
+  const [search, setSearch] = useState('');
+  const [onlyMine, setOnlyMine] = useState(false);
 
   const [pairModal, setPairModal] = useState(false);
   const [newToken, setNewToken] = useState<TokenInfo | null>(null);
 
   const symClean = useMemo(() => symbol.trim().toUpperCase().replace(/\s+/g, ''), [symbol]);
   const supplyNum = useMemo(() => Number(supply.replace(/[, ]/g, '')) || 0, [supply]);
+
+  const myAddr = wallet.account?.toLowerCase() || '';
+  const filteredDeployed = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return deployed.filter(t => {
+      if (onlyMine && (!myAddr || t.creator?.toLowerCase() !== myAddr)) return false;
+      if (!q) return true;
+      return (
+        t.address.toLowerCase().includes(q) ||
+        t.symbol?.toLowerCase().includes(q) ||
+        t.name?.toLowerCase().includes(q)
+      );
+    });
+  }, [deployed, search, onlyMine, myAddr]);
+
+  const totalSupplySum = useMemo(
+    () => deployed.reduce((acc, t) => acc + Number(t.totalSupply || 0), 0),
+    [deployed],
+  );
 
   // Load every token deployed via the launchpad
   useEffect(() => {
