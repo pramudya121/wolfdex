@@ -229,3 +229,19 @@ export const FAUCET_ABI = [
   'function lastClaimed(address, uint8) view returns (uint256)',
   'function userClaimCount(address, uint8) view returns (uint256)',
 ];
+
+/**
+ * ERC20 Launchpad — deploys a SimpleERC20 with name/symbol/supply.
+ * Source: 0x5C13d96355EA57D8e514Ac825A93f0be20DD84F5 on LitVM LiteForge.
+ *
+ * Flow:
+ *  - createToken(name, symbol, supply) → mints `supply * 10**18` to caller and
+ *    emits TokenDeployed(creator, token).
+ *  - getAllTokens() returns every token deployed via this launchpad.
+ */
+export const LAUNCHPAD_ABI = [
+  'function createToken(string name, string symbol, uint256 supply)',
+  'function allTokens(uint256) view returns (address)',
+  'function getAllTokens() view returns (address[])',
+  'event TokenDeployed(address indexed creator, address token)',
+];
