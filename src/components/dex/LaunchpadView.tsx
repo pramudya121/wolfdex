@@ -94,7 +94,23 @@ export default function LaunchpadView() {
         const provider = getReadProvider();
         const launch = new ethers.Contract(CONTRACTS.LAUNCHPAD, LAUNCHPAD_ABI, provider);
         const all: string[] = await launch.getAllTokens();
+        if (!cancelled) setTotalDeployed(all.length);
         const logoMap = loadLogoMap();
+
+        // Map token => creator from TokenDeployed events (best-effort)
+        const creatorMap: Record<string, string> = {};
+        try {
+          const filter = launch.filters.TokenDeployed();
+          const events = await launch.queryFilter(filter, 0, 'latest');
+          for (const ev of events) {
+            const tok = (ev.args?.token || '').toLowerCase();
+            const creator = (ev.args?.creator || '').toLowerCase();
+            if (tok) creatorMap[tok] = creator;
+          }
+        } catch (e) {
+          console.warn('TokenDeployed events fetch failed', e);
+        }
+
         // Resolve metadata per token (parallel, capped)
         const slice = all.slice(-30).reverse(); // newest 30 first
         const rows = await Promise.all(slice.map(async (addr) => {
@@ -111,6 +127,7 @@ export default function LaunchpadView() {
               symbol: String(s),
               totalSupply: ethers.utils.formatUnits(ts, 18),
               logo: logoMap[addr.toLowerCase()] || FALLBACK_LOGO,
+              creator: creatorMap[addr.toLowerCase()],
             };
             // Auto-register so it shows up in TokenModal everywhere
             addToken({
