@@ -265,6 +265,30 @@ export default function LaunchpadView() {
         </p>
       </div>
 
+      {/* Stats bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        {[
+          { label: 'Total Tokens', value: fmtNum(totalDeployed), icon: '🚀' },
+          { label: 'Aggregate Supply', value: fmtNum(totalSupplySum), icon: '∑' },
+          { label: 'Your Tokens', value: myAddr ? String(deployed.filter(t => t.creator?.toLowerCase() === myAddr).length) : '—', icon: '👤' },
+          { label: 'Network', value: CHAIN_CONFIG.symbol, icon: '🌐' },
+        ].map((s, i) => (
+          <motion.div
+            key={s.label}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.05 }}
+            className="wolf-card rounded-2xl p-4 flex items-center gap-3"
+          >
+            <div className="w-10 h-10 rounded-xl bg-wolf-surface flex items-center justify-center text-lg shrink-0">{s.icon}</div>
+            <div className="min-w-0">
+              <div className="text-[11px] text-muted-foreground uppercase tracking-wide">{s.label}</div>
+              <div className="font-bold text-base truncate">{s.value}</div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+
       <div className="grid lg:grid-cols-5 gap-6">
         {/* FORM — 3 cols */}
         <motion.div
