@@ -13,6 +13,7 @@ import { Route as SwapRouteImport } from './routes/swap'
 import { Route as PortfolioRouteImport } from './routes/portfolio'
 import { Route as PoolsRouteImport } from './routes/pools'
 import { Route as LiquidityRouteImport } from './routes/liquidity'
+import { Route as LaunchpadRouteImport } from './routes/launchpad'
 import { Route as FaucetRouteImport } from './routes/faucet'
 import { Route as FarmingRouteImport } from './routes/farming'
 import { Route as DocsRouteImport } from './routes/docs'
@@ -40,6 +41,11 @@ const PoolsRoute = PoolsRouteImport.update({
 const LiquidityRoute = LiquidityRouteImport.update({
   id: '/liquidity',
   path: '/liquidity',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LaunchpadRoute = LaunchpadRouteImport.update({
+  id: '/launchpad',
+  path: '/launchpad',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FaucetRoute = FaucetRouteImport.update({
@@ -90,6 +96,7 @@ export interface FileRoutesByFullPath {
   '/docs': typeof DocsRoute
   '/farming': typeof FarmingRoute
   '/faucet': typeof FaucetRoute
+  '/launchpad': typeof LaunchpadRoute
   '/liquidity': typeof LiquidityRoute
   '/pools': typeof PoolsRoute
   '/portfolio': typeof PortfolioRoute
@@ -104,6 +111,7 @@ export interface FileRoutesByTo {
   '/docs': typeof DocsRoute
   '/farming': typeof FarmingRoute
   '/faucet': typeof FaucetRoute
+  '/launchpad': typeof LaunchpadRoute
   '/liquidity': typeof LiquidityRoute
   '/pools': typeof PoolsRoute
   '/portfolio': typeof PortfolioRoute
@@ -119,6 +127,7 @@ export interface FileRoutesById {
   '/docs': typeof DocsRoute
   '/farming': typeof FarmingRoute
   '/faucet': typeof FaucetRoute
+  '/launchpad': typeof LaunchpadRoute
   '/liquidity': typeof LiquidityRoute
   '/pools': typeof PoolsRoute
   '/portfolio': typeof PortfolioRoute
@@ -135,6 +144,7 @@ export interface FileRouteTypes {
     | '/docs'
     | '/farming'
     | '/faucet'
+    | '/launchpad'
     | '/liquidity'
     | '/pools'
     | '/portfolio'
@@ -149,6 +159,7 @@ export interface FileRouteTypes {
     | '/docs'
     | '/farming'
     | '/faucet'
+    | '/launchpad'
     | '/liquidity'
     | '/pools'
     | '/portfolio'
@@ -163,6 +174,7 @@ export interface FileRouteTypes {
     | '/docs'
     | '/farming'
     | '/faucet'
+    | '/launchpad'
     | '/liquidity'
     | '/pools'
     | '/portfolio'
@@ -178,6 +190,7 @@ export interface RootRouteChildren {
   DocsRoute: typeof DocsRoute
   FarmingRoute: typeof FarmingRoute
   FaucetRoute: typeof FaucetRoute
+  LaunchpadRoute: typeof LaunchpadRoute
   LiquidityRoute: typeof LiquidityRoute
   PoolsRoute: typeof PoolsRoute
   PortfolioRoute: typeof PortfolioRoute
@@ -213,6 +226,13 @@ declare module '@tanstack/react-router' {
       path: '/liquidity'
       fullPath: '/liquidity'
       preLoaderRoute: typeof LiquidityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/launchpad': {
+      id: '/launchpad'
+      path: '/launchpad'
+      fullPath: '/launchpad'
+      preLoaderRoute: typeof LaunchpadRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/faucet': {
@@ -292,6 +312,7 @@ const rootRouteChildren: RootRouteChildren = {
   DocsRoute: DocsRoute,
   FarmingRoute: FarmingRoute,
   FaucetRoute: FaucetRoute,
+  LaunchpadRoute: LaunchpadRoute,
   LiquidityRoute: LiquidityRoute,
   PoolsRoute: PoolsRoute,
   PortfolioRoute: PortfolioRoute,
