@@ -19,6 +19,16 @@ interface DeployedRow {
   symbol?: string;
   totalSupply?: string;
   logo?: string;
+  creator?: string;
+}
+
+function fmtNum(n: number | string | undefined): string {
+  const x = Number(n ?? 0);
+  if (!isFinite(x)) return '0';
+  if (x >= 1e9) return (x / 1e9).toFixed(2) + 'B';
+  if (x >= 1e6) return (x / 1e6).toFixed(2) + 'M';
+  if (x >= 1e3) return (x / 1e3).toFixed(2) + 'K';
+  return x.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
 const STORAGE_KEY = 'wolfdex.launchpad.tokens.v1';
