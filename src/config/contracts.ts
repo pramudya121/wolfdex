@@ -22,6 +22,9 @@ export const CONTRACTS = {
   // Multi-token faucet — claim test tokens with cooldown + max-claims.
   // Source: 0x5E0B3DE95ACeeF2d46CEAF3e287370D23d90B603 on LitVM LiteForge.
   FAUCET: '0x5E0B3DE95ACeeF2d46CEAF3e287370D23d90B603',
+  // ERC20 Launchpad — anyone can deploy a SimpleERC20 (createToken).
+  // Source: 0x5C13d96355EA57D8e514Ac825A93f0be20DD84F5 on LitVM LiteForge.
+  LAUNCHPAD: '0x5C13d96355EA57D8e514Ac825A93f0be20DD84F5',
 };
 
 /**

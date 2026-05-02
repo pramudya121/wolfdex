@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ethers } from 'ethers';
 import { CONTRACTS, CHAIN_CONFIG, isNativeToken, type TokenInfo } from '@/config/contracts';
@@ -11,14 +11,23 @@ interface CreatePairModalProps {
   onClose: () => void;
   signer: ethers.Signer | null;
   onCreated?: () => void;
+  prefillTokenA?: TokenInfo | null;
+  prefillTokenB?: TokenInfo | null;
 }
 
-export default function CreatePairModal({ isOpen, onClose, signer, onCreated }: CreatePairModalProps) {
-  const [tokenA, setTokenA] = useState<TokenInfo | null>(null);
-  const [tokenB, setTokenB] = useState<TokenInfo | null>(null);
+export default function CreatePairModal({ isOpen, onClose, signer, onCreated, prefillTokenA, prefillTokenB }: CreatePairModalProps) {
+  const [tokenA, setTokenA] = useState<TokenInfo | null>(prefillTokenA ?? null);
+  const [tokenB, setTokenB] = useState<TokenInfo | null>(prefillTokenB ?? null);
   const [showA, setShowA] = useState(false);
   const [showB, setShowB] = useState(false);
   const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      if (prefillTokenA) setTokenA(prefillTokenA);
+      if (prefillTokenB) setTokenB(prefillTokenB);
+    }
+  }, [isOpen, prefillTokenA, prefillTokenB]);
 
   const handleCreate = async () => {
     if (!signer || !tokenA || !tokenB) return;
