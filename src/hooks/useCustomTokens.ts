@@ -43,9 +43,26 @@ export function useCustomTokens() {
     return token;
   }, []);
 
+  /** Register a token directly (used by the Launchpad after deploy). */
+  const addToken = useCallback((token: TokenInfo) => {
+    setCustomTokens(prev => {
+      if (prev.some(t => t.address.toLowerCase() === token.address.toLowerCase())) {
+        // overwrite existing entry (e.g. to attach a freshly-uploaded logo)
+        const next = prev.map(t =>
+          t.address.toLowerCase() === token.address.toLowerCase() ? { ...t, ...token } : t,
+        );
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        return next;
+      }
+      const next = [...prev, token];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   const removeToken = useCallback((address: string) => {
     persist(customTokens.filter(t => t.address.toLowerCase() !== address.toLowerCase()));
   }, [customTokens]);
 
-  return { customTokens, importToken, removeToken };
+  return { customTokens, importToken, addToken, removeToken };
 }
