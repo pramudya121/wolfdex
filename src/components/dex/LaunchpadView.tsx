@@ -19,6 +19,16 @@ interface DeployedRow {
   symbol?: string;
   totalSupply?: string;
   logo?: string;
+  creator?: string;
+}
+
+function fmtNum(n: number | string | undefined): string {
+  const x = Number(n ?? 0);
+  if (!isFinite(x)) return '0';
+  if (x >= 1e9) return (x / 1e9).toFixed(2) + 'B';
+  if (x >= 1e6) return (x / 1e6).toFixed(2) + 'M';
+  if (x >= 1e3) return (x / 1e3).toFixed(2) + 'K';
+  return x.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
 const STORAGE_KEY = 'wolfdex.launchpad.tokens.v1';
@@ -45,13 +55,35 @@ export default function LaunchpadView() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [deployed, setDeployed] = useState<DeployedRow[]>([]);
+  const [totalDeployed, setTotalDeployed] = useState(0);
   const [loadingList, setLoadingList] = useState(true);
+  const [search, setSearch] = useState('');
+  const [onlyMine, setOnlyMine] = useState(false);
 
   const [pairModal, setPairModal] = useState(false);
   const [newToken, setNewToken] = useState<TokenInfo | null>(null);
 
   const symClean = useMemo(() => symbol.trim().toUpperCase().replace(/\s+/g, ''), [symbol]);
   const supplyNum = useMemo(() => Number(supply.replace(/[, ]/g, '')) || 0, [supply]);
+
+  const myAddr = wallet.address?.toLowerCase() || '';
+  const filteredDeployed = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return deployed.filter(t => {
+      if (onlyMine && (!myAddr || t.creator?.toLowerCase() !== myAddr)) return false;
+      if (!q) return true;
+      return (
+        t.address.toLowerCase().includes(q) ||
+        t.symbol?.toLowerCase().includes(q) ||
+        t.name?.toLowerCase().includes(q)
+      );
+    });
+  }, [deployed, search, onlyMine, myAddr]);
+
+  const totalSupplySum = useMemo(
+    () => deployed.reduce((acc, t) => acc + Number(t.totalSupply || 0), 0),
+    [deployed],
+  );
 
   // Load every token deployed via the launchpad
   useEffect(() => {
@@ -62,7 +94,23 @@ export default function LaunchpadView() {
         const provider = getReadProvider();
         const launch = new ethers.Contract(CONTRACTS.LAUNCHPAD, LAUNCHPAD_ABI, provider);
         const all: string[] = await launch.getAllTokens();
+        if (!cancelled) setTotalDeployed(all.length);
         const logoMap = loadLogoMap();
+
+        // Map token => creator from TokenDeployed events (best-effort)
+        const creatorMap: Record<string, string> = {};
+        try {
+          const filter = launch.filters.TokenDeployed();
+          const events = await launch.queryFilter(filter, 0, 'latest');
+          for (const ev of events) {
+            const tok = (ev.args?.token || '').toLowerCase();
+            const creator = (ev.args?.creator || '').toLowerCase();
+            if (tok) creatorMap[tok] = creator;
+          }
+        } catch (e) {
+          console.warn('TokenDeployed events fetch failed', e);
+        }
+
         // Resolve metadata per token (parallel, capped)
         const slice = all.slice(-30).reverse(); // newest 30 first
         const rows = await Promise.all(slice.map(async (addr) => {
@@ -79,6 +127,7 @@ export default function LaunchpadView() {
               symbol: String(s),
               totalSupply: ethers.utils.formatUnits(ts, 18),
               logo: logoMap[addr.toLowerCase()] || FALLBACK_LOGO,
+              creator: creatorMap[addr.toLowerCase()],
             };
             // Auto-register so it shows up in TokenModal everywhere
             addToken({
@@ -185,7 +234,9 @@ export default function LaunchpadView() {
         symbol: symClean,
         totalSupply: String(supplyNum),
         logo: finalLogo,
+        creator: myAddr || undefined,
       }, ...prev]);
+      setTotalDeployed(n => n + 1);
 
       // Reset form
       setName(''); setSymbol(''); setSupply('1000000'); setLogoDataUrl('');
@@ -212,6 +263,30 @@ export default function LaunchpadView() {
         <p className="text-muted-foreground max-w-xl mx-auto relative z-10">
           <TextGenerateEffect text="Deploy token kamu sendiri dalam 1 transaksi. Otomatis terdaftar di seluruh WolfDex." delay={0.3} />
         </p>
+      </div>
+
+      {/* Stats bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        {[
+          { label: 'Total Tokens', value: fmtNum(totalDeployed), icon: '🚀' },
+          { label: 'Aggregate Supply', value: fmtNum(totalSupplySum), icon: '∑' },
+          { label: 'Your Tokens', value: myAddr ? String(deployed.filter(t => t.creator?.toLowerCase() === myAddr).length) : '—', icon: '👤' },
+          { label: 'Network', value: CHAIN_CONFIG.symbol, icon: '🌐' },
+        ].map((s, i) => (
+          <motion.div
+            key={s.label}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.05 }}
+            className="wolf-card rounded-2xl p-4 flex items-center gap-3"
+          >
+            <div className="w-10 h-10 rounded-xl bg-wolf-surface flex items-center justify-center text-lg shrink-0">{s.icon}</div>
+            <div className="min-w-0">
+              <div className="text-[11px] text-muted-foreground uppercase tracking-wide">{s.label}</div>
+              <div className="font-bold text-base truncate">{s.value}</div>
+            </div>
+          </motion.div>
+        ))}
       </div>
 
       <div className="grid lg:grid-cols-5 gap-6">
@@ -357,12 +432,35 @@ export default function LaunchpadView() {
           style={{ transformPerspective: 1200 }}
           className="lg:col-span-2 wolf-card rounded-3xl p-6 relative overflow-hidden flex flex-col"
         >
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-bold">Recently Deployed</h2>
-            <span className="text-xs text-muted-foreground">{deployed.length} tokens</span>
+            <span className="text-xs text-muted-foreground">{filteredDeployed.length}/{deployed.length}</span>
           </div>
 
-          <div className="space-y-2 overflow-y-auto max-h-[560px] pr-1 -mr-1">
+          {/* Search + filter */}
+          <div className="flex items-center gap-2 mb-3">
+            <div className="relative flex-1">
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Cari nama, simbol, atau address…"
+                className="w-full pl-8 pr-3 py-2 rounded-lg bg-wolf-surface/60 border border-wolf-border/40 focus:border-wolf-red/60 focus:outline-none text-xs"
+              />
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">🔎</span>
+            </div>
+            <button
+              onClick={() => setOnlyMine(v => !v)}
+              disabled={!myAddr}
+              title={myAddr ? 'Filter token milikmu' : 'Hubungkan wallet'}
+              className={`shrink-0 text-xs px-2.5 py-2 rounded-lg border transition-colors disabled:opacity-40 ${
+                onlyMine
+                  ? 'bg-wolf-red/20 border-wolf-red/50 text-wolf-pink'
+                  : 'bg-wolf-surface/60 border-wolf-border/40 hover:border-wolf-red/40'
+              }`}
+            >👤 Mine</button>
+          </div>
+
+          <div className="space-y-2 overflow-y-auto max-h-[520px] pr-1 -mr-1">
             {loadingList && (
               <div className="text-center text-sm text-muted-foreground py-12">Loading on-chain…</div>
             )}
@@ -371,42 +469,78 @@ export default function LaunchpadView() {
                 Belum ada token. Jadilah yang pertama 🐺
               </div>
             )}
+            {!loadingList && deployed.length > 0 && filteredDeployed.length === 0 && (
+              <div className="text-center text-sm text-muted-foreground py-12">
+                Tidak ada token cocok dengan filter.
+              </div>
+            )}
             <AnimatePresence initial={false}>
-              {deployed.map((t, i) => (
-                <motion.div
-                  key={t.address}
-                  layout
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ delay: Math.min(i * 0.03, 0.4) }}
-                  className="group flex items-center gap-3 p-3 rounded-xl bg-wolf-surface/60 hover:bg-wolf-surface border border-wolf-border/30 hover:border-wolf-red/40 transition-all"
-                >
-                  <img
-                    src={t.logo || FALLBACK_LOGO}
-                    alt=""
-                    className="w-9 h-9 rounded-full ring-1 ring-wolf-border/50 object-cover bg-wolf-surface"
-                    onError={e => { (e.target as HTMLImageElement).src = FALLBACK_LOGO; }}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="font-semibold text-sm truncate">{t.name || '—'} <span className="text-muted-foreground">({t.symbol || '?'})</span></div>
-                    <div className="text-[11px] text-muted-foreground font-mono truncate">{t.address}</div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setNewToken({
-                        address: t.address,
-                        symbol: t.symbol || '?',
-                        name: t.name || 'Unknown',
-                        decimals: 18,
-                        logo: t.logo || FALLBACK_LOGO,
-                      });
-                      setPairModal(true);
-                    }}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity text-xs px-2 py-1 rounded-md bg-wolf-red/15 hover:bg-wolf-red/25 text-wolf-pink border border-wolf-red/30"
-                  >+ Pair</button>
-                </motion.div>
-              ))}
+              {filteredDeployed.map((t, i) => {
+                const isMine = !!myAddr && t.creator?.toLowerCase() === myAddr;
+                const short = `${t.address.slice(0, 6)}…${t.address.slice(-4)}`;
+                return (
+                  <motion.div
+                    key={t.address}
+                    layout
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ delay: Math.min(i * 0.03, 0.4) }}
+                    className="group p-3 rounded-xl bg-wolf-surface/60 hover:bg-wolf-surface border border-wolf-border/30 hover:border-wolf-red/40 transition-all"
+                  >
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={t.logo || FALLBACK_LOGO}
+                        alt=""
+                        className="w-9 h-9 rounded-full ring-1 ring-wolf-border/50 object-cover bg-wolf-surface shrink-0"
+                        onError={e => { (e.target as HTMLImageElement).src = FALLBACK_LOGO; }}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="font-semibold text-sm truncate flex items-center gap-1.5">
+                          {t.name || '—'} <span className="text-muted-foreground font-normal">({t.symbol || '?'})</span>
+                          {isMine && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-wolf-gold/20 text-wolf-gold border border-wolf-gold/40 uppercase tracking-wide">mine</span>}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground flex items-center gap-2">
+                          <span className="font-mono">{short}</span>
+                          {t.totalSupply && <span>· supply {fmtNum(t.totalSupply)}</span>}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(t.address);
+                          toast.success('Address disalin', { description: t.address });
+                        }}
+                        className="text-[11px] px-2 py-1 rounded-md bg-wolf-surface hover:bg-wolf-surface-hover border border-wolf-border/40"
+                      >📋 Copy</button>
+                      <a
+                        href={`${CHAIN_CONFIG.blockExplorer}/address/${t.address}`}
+                        target="_blank" rel="noopener noreferrer"
+                        className="text-[11px] px-2 py-1 rounded-md bg-wolf-surface hover:bg-wolf-surface-hover border border-wolf-border/40"
+                      >🔗 Explorer</a>
+                      <button
+                        onClick={() => navigate({ to: '/swap' })}
+                        className="text-[11px] px-2 py-1 rounded-md bg-wolf-surface hover:bg-wolf-surface-hover border border-wolf-border/40"
+                      >💱 Trade</button>
+                      <button
+                        onClick={() => {
+                          setNewToken({
+                            address: t.address,
+                            symbol: t.symbol || '?',
+                            name: t.name || 'Unknown',
+                            decimals: 18,
+                            logo: t.logo || FALLBACK_LOGO,
+                          });
+                          setPairModal(true);
+                        }}
+                        className="ml-auto text-[11px] px-2 py-1 rounded-md bg-wolf-red/15 hover:bg-wolf-red/25 text-wolf-pink border border-wolf-red/30"
+                      >+ Liquidity</button>
+                    </div>
+                  </motion.div>
+                );
+              })}
             </AnimatePresence>
           </div>
         </motion.div>
