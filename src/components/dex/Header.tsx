@@ -156,8 +156,8 @@ export default function Header({ address, balance, isConnected, isConnecting = f
                 className="wolf-btn-primary flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold disabled:opacity-80 sm:px-4"
               >
                 {isConnecting && <WolfSpinner size={14} />}
-                <span className="hidden xs:inline sm:inline">{isConnecting ? 'Connecting…' : 'Connect Wallet'}</span>
-                <span className="sm:hidden">Wallet</span>
+                <span className="hidden min-[420px]:inline">{isConnecting ? 'Connecting…' : 'Connect Wallet'}</span>
+                <span className="min-[420px]:hidden">Wallet</span>
               </button>
             )}
             <button onClick={() => setMobileNav(!mobileNav)} className="p-2 text-foreground min-[1180px]:hidden" aria-label="Toggle navigation">
