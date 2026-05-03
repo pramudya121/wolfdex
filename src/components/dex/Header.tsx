@@ -109,15 +109,15 @@ export default function Header({ address, balance, isConnected, isConnecting = f
 
           <div className="flex items-center gap-3">
             {isConnected ? (
-              <div className="flex items-center gap-2">
-                <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-wolf-surface border border-wolf-border/40 text-sm">
-                  <span className="text-wolf-gold font-medium">{parseFloat(balance).toFixed(4)}</span>
+              <div className="flex items-center gap-1.5">
+                <div className="hidden md:flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-wolf-surface border border-wolf-border/40 text-xs">
+                  <span className="text-wolf-gold font-medium">{parseFloat(balance).toFixed(2)}</span>
                   <span className="text-muted-foreground">zkLTC</span>
                 </div>
                 <button onClick={onDisconnect}
-                  className="px-3 py-1.5 rounded-lg bg-wolf-surface border border-wolf-border/40 text-sm font-medium hover:border-wolf-red/50 transition-all flex items-center gap-1.5"
+                  className="px-2.5 py-1.5 rounded-lg bg-wolf-surface border border-wolf-border/40 text-xs font-medium hover:border-wolf-red/50 transition-all flex items-center gap-1.5"
                 >
-                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
                   {shortAddr}
                 </button>
               </div>
