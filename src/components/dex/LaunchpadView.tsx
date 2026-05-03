@@ -261,7 +261,7 @@ export default function LaunchpadView() {
           <TextGenerateEffect text="ERC20 Launchpad" />
         </h1>
         <p className="text-muted-foreground max-w-xl mx-auto relative z-10">
-          <TextGenerateEffect text="Deploy token kamu sendiri dalam 1 transaksi. Otomatis terdaftar di seluruh WolfDex." delay={0.3} />
+          <TextGenerateEffect text="Deploy your token in a single transaction and register it across WolfDex automatically." delay={0.3} />
         </p>
       </div>
 
@@ -311,7 +311,7 @@ export default function LaunchpadView() {
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-wolf-red/30 to-wolf-pink/20 border border-wolf-red/40 flex items-center justify-center text-xl">🚀</div>
             <div>
               <h2 className="text-xl font-bold">Create Your Token</h2>
-              <p className="text-xs text-muted-foreground">Deployer: SimpleERC20 · 18 desimal · supply ke wallet kamu</p>
+              <p className="text-xs text-muted-foreground">Deployer: SimpleERC20 · 18 decimals · total supply sent to your wallet</p>
             </div>
           </div>
 
@@ -338,7 +338,7 @@ export default function LaunchpadView() {
 
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Nama Token</label>
+                <label className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Token Name</label>
                 <input
                   value={name}
                   onChange={e => setName(e.target.value.slice(0, 32))}
@@ -347,7 +347,7 @@ export default function LaunchpadView() {
                 />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Simbol</label>
+                <label className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Symbol</label>
                 <input
                   value={symbol}
                   onChange={e => setSymbol(e.target.value.slice(0, 11))}
@@ -397,7 +397,7 @@ export default function LaunchpadView() {
                 : <span className="text-2xl">🐺</span>}
             </motion.div>
             <div className="min-w-0 flex-1">
-              <div className="font-bold truncate">{name || 'Nama Token'}</div>
+              <div className="font-bold truncate">{name || 'Token Name'}</div>
               <div className="text-xs text-muted-foreground">
                 <span className="font-mono">{symClean || 'SYMBOL'}</span> · supply <span className="font-mono">{supplyNum.toLocaleString()}</span>
               </div>
@@ -415,12 +415,12 @@ export default function LaunchpadView() {
           >
             <span className="relative z-10">
               {!wallet.signer ? 'Connect Wallet to Deploy'
-                : deploying ? 'Deploying… (konfirmasi di wallet)'
+                : deploying ? 'Deploying… (confirm in wallet)'
                 : `🚀 Deploy ${symClean || 'TOKEN'}`}
             </span>
           </button>
           <p className="mt-3 text-[11px] text-center text-muted-foreground">
-            Setelah deploy, kamu akan diarahkan ke <span className="text-wolf-pink">Create New Pair</span> untuk menambah likuiditas pertama.
+            After deployment, you will be routed into <span className="text-wolf-pink">Create New Pair</span> to add the first liquidity.
           </p>
         </motion.div>
 
@@ -443,7 +443,7 @@ export default function LaunchpadView() {
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Cari nama, simbol, atau address…"
+                placeholder="Search by name, symbol, or address…"
                 className="w-full pl-8 pr-3 py-2 rounded-lg bg-wolf-surface/60 border border-wolf-border/40 focus:border-wolf-red/60 focus:outline-none text-xs"
               />
               <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">🔎</span>
@@ -451,7 +451,7 @@ export default function LaunchpadView() {
             <button
               onClick={() => setOnlyMine(v => !v)}
               disabled={!myAddr}
-              title={myAddr ? 'Filter token milikmu' : 'Hubungkan wallet'}
+              title={myAddr ? 'Filter your tokens' : 'Connect wallet'}
               className={`shrink-0 text-xs px-2.5 py-2 rounded-lg border transition-colors disabled:opacity-40 ${
                 onlyMine
                   ? 'bg-wolf-red/20 border-wolf-red/50 text-wolf-pink'
@@ -466,12 +466,12 @@ export default function LaunchpadView() {
             )}
             {!loadingList && deployed.length === 0 && (
               <div className="text-center text-sm text-muted-foreground py-12">
-                Belum ada token. Jadilah yang pertama 🐺
+                No tokens yet. Be the first to launch one 🐺
               </div>
             )}
             {!loadingList && deployed.length > 0 && filteredDeployed.length === 0 && (
               <div className="text-center text-sm text-muted-foreground py-12">
-                Tidak ada token cocok dengan filter.
+                No tokens match the current filter.
               </div>
             )}
             <AnimatePresence initial={false}>
@@ -511,7 +511,7 @@ export default function LaunchpadView() {
                       <button
                         onClick={() => {
                           navigator.clipboard.writeText(t.address);
-                          toast.success('Address disalin', { description: t.address });
+                          toast.success('Address copied', { description: t.address });
                         }}
                         className="text-[11px] px-2 py-1 rounded-md bg-wolf-surface hover:bg-wolf-surface-hover border border-wolf-border/40"
                       >📋 Copy</button>
