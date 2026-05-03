@@ -140,7 +140,7 @@ export default function Header({ address, balance, isConnected, isConnecting = f
 
         <AnimatePresence>
           {mobileNav && (
-            <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="md:hidden overflow-hidden border-t border-wolf-border/30">
+            <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="lg:hidden overflow-hidden border-t border-wolf-border/30">
               <div className="p-3 space-y-1">
                 {NAV_ITEMS.map(item => (
                   <Link key={item.path} to={item.path} onClick={() => setMobileNav(false)}
