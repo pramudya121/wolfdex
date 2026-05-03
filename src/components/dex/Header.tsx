@@ -81,17 +81,17 @@ export default function Header({ address, balance, isConnected, isConnecting = f
         style={{ background: 'linear-gradient(180deg, oklch(0.1 0.02 20 / 95%), oklch(0.1 0.02 20 / 80%))' }}
       >
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5 group">
-            <img src={wolfLogo} alt="WOLFDEX" className="w-9 h-9 rounded-full ring-2 ring-wolf-red/40 group-hover:ring-wolf-red transition-all group-hover:scale-105 duration-300" />
-            <span className="text-xl font-bold wolf-gradient-text-animated hidden sm:block tracking-tight">WOLFDEX</span>
+          <Link to="/" className="flex items-center gap-2 group shrink-0">
+            <img src={wolfLogo} alt="WOLFDEX" className="w-8 h-8 rounded-full ring-2 ring-wolf-red/40 group-hover:ring-wolf-red transition-all group-hover:scale-105 duration-300" />
+            <span className="text-lg font-bold wolf-gradient-text-animated hidden xl:block tracking-tight">WOLFDEX</span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-1">
+          <nav className="hidden lg:flex items-center gap-0.5 mx-2">
             {NAV_ITEMS.map(item => {
               const active = location.pathname === item.path;
               return (
                 <Link key={item.path} to={item.path}
-                  className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors relative wolf-focus-ring ${
+                  className={`px-2.5 py-1.5 rounded-lg text-[13px] font-medium transition-colors relative wolf-focus-ring ${
                     active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
