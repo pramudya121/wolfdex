@@ -157,7 +157,7 @@ export default function LaunchpadView() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 256 * 1024) {
-      toast.error('Logo terlalu besar', { description: 'Maks 256 KB. Gunakan PNG/JPG kecil.' });
+      toast.error('Logo is too large', { description: 'Maximum 256 KB. Use a small PNG or JPG.' });
       return;
     }
     const reader = new FileReader();
@@ -166,13 +166,13 @@ export default function LaunchpadView() {
   };
 
   const validate = (): string | null => {
-    if (!wallet.signer) return 'Hubungkan wallet terlebih dahulu';
-    if (!name.trim()) return 'Nama token wajib diisi';
-    if (name.trim().length > 32) return 'Nama maks 32 karakter';
-    if (!symClean) return 'Simbol token wajib diisi';
-    if (symClean.length > 11) return 'Simbol maks 11 karakter';
-    if (!supplyNum || supplyNum <= 0) return 'Total supply harus lebih dari 0';
-    if (supplyNum > 1e15) return 'Supply terlalu besar';
+    if (!wallet.signer) return 'Connect your wallet first';
+    if (!name.trim()) return 'Token name is required';
+    if (name.trim().length > 32) return 'Token name must be 32 characters or less';
+    if (!symClean) return 'Token symbol is required';
+    if (symClean.length > 11) return 'Token symbol must be 11 characters or less';
+    if (!supplyNum || supplyNum <= 0) return 'Total supply must be greater than zero';
+    if (supplyNum > 1e15) return 'Supply is too large';
     return null;
   };
 
@@ -183,7 +183,7 @@ export default function LaunchpadView() {
     try {
       const launch = new ethers.Contract(CONTRACTS.LAUNCHPAD, LAUNCHPAD_ABI, wallet.signer!);
       const tx = await launch.createToken(name.trim(), symClean, ethers.BigNumber.from(supplyNum));
-      toast.info('Mendeploy token…', { description: 'Konfirmasi di wallet & tunggu blockchain' });
+      toast.info('Deploying token…', { description: 'Confirm the transaction in your wallet and wait for the chain.' });
       const receipt = await tx.wait();
 
       // Parse TokenDeployed event
@@ -202,7 +202,7 @@ export default function LaunchpadView() {
         const all: string[] = await launchR.getAllTokens();
         deployedAddr = all[all.length - 1] ?? null;
       }
-      if (!deployedAddr) throw new Error('TokenDeployed event tidak ditemukan');
+      if (!deployedAddr) throw new Error('TokenDeployed event was not found');
 
       const checksum = ethers.utils.getAddress(deployedAddr);
       const finalLogo = logoDataUrl || FALLBACK_LOGO;
@@ -246,7 +246,7 @@ export default function LaunchpadView() {
       setNewToken(tokenInfo);
       setPairModal(true);
     } catch (e: any) {
-      toast.error('Deploy gagal', { description: decodeRpcError(e) });
+      toast.error('Deploy failed', { description: decodeRpcError(e) });
     } finally {
       setDeploying(false);
     }
