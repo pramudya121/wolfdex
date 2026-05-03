@@ -81,17 +81,17 @@ export default function Header({ address, balance, isConnected, isConnecting = f
         style={{ background: 'linear-gradient(180deg, oklch(0.1 0.02 20 / 95%), oklch(0.1 0.02 20 / 80%))' }}
       >
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5 group">
-            <img src={wolfLogo} alt="WOLFDEX" className="w-9 h-9 rounded-full ring-2 ring-wolf-red/40 group-hover:ring-wolf-red transition-all group-hover:scale-105 duration-300" />
-            <span className="text-xl font-bold wolf-gradient-text-animated hidden sm:block tracking-tight">WOLFDEX</span>
+          <Link to="/" className="flex items-center gap-2 group shrink-0">
+            <img src={wolfLogo} alt="WOLFDEX" className="w-8 h-8 rounded-full ring-2 ring-wolf-red/40 group-hover:ring-wolf-red transition-all group-hover:scale-105 duration-300" />
+            <span className="text-lg font-bold wolf-gradient-text-animated hidden xl:block tracking-tight">WOLFDEX</span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-1">
+          <nav className="hidden lg:flex items-center gap-0.5 mx-2">
             {NAV_ITEMS.map(item => {
               const active = location.pathname === item.path;
               return (
                 <Link key={item.path} to={item.path}
-                  className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors relative wolf-focus-ring ${
+                  className={`px-2.5 py-1.5 rounded-lg text-[13px] font-medium transition-colors relative wolf-focus-ring ${
                     active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
@@ -109,15 +109,15 @@ export default function Header({ address, balance, isConnected, isConnecting = f
 
           <div className="flex items-center gap-3">
             {isConnected ? (
-              <div className="flex items-center gap-2">
-                <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-wolf-surface border border-wolf-border/40 text-sm">
-                  <span className="text-wolf-gold font-medium">{parseFloat(balance).toFixed(4)}</span>
+              <div className="flex items-center gap-1.5">
+                <div className="hidden md:flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-wolf-surface border border-wolf-border/40 text-xs">
+                  <span className="text-wolf-gold font-medium">{parseFloat(balance).toFixed(2)}</span>
                   <span className="text-muted-foreground">zkLTC</span>
                 </div>
                 <button onClick={onDisconnect}
-                  className="px-3 py-1.5 rounded-lg bg-wolf-surface border border-wolf-border/40 text-sm font-medium hover:border-wolf-red/50 transition-all flex items-center gap-1.5"
+                  className="px-2.5 py-1.5 rounded-lg bg-wolf-surface border border-wolf-border/40 text-xs font-medium hover:border-wolf-red/50 transition-all flex items-center gap-1.5"
                 >
-                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
                   {shortAddr}
                 </button>
               </div>
@@ -130,7 +130,7 @@ export default function Header({ address, balance, isConnected, isConnecting = f
                 {isConnecting ? 'Connecting…' : 'Connect Wallet'}
               </button>
             )}
-            <button onClick={() => setMobileNav(!mobileNav)} className="md:hidden p-2 text-foreground">
+            <button onClick={() => setMobileNav(!mobileNav)} className="lg:hidden p-2 text-foreground">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 {mobileNav ? <path d="M18 6L6 18M6 6l12 12" /> : <path d="M3 12h18M3 6h18M3 18h18" />}
               </svg>
@@ -140,7 +140,7 @@ export default function Header({ address, balance, isConnected, isConnecting = f
 
         <AnimatePresence>
           {mobileNav && (
-            <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="md:hidden overflow-hidden border-t border-wolf-border/30">
+            <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="lg:hidden overflow-hidden border-t border-wolf-border/30">
               <div className="p-3 space-y-1">
                 {NAV_ITEMS.map(item => (
                   <Link key={item.path} to={item.path} onClick={() => setMobileNav(false)}
