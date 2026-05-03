@@ -130,7 +130,7 @@ export default function Header({ address, balance, isConnected, isConnecting = f
                 {isConnecting ? 'Connecting…' : 'Connect Wallet'}
               </button>
             )}
-            <button onClick={() => setMobileNav(!mobileNav)} className="md:hidden p-2 text-foreground">
+            <button onClick={() => setMobileNav(!mobileNav)} className="lg:hidden p-2 text-foreground">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 {mobileNav ? <path d="M18 6L6 18M6 6l12 12" /> : <path d="M3 12h18M3 6h18M3 18h18" />}
               </svg>
