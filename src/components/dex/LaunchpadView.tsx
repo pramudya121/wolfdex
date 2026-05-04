@@ -210,14 +210,33 @@ export default function LaunchpadView() {
       if (!deployedAddr) throw new Error('TokenDeployed event was not found');
 
       const checksum = ethers.utils.getAddress(deployedAddr);
-      const finalLogo = logoDataUrl || FALLBACK_LOGO;
 
-      // Persist logo
-      const logoMap = loadLogoMap();
-      logoMap[checksum.toLowerCase()] = finalLogo;
-      saveLogoMap(logoMap);
+      // Upload logo to public storage (so every user/device sees it)
+      let finalLogo = FALLBACK_LOGO;
+      if (logoFile) {
+        try {
+          finalLogo = await uploadTokenLogo(logoFile, checksum);
+        } catch (upErr: any) {
+          console.warn('Logo upload failed, using fallback', upErr);
+          toast.warning('Logo upload failed', { description: 'Token deployed without a custom logo.' });
+        }
+      }
 
-      // Register globally so token appears in every TokenModal across WolfDex
+      // Register globally in the public DB so every visitor on every page sees it
+      try {
+        await registerToken({
+          address: checksum,
+          name: name.trim(),
+          symbol: symClean,
+          decimals: 18,
+          logo_url: finalLogo === FALLBACK_LOGO ? null : finalLogo,
+          creator: myAddr || null,
+        });
+      } catch (regErr) {
+        console.warn('Registry insert failed', regErr);
+      }
+
+      // Local cache for token modal in this session
       const tokenInfo: TokenInfo = {
         address: checksum,
         symbol: symClean,
@@ -244,7 +263,8 @@ export default function LaunchpadView() {
       setTotalDeployed(n => n + 1);
 
       // Reset form
-      setName(''); setSymbol(''); setSupply('1000000'); setLogoDataUrl('');
+      setName(''); setSymbol(''); setSupply('1000000');
+      setLogoFile(null); setLogoPreview('');
       if (fileRef.current) fileRef.current.value = '';
 
       // Open Create Pair flow with the new token preselected as Token A
