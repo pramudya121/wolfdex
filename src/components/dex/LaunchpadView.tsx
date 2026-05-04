@@ -124,12 +124,13 @@ export default function LaunchpadView() {
               c.symbol().catch(() => '?'),
               c.totalSupply().catch(() => ethers.constants.Zero),
             ]);
+            const reg = getRegistryToken(addr);
             const row: DeployedRow = {
               address: addr,
-              name: String(n),
-              symbol: String(s),
+              name: reg?.name || String(n),
+              symbol: reg?.symbol || String(s),
               totalSupply: ethers.utils.formatUnits(ts, 18),
-              logo: logoMap[addr.toLowerCase()] || FALLBACK_LOGO,
+              logo: reg?.logo_url || logoMap[addr.toLowerCase()] || FALLBACK_LOGO,
               creator: creatorMap[addr.toLowerCase()],
             };
             // Auto-register so it shows up in TokenModal everywhere
