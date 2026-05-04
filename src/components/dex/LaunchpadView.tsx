@@ -349,8 +349,8 @@ export default function LaunchpadView() {
               style={{ transformPerspective: 800 }}
               className="cursor-pointer aspect-square rounded-2xl border-2 border-dashed border-wolf-border/60 hover:border-wolf-red/60 bg-wolf-surface/40 hover:bg-wolf-surface flex flex-col items-center justify-center gap-1 text-xs text-muted-foreground transition-colors overflow-hidden relative group"
             >
-              {logoDataUrl ? (
-                <img src={logoDataUrl} alt="logo" className="w-full h-full object-cover" />
+              {logoPreview ? (
+                <img src={logoPreview} alt="logo" className="w-full h-full object-cover" />
               ) : (
                 <>
                   <span className="text-3xl group-hover:scale-110 transition-transform">🖼️</span>
@@ -417,8 +417,8 @@ export default function LaunchpadView() {
               style={{ transformPerspective: 600 }}
               className="w-14 h-14 rounded-full overflow-hidden ring-2 ring-wolf-red/40 flex items-center justify-center bg-wolf-surface shrink-0"
             >
-              {logoDataUrl
-                ? <img src={logoDataUrl} alt="" className="w-full h-full object-cover" />
+              {logoPreview
+                ? <img src={logoPreview} alt="" className="w-full h-full object-cover" />
                 : <span className="text-2xl">🐺</span>}
             </motion.div>
             <div className="min-w-0 flex-1">
