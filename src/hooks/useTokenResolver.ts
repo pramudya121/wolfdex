@@ -56,6 +56,10 @@ export function useTokenResolver() {
     const custom = customTokens.find(t => t.address.toLowerCase() === key);
     if (custom) return custom;
 
+    // 2b. Public launchpad registry
+    const reg = getRegistryToken(address);
+    if (reg) return registryToTokenInfo(reg);
+
     // 3. In-memory cache
     const cached = memCache.get(key);
     if (cached) return cached;
