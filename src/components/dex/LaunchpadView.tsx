@@ -46,12 +46,14 @@ function saveLogoMap(map: LogoMap) {
 export default function LaunchpadView() {
   const { wallet } = useDexContext();
   const { addToken } = useCustomTokens();
+  const { tokens: registryTokens } = useLaunchpadRegistry();
   const navigate = useNavigate();
 
   const [name, setName] = useState('');
   const [symbol, setSymbol] = useState('');
   const [supply, setSupply] = useState('1000000');
-  const [logoDataUrl, setLogoDataUrl] = useState<string>('');
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string>('');
   const [deploying, setDeploying] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
