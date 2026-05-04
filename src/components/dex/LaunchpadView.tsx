@@ -160,12 +160,13 @@ export default function LaunchpadView() {
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 256 * 1024) {
-      toast.error('Logo is too large', { description: 'Maximum 256 KB. Use a small PNG or JPG.' });
+    if (file.size > 512 * 1024) {
+      toast.error('Logo is too large', { description: 'Maximum 512 KB. Use a small PNG or JPG.' });
       return;
     }
+    setLogoFile(file);
     const reader = new FileReader();
-    reader.onload = () => setLogoDataUrl(String(reader.result || ''));
+    reader.onload = () => setLogoPreview(String(reader.result || ''));
     reader.readAsDataURL(file);
   };
 
