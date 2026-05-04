@@ -47,10 +47,13 @@ export function useCustomTokens() {
   const addToken = useCallback((token: TokenInfo) => {
     setCustomTokens(prev => {
       if (prev.some(t => t.address.toLowerCase() === token.address.toLowerCase())) {
-        // overwrite existing entry (e.g. to attach a freshly-uploaded logo)
-        const next = prev.map(t =>
-          t.address.toLowerCase() === token.address.toLowerCase() ? { ...t, ...token } : t,
-        );
+        // merge but never overwrite a real logo with the fallback placeholder
+        const FALLBACK = '/images/wdex-logo.png';
+        const next = prev.map(t => {
+          if (t.address.toLowerCase() !== token.address.toLowerCase()) return t;
+          const incomingLogo = token.logo && token.logo !== FALLBACK ? token.logo : t.logo;
+          return { ...t, ...token, logo: incomingLogo };
+        });
         localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
         return next;
       }
