@@ -12,6 +12,7 @@ import { ethers } from 'ethers';
 import { CHAIN_CONFIG, TOKENS, getTokenByAddress, type TokenInfo } from '@/config/contracts';
 import { ERC20_ABI } from '@/config/abis';
 import { useCustomTokens } from './useCustomTokens';
+import { getRegistryToken, registryToTokenInfo } from './useLaunchpadRegistry';
 
 const STORAGE_KEY = 'wolfdex.tokenResolverCache.v1';
 const memCache: Map<string, TokenInfo> = new Map();
