@@ -14,7 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      launchpad_tokens: {
+        Row: {
+          address: string
+          created_at: string
+          creator: string | null
+          decimals: number
+          logo_url: string | null
+          name: string
+          symbol: string
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          creator?: string | null
+          decimals?: number
+          logo_url?: string | null
+          name: string
+          symbol: string
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          creator?: string | null
+          decimals?: number
+          logo_url?: string | null
+          name?: string
+          symbol?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
