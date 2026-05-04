@@ -93,6 +93,7 @@ function AppLayout() {
       <AIAgentPanel />
       <GlobalTxNotifier />
       <GlobalLimitWatcher />
+      <RegistryHydrator />
       <Toaster
         theme="dark"
         position="top-right"
