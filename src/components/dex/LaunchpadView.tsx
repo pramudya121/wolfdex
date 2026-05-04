@@ -7,6 +7,7 @@ import { CONTRACTS, CHAIN_CONFIG, type TokenInfo, NATIVE_TOKEN } from '@/config/
 import { LAUNCHPAD_ABI, ERC20_ABI } from '@/config/abis';
 import { useDexContext } from '@/context/DexContext';
 import { useCustomTokens } from '@/hooks/useCustomTokens';
+import { useLaunchpadRegistry, uploadTokenLogo, registerToken, getRegistryToken } from '@/hooks/useLaunchpadRegistry';
 import { getReadProvider, decodeRpcError } from '@/lib/rpc';
 import CreatePairModal from './CreatePairModal';
 import TextGenerateEffect from './ui/TextGenerateEffect';
