@@ -12,6 +12,7 @@ import { ethers } from 'ethers';
 import { CHAIN_CONFIG, TOKENS, getTokenByAddress, type TokenInfo } from '@/config/contracts';
 import { ERC20_ABI } from '@/config/abis';
 import { useCustomTokens } from './useCustomTokens';
+import { getRegistryToken, registryToTokenInfo } from './useLaunchpadRegistry';
 
 const STORAGE_KEY = 'wolfdex.tokenResolverCache.v1';
 const memCache: Map<string, TokenInfo> = new Map();
@@ -54,6 +55,10 @@ export function useTokenResolver() {
     // 2. Custom (user-imported)
     const custom = customTokens.find(t => t.address.toLowerCase() === key);
     if (custom) return custom;
+
+    // 2b. Public launchpad registry
+    const reg = getRegistryToken(address);
+    if (reg) return registryToTokenInfo(reg);
 
     // 3. In-memory cache
     const cached = memCache.get(key);

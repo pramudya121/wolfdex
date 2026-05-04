@@ -7,6 +7,7 @@ import { CONTRACTS, CHAIN_CONFIG, type TokenInfo, NATIVE_TOKEN } from '@/config/
 import { LAUNCHPAD_ABI, ERC20_ABI } from '@/config/abis';
 import { useDexContext } from '@/context/DexContext';
 import { useCustomTokens } from '@/hooks/useCustomTokens';
+import { useLaunchpadRegistry, uploadTokenLogo, registerToken, getRegistryToken } from '@/hooks/useLaunchpadRegistry';
 import { getReadProvider, decodeRpcError } from '@/lib/rpc';
 import CreatePairModal from './CreatePairModal';
 import TextGenerateEffect from './ui/TextGenerateEffect';
@@ -45,12 +46,14 @@ function saveLogoMap(map: LogoMap) {
 export default function LaunchpadView() {
   const { wallet } = useDexContext();
   const { addToken } = useCustomTokens();
+  const { tokens: registryTokens } = useLaunchpadRegistry();
   const navigate = useNavigate();
 
   const [name, setName] = useState('');
   const [symbol, setSymbol] = useState('');
   const [supply, setSupply] = useState('1000000');
-  const [logoDataUrl, setLogoDataUrl] = useState<string>('');
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string>('');
   const [deploying, setDeploying] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -121,12 +124,13 @@ export default function LaunchpadView() {
               c.symbol().catch(() => '?'),
               c.totalSupply().catch(() => ethers.constants.Zero),
             ]);
+            const reg = getRegistryToken(addr);
             const row: DeployedRow = {
               address: addr,
-              name: String(n),
-              symbol: String(s),
+              name: reg?.name || String(n),
+              symbol: reg?.symbol || String(s),
               totalSupply: ethers.utils.formatUnits(ts, 18),
-              logo: logoMap[addr.toLowerCase()] || FALLBACK_LOGO,
+              logo: reg?.logo_url || logoMap[addr.toLowerCase()] || FALLBACK_LOGO,
               creator: creatorMap[addr.toLowerCase()],
             };
             // Auto-register so it shows up in TokenModal everywhere
@@ -156,12 +160,13 @@ export default function LaunchpadView() {
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 256 * 1024) {
-      toast.error('Logo is too large', { description: 'Maximum 256 KB. Use a small PNG or JPG.' });
+    if (file.size > 512 * 1024) {
+      toast.error('Logo is too large', { description: 'Maximum 512 KB. Use a small PNG or JPG.' });
       return;
     }
+    setLogoFile(file);
     const reader = new FileReader();
-    reader.onload = () => setLogoDataUrl(String(reader.result || ''));
+    reader.onload = () => setLogoPreview(String(reader.result || ''));
     reader.readAsDataURL(file);
   };
 
@@ -205,14 +210,33 @@ export default function LaunchpadView() {
       if (!deployedAddr) throw new Error('TokenDeployed event was not found');
 
       const checksum = ethers.utils.getAddress(deployedAddr);
-      const finalLogo = logoDataUrl || FALLBACK_LOGO;
 
-      // Persist logo
-      const logoMap = loadLogoMap();
-      logoMap[checksum.toLowerCase()] = finalLogo;
-      saveLogoMap(logoMap);
+      // Upload logo to public storage (so every user/device sees it)
+      let finalLogo = FALLBACK_LOGO;
+      if (logoFile) {
+        try {
+          finalLogo = await uploadTokenLogo(logoFile, checksum);
+        } catch (upErr: any) {
+          console.warn('Logo upload failed, using fallback', upErr);
+          toast.warning('Logo upload failed', { description: 'Token deployed without a custom logo.' });
+        }
+      }
 
-      // Register globally so token appears in every TokenModal across WolfDex
+      // Register globally in the public DB so every visitor on every page sees it
+      try {
+        await registerToken({
+          address: checksum,
+          name: name.trim(),
+          symbol: symClean,
+          decimals: 18,
+          logo_url: finalLogo === FALLBACK_LOGO ? null : finalLogo,
+          creator: myAddr || null,
+        });
+      } catch (regErr) {
+        console.warn('Registry insert failed', regErr);
+      }
+
+      // Local cache for token modal in this session
       const tokenInfo: TokenInfo = {
         address: checksum,
         symbol: symClean,
@@ -239,7 +263,8 @@ export default function LaunchpadView() {
       setTotalDeployed(n => n + 1);
 
       // Reset form
-      setName(''); setSymbol(''); setSupply('1000000'); setLogoDataUrl('');
+      setName(''); setSymbol(''); setSupply('1000000');
+      setLogoFile(null); setLogoPreview('');
       if (fileRef.current) fileRef.current.value = '';
 
       // Open Create Pair flow with the new token preselected as Token A
@@ -324,8 +349,8 @@ export default function LaunchpadView() {
               style={{ transformPerspective: 800 }}
               className="cursor-pointer aspect-square rounded-2xl border-2 border-dashed border-wolf-border/60 hover:border-wolf-red/60 bg-wolf-surface/40 hover:bg-wolf-surface flex flex-col items-center justify-center gap-1 text-xs text-muted-foreground transition-colors overflow-hidden relative group"
             >
-              {logoDataUrl ? (
-                <img src={logoDataUrl} alt="logo" className="w-full h-full object-cover" />
+              {logoPreview ? (
+                <img src={logoPreview} alt="logo" className="w-full h-full object-cover" />
               ) : (
                 <>
                   <span className="text-3xl group-hover:scale-110 transition-transform">🖼️</span>
@@ -392,8 +417,8 @@ export default function LaunchpadView() {
               style={{ transformPerspective: 600 }}
               className="w-14 h-14 rounded-full overflow-hidden ring-2 ring-wolf-red/40 flex items-center justify-center bg-wolf-surface shrink-0"
             >
-              {logoDataUrl
-                ? <img src={logoDataUrl} alt="" className="w-full h-full object-cover" />
+              {logoPreview
+                ? <img src={logoPreview} alt="" className="w-full h-full object-cover" />
                 : <span className="text-2xl">🐺</span>}
             </motion.div>
             <div className="min-w-0 flex-1">
