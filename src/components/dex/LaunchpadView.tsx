@@ -295,7 +295,7 @@ export default function LaunchpadView() {
         {[
           { label: 'Total Tokens', value: fmtNum(totalDeployed), icon: '🚀' },
           { label: 'Aggregate Supply', value: fmtNum(totalSupplySum), icon: '∑' },
-          { label: 'Your Tokens', value: myAddr ? String(deployed.filter(t => t.creator?.toLowerCase() === myAddr).length) : '—', icon: '👤' },
+          { label: 'Your Tokens', value: myAddr ? String(registryTokens.filter(t => t.creator?.toLowerCase() === myAddr).length) : '—', icon: '👤' },
           { label: 'Network', value: CHAIN_CONFIG.symbol, icon: '🌐' },
         ].map((s, i) => (
           <motion.div
