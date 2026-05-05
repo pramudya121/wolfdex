@@ -517,11 +517,15 @@ export default function LaunchpadView() {
                       <img
                         src={t.logo || FALLBACK_LOGO}
                         alt=""
-                        className="w-9 h-9 rounded-full ring-1 ring-wolf-border/50 object-cover bg-wolf-surface shrink-0"
+                        className="w-9 h-9 rounded-full ring-1 ring-wolf-border/50 object-cover bg-wolf-surface shrink-0 cursor-pointer"
+                        onClick={() => navigate({ to: '/token/$address', params: { address: t.address } })}
                         onError={e => { (e.target as HTMLImageElement).src = FALLBACK_LOGO; }}
                       />
-                      <div className="min-w-0 flex-1">
-                        <div className="font-semibold text-sm truncate flex items-center gap-1.5">
+                      <button
+                        onClick={() => navigate({ to: '/token/$address', params: { address: t.address } })}
+                        className="min-w-0 flex-1 text-left"
+                      >
+                        <div className="font-semibold text-sm truncate flex items-center gap-1.5 hover:text-wolf-pink transition-colors">
                           {t.name || '—'} <span className="text-muted-foreground font-normal">({t.symbol || '?'})</span>
                           {isMine && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-wolf-gold/20 text-wolf-gold border border-wolf-gold/40 uppercase tracking-wide">mine</span>}
                         </div>
@@ -529,7 +533,7 @@ export default function LaunchpadView() {
                           <span className="font-mono">{short}</span>
                           {t.totalSupply && <span>· supply {fmtNum(t.totalSupply)}</span>}
                         </div>
-                      </div>
+                      </button>
                     </div>
 
                     <div className="mt-2 flex items-center gap-1.5 flex-wrap">
