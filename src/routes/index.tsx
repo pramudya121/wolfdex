@@ -193,6 +193,7 @@ function HomePage() {
             { icon: '📊', title: 'Live Analytics', desc: 'On-chain TVL, volume & price charts updated in real-time across all pairs.', to: '/analytics' },
             { icon: '🐺', title: 'Wolf Pack Pools', desc: 'Permissionless pool creation. Launch your own pair with one click.', to: '/pools' },
             { icon: '💼', title: 'Smart Portfolio', desc: 'Track tokens, LP positions & farming yields in a single dashboard.', to: '/portfolio' },
+            { icon: '🚀', title: 'Token Launchpad', desc: 'Deploy your own ERC20 in one click. Auto-listed across WolfDex with logo & name.', to: '/launchpad' },
             { icon: '📚', title: 'Open Docs', desc: 'Full DeFi guides, smart contract refs & roadmap. Built in the open.', to: '/docs' },
           ].map((f, i) => (
             <motion.div
