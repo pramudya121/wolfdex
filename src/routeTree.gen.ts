@@ -20,6 +20,7 @@ import { Route as DocsRouteImport } from './routes/docs'
 import { Route as CasinoRouteImport } from './routes/casino'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as TokenAddressRouteImport } from './routes/token.$address'
 import { Route as CasinoAdminRouteImport } from './routes/casino.admin'
 import { Route as ApiAiAgentRouteImport } from './routes/api/ai-agent'
 
@@ -78,6 +79,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TokenAddressRoute = TokenAddressRouteImport.update({
+  id: '/token/$address',
+  path: '/token/$address',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CasinoAdminRoute = CasinoAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -103,6 +109,7 @@ export interface FileRoutesByFullPath {
   '/swap': typeof SwapRoute
   '/api/ai-agent': typeof ApiAiAgentRoute
   '/casino/admin': typeof CasinoAdminRoute
+  '/token/$address': typeof TokenAddressRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -118,6 +125,7 @@ export interface FileRoutesByTo {
   '/swap': typeof SwapRoute
   '/api/ai-agent': typeof ApiAiAgentRoute
   '/casino/admin': typeof CasinoAdminRoute
+  '/token/$address': typeof TokenAddressRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -134,6 +142,7 @@ export interface FileRoutesById {
   '/swap': typeof SwapRoute
   '/api/ai-agent': typeof ApiAiAgentRoute
   '/casino/admin': typeof CasinoAdminRoute
+  '/token/$address': typeof TokenAddressRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -151,6 +160,7 @@ export interface FileRouteTypes {
     | '/swap'
     | '/api/ai-agent'
     | '/casino/admin'
+    | '/token/$address'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -166,6 +176,7 @@ export interface FileRouteTypes {
     | '/swap'
     | '/api/ai-agent'
     | '/casino/admin'
+    | '/token/$address'
   id:
     | '__root__'
     | '/'
@@ -181,6 +192,7 @@ export interface FileRouteTypes {
     | '/swap'
     | '/api/ai-agent'
     | '/casino/admin'
+    | '/token/$address'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -196,6 +208,7 @@ export interface RootRouteChildren {
   PortfolioRoute: typeof PortfolioRoute
   SwapRoute: typeof SwapRoute
   ApiAiAgentRoute: typeof ApiAiAgentRoute
+  TokenAddressRoute: typeof TokenAddressRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -277,6 +290,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/token/$address': {
+      id: '/token/$address'
+      path: '/token/$address'
+      fullPath: '/token/$address'
+      preLoaderRoute: typeof TokenAddressRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/casino/admin': {
       id: '/casino/admin'
       path: '/admin'
@@ -318,6 +338,7 @@ const rootRouteChildren: RootRouteChildren = {
   PortfolioRoute: PortfolioRoute,
   SwapRoute: SwapRoute,
   ApiAiAgentRoute: ApiAiAgentRoute,
+  TokenAddressRoute: TokenAddressRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
