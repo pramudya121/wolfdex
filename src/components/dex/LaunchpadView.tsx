@@ -463,17 +463,30 @@ export default function LaunchpadView() {
             </div>
           </motion.div>
 
-          <button
+          <motion.button
             onClick={handleDeploy}
             disabled={deploying || !wallet.signer}
+            whileHover={{ scale: deploying || !wallet.signer ? 1 : 1.02 }}
+            whileTap={{ scale: 0.98 }}
             className="w-full py-4 rounded-2xl wolf-btn-primary font-bold text-base disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden group"
           >
-            <span className="relative z-10">
+            {!deploying && wallet.signer && (
+              <motion.span
+                aria-hidden
+                className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent"
+                animate={{ x: ['-100%', '200%'] }}
+                transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut', repeatDelay: 1.2 }}
+              />
+            )}
+            <span className="relative z-10 inline-flex items-center justify-center gap-2">
+              {deploying && (
+                <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+              )}
               {!wallet.signer ? 'Connect Wallet to Deploy'
                 : deploying ? 'Deploying… (confirm in wallet)'
                 : `🚀 Deploy ${symClean || 'TOKEN'}`}
             </span>
-          </button>
+          </motion.button>
           <p className="mt-3 text-[11px] text-center text-muted-foreground">
             After deployment, you will be routed into <span className="text-wolf-pink">Create New Pair</span> to add the first liquidity.
           </p>
