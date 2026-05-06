@@ -873,6 +873,8 @@
   width: 0;
   height: 0;
   transform-style: preserve-3d;
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 .orbit-token {
@@ -894,6 +896,8 @@
   align-items: center;
   justify-content: center;
   filter: drop-shadow(0 6px 18px oklch(0.65 0.25 330 / 60%));
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 .orbit-token-inner img {
