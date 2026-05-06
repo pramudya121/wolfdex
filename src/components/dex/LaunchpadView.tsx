@@ -55,6 +55,7 @@ export default function LaunchpadView() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>('');
   const [deploying, setDeploying] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [deployed, setDeployed] = useState<DeployedRow[]>([]);
@@ -157,17 +158,30 @@ export default function LaunchpadView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const acceptLogoFile = (file: File | null | undefined) => {
     if (!file) return;
+    if (!/^image\/(png|jpeg|gif|webp)$/.test(file.type)) {
+      toast.error('Unsupported image', { description: 'Use PNG, JPG, GIF, or WEBP.' });
+      return;
+    }
     if (file.size > 512 * 1024) {
-      toast.error('Logo is too large', { description: 'Maximum 512 KB. Use a small PNG or JPG.' });
+      toast.error('Logo is too large', { description: 'Maximum 512 KB. Compress your image first.' });
       return;
     }
     setLogoFile(file);
     const reader = new FileReader();
     reader.onload = () => setLogoPreview(String(reader.result || ''));
     reader.readAsDataURL(file);
+  };
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => acceptLogoFile(e.target.files?.[0]);
+  const handleLogoDrop = (e: React.DragEvent<HTMLLabelElement>) => {
+    e.preventDefault();
+    setDragOver(false);
+    acceptLogoFile(e.dataTransfer.files?.[0]);
+  };
+  const clearLogo = () => {
+    setLogoFile(null); setLogoPreview('');
+    if (fileRef.current) fileRef.current.value = '';
   };
 
   const validate = (): string | null => {
@@ -347,18 +361,34 @@ export default function LaunchpadView() {
               whileTap={{ scale: 0.97 }}
               transition={{ type: 'spring', stiffness: 220, damping: 16 }}
               style={{ transformPerspective: 800 }}
-              className="cursor-pointer aspect-square rounded-2xl border-2 border-dashed border-wolf-border/60 hover:border-wolf-red/60 bg-wolf-surface/40 hover:bg-wolf-surface flex flex-col items-center justify-center gap-1 text-xs text-muted-foreground transition-colors overflow-hidden relative group"
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleLogoDrop}
+              className={`cursor-pointer aspect-square rounded-2xl border-2 border-dashed bg-wolf-surface/40 hover:bg-wolf-surface flex flex-col items-center justify-center gap-1 text-xs text-muted-foreground transition-all overflow-hidden relative group ${
+                dragOver ? 'border-wolf-pink scale-[1.03] bg-wolf-surface' : 'border-wolf-border/60 hover:border-wolf-red/60'
+              }`}
             >
               {logoPreview ? (
-                <img src={logoPreview} alt="logo" className="w-full h-full object-cover" />
+                <>
+                  <img src={logoPreview} alt="logo" className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); clearLogo(); }}
+                    className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 hover:bg-wolf-red text-white text-xs flex items-center justify-center backdrop-blur"
+                    aria-label="Remove logo"
+                  >✕</button>
+                  <div className="absolute inset-x-0 bottom-0 px-2 py-1 text-[10px] text-center text-white bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                    Click or drop to replace
+                  </div>
+                </>
               ) : (
                 <>
-                  <span className="text-3xl group-hover:scale-110 transition-transform">🖼️</span>
-                  <span>Upload logo</span>
-                  <span className="text-[10px] opacity-60">PNG/JPG · ≤256 KB</span>
+                  <span className="text-3xl group-hover:scale-110 transition-transform">{dragOver ? '⬇️' : '🖼️'}</span>
+                  <span className="font-medium text-foreground/80">{dragOver ? 'Drop image' : 'Upload logo'}</span>
+                  <span className="text-[10px] opacity-60">PNG/JPG/WEBP · ≤512 KB</span>
                 </>
               )}
-              <input ref={fileRef} type="file" accept="image/*" onChange={handleLogoChange} className="hidden" />
+              <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp" onChange={handleLogoChange} className="hidden" />
             </motion.label>
 
             <div className="space-y-3">
@@ -433,17 +463,30 @@ export default function LaunchpadView() {
             </div>
           </motion.div>
 
-          <button
+          <motion.button
             onClick={handleDeploy}
             disabled={deploying || !wallet.signer}
+            whileHover={{ scale: deploying || !wallet.signer ? 1 : 1.02 }}
+            whileTap={{ scale: 0.98 }}
             className="w-full py-4 rounded-2xl wolf-btn-primary font-bold text-base disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden group"
           >
-            <span className="relative z-10">
+            {!deploying && wallet.signer && (
+              <motion.span
+                aria-hidden
+                className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent"
+                animate={{ x: ['-100%', '200%'] }}
+                transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut', repeatDelay: 1.2 }}
+              />
+            )}
+            <span className="relative z-10 inline-flex items-center justify-center gap-2">
+              {deploying && (
+                <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+              )}
               {!wallet.signer ? 'Connect Wallet to Deploy'
                 : deploying ? 'Deploying… (confirm in wallet)'
                 : `🚀 Deploy ${symClean || 'TOKEN'}`}
             </span>
-          </button>
+          </motion.button>
           <p className="mt-3 text-[11px] text-center text-muted-foreground">
             After deployment, you will be routed into <span className="text-wolf-pink">Create New Pair</span> to add the first liquidity.
           </p>
