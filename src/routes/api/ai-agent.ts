@@ -338,11 +338,22 @@ async function handle(request: Request) {
     });
   }
   const messages = sanitized.messages;
-  const ctx = body.context ?? {};
+  const rawCtx = body.context ?? {};
+  // Sanitize all context fields to defeat prompt injection — the endpoint is
+  // unauthenticated, so any caller can put attacker-controlled text in here.
+  const safeAddress = typeof rawCtx.address === 'string' && /^0x[0-9a-fA-F]{40}$/.test(rawCtx.address)
+    ? rawCtx.address : 'not connected';
+  const safeChainId = Number.isFinite(Number(rawCtx.chainId)) ? Number(rawCtx.chainId) : '?';
+  const safeBalance = typeof rawCtx.balance === 'string' && /^[0-9]+(\.[0-9]+)?$/.test(rawCtx.balance)
+    ? rawCtx.balance.slice(0, 32) : '?';
+  const safeFarmCount = Number.isInteger(Number(rawCtx.farmCount)) && Number(rawCtx.farmCount) >= 0
+    ? Number(rawCtx.farmCount) : 0;
+  const ctx = { address: safeAddress, chainId: safeChainId, balance: safeBalance, farmCount: safeFarmCount };
   const mode: 'autotrade' | 'normal' = body.mode === 'autotrade' ? 'autotrade' : 'normal';
   const voiceMode = !!body.voiceMode;
-  const langHint = typeof body.languageHint === 'string' ? body.languageHint.slice(0, 40) : '';
-  const ctxNote = `\n\n[Context: wallet=${ctx.address ?? 'not connected'}, chainId=${ctx.chainId ?? '?'}, balance=${ctx.balance ?? '?'} zkLTC, farms=${ctx.farmCount ?? 0}]`;
+  const rawLang = typeof body.languageHint === 'string' ? body.languageHint.slice(0, 40) : '';
+  const langHint = rawLang.replace(/[^a-zA-Z0-9 _-]/g, '');
+  const ctxNote = `\n\n[Context: wallet=${ctx.address}, chainId=${ctx.chainId}, balance=${ctx.balance} zkLTC, farms=${ctx.farmCount}]`;
   const modeNote = mode === 'autotrade'
     ? `\n\n[MODE: AUTOTRADE — User wants you to draft a MULTI-STEP plan. ALWAYS call propose_plan with an ordered list of steps instead of propose_action. Use useOutputFromPrev=true to chain step outputs (e.g. swap then stake the resulting amount). Never auto-execute — the user confirms the entire plan with one click.]`
     : `\n\n[MODE: NORMAL — Use propose_action for single on-chain writes.]`;

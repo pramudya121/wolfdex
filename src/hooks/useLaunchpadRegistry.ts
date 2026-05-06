@@ -21,13 +21,23 @@ let listSubscribers: Array<() => void> = [];
 
 function notify() { listSubscribers.forEach(fn => { try { fn(); } catch {} }); }
 
+const ALLOWED_LOGO_MIME: Record<string, string> = {
+  png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+  gif: 'image/gif', webp: 'image/webp',
+};
+const MAX_LOGO_BYTES = 512 * 1024;
+
 export async function uploadTokenLogo(file: File, address: string): Promise<string> {
   const ext = (file.name.split('.').pop() || 'png').toLowerCase();
+  const safeMime = ALLOWED_LOGO_MIME[ext];
+  if (!safeMime) throw new Error('Unsupported image type. Use PNG, JPG, GIF, or WEBP.');
+  if (file.size > MAX_LOGO_BYTES) throw new Error('Logo too large (max 512 KB).');
   const path = `${address.toLowerCase()}-${Date.now()}.${ext}`;
   const { error } = await supabase.storage.from('token-logos').upload(path, file, {
     cacheControl: '31536000',
     upsert: true,
-    contentType: file.type || 'image/png',
+    // Use server-validated MIME, NOT caller-controlled file.type
+    contentType: safeMime,
   });
   if (error) throw error;
   const { data } = supabase.storage.from('token-logos').getPublicUrl(path);
