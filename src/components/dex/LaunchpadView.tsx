@@ -361,18 +361,34 @@ export default function LaunchpadView() {
               whileTap={{ scale: 0.97 }}
               transition={{ type: 'spring', stiffness: 220, damping: 16 }}
               style={{ transformPerspective: 800 }}
-              className="cursor-pointer aspect-square rounded-2xl border-2 border-dashed border-wolf-border/60 hover:border-wolf-red/60 bg-wolf-surface/40 hover:bg-wolf-surface flex flex-col items-center justify-center gap-1 text-xs text-muted-foreground transition-colors overflow-hidden relative group"
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleLogoDrop}
+              className={`cursor-pointer aspect-square rounded-2xl border-2 border-dashed bg-wolf-surface/40 hover:bg-wolf-surface flex flex-col items-center justify-center gap-1 text-xs text-muted-foreground transition-all overflow-hidden relative group ${
+                dragOver ? 'border-wolf-pink scale-[1.03] bg-wolf-surface' : 'border-wolf-border/60 hover:border-wolf-red/60'
+              }`}
             >
               {logoPreview ? (
-                <img src={logoPreview} alt="logo" className="w-full h-full object-cover" />
+                <>
+                  <img src={logoPreview} alt="logo" className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); clearLogo(); }}
+                    className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 hover:bg-wolf-red text-white text-xs flex items-center justify-center backdrop-blur"
+                    aria-label="Remove logo"
+                  >✕</button>
+                  <div className="absolute inset-x-0 bottom-0 px-2 py-1 text-[10px] text-center text-white bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                    Click or drop to replace
+                  </div>
+                </>
               ) : (
                 <>
-                  <span className="text-3xl group-hover:scale-110 transition-transform">🖼️</span>
-                  <span>Upload logo</span>
-                  <span className="text-[10px] opacity-60">PNG/JPG · ≤256 KB</span>
+                  <span className="text-3xl group-hover:scale-110 transition-transform">{dragOver ? '⬇️' : '🖼️'}</span>
+                  <span className="font-medium text-foreground/80">{dragOver ? 'Drop image' : 'Upload logo'}</span>
+                  <span className="text-[10px] opacity-60">PNG/JPG/WEBP · ≤512 KB</span>
                 </>
               )}
-              <input ref={fileRef} type="file" accept="image/*" onChange={handleLogoChange} className="hidden" />
+              <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp" onChange={handleLogoChange} className="hidden" />
             </motion.label>
 
             <div className="space-y-3">
