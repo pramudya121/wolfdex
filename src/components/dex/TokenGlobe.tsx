@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { TOKENS, NATIVE_TOKEN } from '@/config/contracts';
+import { useLaunchpadRegistry, registryToTokenInfo } from '@/hooks/useLaunchpadRegistry';
 
 /**
  * Premium 3D Token Globe — pure CSS 3D transforms.
@@ -8,9 +9,22 @@ import { TOKENS, NATIVE_TOKEN } from '@/config/contracts';
  */
 export default function TokenGlobe() {
   const ref = useRef<HTMLDivElement>(null);
+  const { tokens: registryTokens } = useLaunchpadRegistry();
 
-  // All tokens (skip native zkLTC since we render its core shine separately)
-  const orbitTokens = TOKENS.filter(t => t.address !== NATIVE_TOKEN.address);
+  // All curated tokens + community-launched tokens (dedupe by address).
+  const orbitTokens = useMemo(() => {
+    const map = new Map<string, typeof TOKENS[number]>();
+    for (const t of TOKENS) {
+      if (t.address === NATIVE_TOKEN.address) continue;
+      map.set(t.address.toLowerCase(), t);
+    }
+    for (const r of registryTokens.slice(0, 12)) {
+      const info = registryToTokenInfo(r);
+      const k = info.address.toLowerCase();
+      if (!map.has(k)) map.set(k, info);
+    }
+    return Array.from(map.values());
+  }, [registryTokens]);
 
   /**
    * Each ring is tilted on TWO axes (rotateX + rotateZ) so orbits cross
@@ -18,36 +32,47 @@ export default function TokenGlobe() {
    * Speeds & directions vary; some go reverse for motion contrast.
    */
   const rings = [
-    { rx:   0, rz:   0, radius: 175, speed: 18, dir: 1,  color: 'oklch(0.65 0.25 330 / 50%)' },  // equatorial
-    { rx:  90, rz:   0, radius: 165, speed: 22, dir: -1, color: 'oklch(0.78 0.16 85 / 45%)' },   // polar (vertical)
-    { rx:  90, rz:  60, radius: 155, speed: 16, dir: 1,  color: 'oklch(0.6 0.2 300 / 45%)' },    // tilted vertical
-    { rx:  45, rz:   0, radius: 180, speed: 26, dir: -1, color: 'oklch(0.75 0.15 200 / 40%)' },  // diagonal /
-    { rx: -45, rz:   0, radius: 180, speed: 24, dir: 1,  color: 'oklch(0.7 0.2 145 / 40%)' },    // diagonal \
-    { rx:  60, rz:  30, radius: 145, speed: 14, dir: 1,  color: 'oklch(0.65 0.25 330 / 40%)' },  // slanted
-    { rx: -60, rz: -30, radius: 145, speed: 20, dir: -1, color: 'oklch(0.78 0.16 85 / 40%)' },   // slanted opposite
-    { rx:  30, rz:  90, radius: 195, speed: 28, dir: 1,  color: 'oklch(0.6 0.2 300 / 35%)' },    // wide outer
+    { rx:   0, rz:   0, radius: 175, speed: 28, dir: 1,  color: 'oklch(0.65 0.25 330 / 50%)' },
+    { rx:  90, rz:   0, radius: 165, speed: 34, dir: -1, color: 'oklch(0.78 0.16 85 / 45%)' },
+    { rx:  90, rz:  60, radius: 155, speed: 26, dir: 1,  color: 'oklch(0.6 0.2 300 / 45%)' },
+    { rx:  45, rz:   0, radius: 180, speed: 40, dir: -1, color: 'oklch(0.75 0.15 200 / 40%)' },
+    { rx: -45, rz:   0, radius: 180, speed: 36, dir: 1,  color: 'oklch(0.7 0.2 145 / 40%)' },
+    { rx:  60, rz:  30, radius: 145, speed: 22, dir: 1,  color: 'oklch(0.65 0.25 330 / 40%)' },
+    { rx: -60, rz: -30, radius: 145, speed: 30, dir: -1, color: 'oklch(0.78 0.16 85 / 40%)' },
+    { rx:  30, rz:  90, radius: 195, speed: 44, dir: 1,  color: 'oklch(0.6 0.2 300 / 35%)' },
   ];
 
-  // Mouse parallax tilt
+  // Mouse parallax tilt — rAF-throttled so it doesn't jitter the GPU compositor
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    let rafId = 0;
+    let pending: { x: number; y: number } | null = null;
+    const flush = () => {
+      rafId = 0;
+      if (!pending || !el) return;
+      el.style.setProperty('--tilt-x', `${pending.y * -8}deg`);
+      el.style.setProperty('--tilt-y', `${pending.x * 12}deg`);
+      pending = null;
+    };
     const onMove = (e: MouseEvent) => {
       const rect = el.getBoundingClientRect();
-      const x = (e.clientX - rect.left - rect.width / 2) / rect.width;
-      const y = (e.clientY - rect.top - rect.height / 2) / rect.height;
-      el.style.setProperty('--tilt-x', `${y * -10}deg`);
-      el.style.setProperty('--tilt-y', `${x * 14}deg`);
+      pending = {
+        x: (e.clientX - rect.left - rect.width / 2) / rect.width,
+        y: (e.clientY - rect.top - rect.height / 2) / rect.height,
+      };
+      if (!rafId) rafId = requestAnimationFrame(flush);
     };
     const onLeave = () => {
       el.style.setProperty('--tilt-x', '0deg');
       el.style.setProperty('--tilt-y', '0deg');
     };
-    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mousemove', onMove, { passive: true });
     el.addEventListener('mouseleave', onLeave);
     return () => {
       window.removeEventListener('mousemove', onMove);
       el.removeEventListener('mouseleave', onLeave);
+      if (rafId) cancelAnimationFrame(rafId);
     };
   }, []);
 
@@ -130,6 +155,8 @@ export default function TokenGlobe() {
                     <img
                       src={tok.logo}
                       alt={tok.symbol}
+                      loading="lazy"
+                      decoding="async"
                       onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }}
                     />
                     <span className="orbit-token-label">{tok.symbol}</span>

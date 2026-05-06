@@ -776,8 +776,10 @@
   position: absolute;
   inset: 0;
   transform-style: preserve-3d;
-  animation: globe-rotate 50s linear infinite;
-  transition: transform 0.4s ease-out;
+  animation: globe-rotate 90s linear infinite;
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 .globe-core {
@@ -871,6 +873,8 @@
   width: 0;
   height: 0;
   transform-style: preserve-3d;
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 .orbit-token {
@@ -892,6 +896,8 @@
   align-items: center;
   justify-content: center;
   filter: drop-shadow(0 6px 18px oklch(0.65 0.25 330 / 60%));
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 .orbit-token-inner img {
