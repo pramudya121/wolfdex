@@ -158,17 +158,30 @@ export default function LaunchpadView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const acceptLogoFile = (file: File | null | undefined) => {
     if (!file) return;
+    if (!/^image\/(png|jpeg|gif|webp)$/.test(file.type)) {
+      toast.error('Unsupported image', { description: 'Use PNG, JPG, GIF, or WEBP.' });
+      return;
+    }
     if (file.size > 512 * 1024) {
-      toast.error('Logo is too large', { description: 'Maximum 512 KB. Use a small PNG or JPG.' });
+      toast.error('Logo is too large', { description: 'Maximum 512 KB. Compress your image first.' });
       return;
     }
     setLogoFile(file);
     const reader = new FileReader();
     reader.onload = () => setLogoPreview(String(reader.result || ''));
     reader.readAsDataURL(file);
+  };
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => acceptLogoFile(e.target.files?.[0]);
+  const handleLogoDrop = (e: React.DragEvent<HTMLLabelElement>) => {
+    e.preventDefault();
+    setDragOver(false);
+    acceptLogoFile(e.dataTransfer.files?.[0]);
+  };
+  const clearLogo = () => {
+    setLogoFile(null); setLogoPreview('');
+    if (fileRef.current) fileRef.current.value = '';
   };
 
   const validate = (): string | null => {
