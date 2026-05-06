@@ -55,6 +55,7 @@ export default function LaunchpadView() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>('');
   const [deploying, setDeploying] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [deployed, setDeployed] = useState<DeployedRow[]>([]);
