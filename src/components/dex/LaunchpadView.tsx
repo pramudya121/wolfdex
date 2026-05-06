@@ -29,7 +29,7 @@ function fmtNum(n: number | string | undefined): string {
   if (x >= 1e9) return (x / 1e9).toFixed(2) + 'B';
   if (x >= 1e6) return (x / 1e6).toFixed(2) + 'M';
   if (x >= 1e3) return (x / 1e3).toFixed(2) + 'K';
-  return x.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  return x.toLocaleString('en-US', { maximumFractionDigits: 2 });
 }
 
 const STORAGE_KEY = 'wolfdex.launchpad.tokens.v1';
@@ -401,7 +401,7 @@ export default function LaunchpadView() {
                   key={v}
                   onClick={() => setSupply(v)}
                   className="text-xs px-3 py-1 rounded-full bg-wolf-surface hover:bg-wolf-surface-hover border border-wolf-border/40 transition-colors"
-                >{Number(v).toLocaleString()}</button>
+                >{Number(v).toLocaleString('en-US')}</button>
               ))}
             </div>
           </div>
@@ -424,7 +424,7 @@ export default function LaunchpadView() {
             <div className="min-w-0 flex-1">
               <div className="font-bold truncate">{name || 'Token Name'}</div>
               <div className="text-xs text-muted-foreground">
-                <span className="font-mono">{symClean || 'SYMBOL'}</span> · supply <span className="font-mono">{supplyNum.toLocaleString()}</span>
+                <span className="font-mono">{symClean || 'SYMBOL'}</span> · supply <span className="font-mono">{supplyNum.toLocaleString('en-US')}</span>
               </div>
             </div>
             <div className="text-right text-xs text-muted-foreground">

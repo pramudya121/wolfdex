@@ -81,16 +81,17 @@ export function useLaunchpadRegistry() {
     const sub = () => setTokens(Array.from(memCache.values()));
     listSubscribers.push(sub);
     // Realtime: any insert refreshes everywhere.
-    // IMPORTANT: .on() MUST be called before .subscribe() — chaining
-    // .subscribe() inline causes "cannot add postgres_changes callbacks
-    // for realtime:* after subscribe()" on hot-reload / re-mount.
-    const channel = supabase.channel('launchpad_tokens_changes');
-    channel.on(
-      'postgres_changes' as any,
-      { event: '*', schema: 'public', table: 'launchpad_tokens' },
-      () => refresh(),
-    );
-    channel.subscribe();
+    // Use a unique channel name per mount so StrictMode double-mount /
+    // hot-reload never re-subscribes a torn-down channel (which throws
+    // "cannot add postgres_changes callbacks after subscribe()").
+    const channel = supabase.channel(`launchpad_tokens_changes_${Math.random().toString(36).slice(2)}`);
+    channel
+      .on(
+        'postgres_changes' as any,
+        { event: '*', schema: 'public', table: 'launchpad_tokens' },
+        () => refresh(),
+      )
+      .subscribe();
     return () => {
       listSubscribers = listSubscribers.filter(s => s !== sub);
       supabase.removeChannel(channel);
