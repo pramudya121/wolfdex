@@ -225,6 +225,19 @@ export default function LaunchpadView() {
 
       const checksum = ethers.utils.getAddress(deployedAddr);
 
+      // Read truth from chain — name/symbol/decimals (don't trust the form)
+      const provider = getReadProvider();
+      const erc = new ethers.Contract(checksum, ERC20_ABI, provider);
+      const [onName, onSymbol, onDecimals, onSupply] = await Promise.all([
+        erc.name().catch(() => name.trim()),
+        erc.symbol().catch(() => symClean),
+        erc.decimals().catch(() => 18),
+        erc.totalSupply().catch(() => ethers.constants.Zero),
+      ]);
+      const realName = String(onName);
+      const realSymbol = String(onSymbol);
+      const realDecimals = Number(onDecimals) || 18;
+
       // Upload logo to public storage (so every user/device sees it)
       let finalLogo = FALLBACK_LOGO;
       if (logoFile) {
@@ -240,9 +253,9 @@ export default function LaunchpadView() {
       try {
         await registerToken({
           address: checksum,
-          name: name.trim(),
-          symbol: symClean,
-          decimals: 18,
+          name: realName,
+          symbol: realSymbol,
+          decimals: realDecimals,
           logo_url: finalLogo === FALLBACK_LOGO ? null : finalLogo,
           creator: myAddr || null,
         });
@@ -253,24 +266,24 @@ export default function LaunchpadView() {
       // Local cache for token modal in this session
       const tokenInfo: TokenInfo = {
         address: checksum,
-        symbol: symClean,
-        name: name.trim(),
-        decimals: 18,
+        symbol: realSymbol,
+        name: realName,
+        decimals: realDecimals,
         logo: finalLogo,
       };
       addToken(tokenInfo);
 
       toast.success('Token deployed! 🚀', {
-        description: `${symClean} · ${checksum.slice(0,6)}…${checksum.slice(-4)}`,
+        description: `${realSymbol} · ${checksum.slice(0,6)}…${checksum.slice(-4)}`,
         action: { label: 'View TX', onClick: () => window.open(`${CHAIN_CONFIG.blockExplorer}/tx/${receipt.transactionHash}`, '_blank') },
       });
 
-      // Update local list
+      // Update local list (use on-chain values)
       setDeployed(prev => [{
         address: checksum,
-        name: name.trim(),
-        symbol: symClean,
-        totalSupply: String(supplyNum),
+        name: realName,
+        symbol: realSymbol,
+        totalSupply: ethers.utils.formatUnits(onSupply, realDecimals),
         logo: finalLogo,
         creator: myAddr || undefined,
       }, ...prev]);
