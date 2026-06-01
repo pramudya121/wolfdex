@@ -31,6 +31,17 @@ function fmtSecs(s: number) {
   return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
 }
 
+/** Generate a small arithmetic captcha challenge. */
+function makeCaptcha(): { a: number; b: number; op: '+' | '−' | '×'; answer: number } {
+  const ops: Array<'+' | '−' | '×'> = ['+', '−', '×'];
+  const op = ops[Math.floor(Math.random() * ops.length)];
+  let a = Math.floor(Math.random() * 9) + 2;
+  let b = Math.floor(Math.random() * 9) + 2;
+  if (op === '−' && b > a) [a, b] = [b, a];
+  const answer = op === '+' ? a + b : op === '−' ? a - b : a * b;
+  return { a, b, op, answer };
+}
+
 export default function FaucetView() {
   const { wallet } = useDexContext();
   const { signer, address, isConnected, provider } = wallet;
@@ -42,6 +53,33 @@ export default function FaucetView() {
   const [now, setNow] = useState(Math.floor(Date.now() / 1000));
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+
+  // --- Anti-bot CAPTCHA -----------------------------------------------------
+  // Lightweight math captcha. No external SDK / API key. Solving it grants a
+  // short-lived "verified human" window so claims feel snappy but bots that
+  // hammer /claim repeatedly are blocked. Refreshes after each successful
+  // claim AND after 5 minutes idle.
+  const HUMAN_TTL = 5 * 60_000;
+  const [captcha, setCaptcha] = useState(() => makeCaptcha());
+  const [captchaInput, setCaptchaInput] = useState('');
+  const [humanUntil, setHumanUntil] = useState(0);
+  const isHuman = humanUntil > Date.now();
+  const verifyCaptcha = useCallback(() => {
+    if (parseInt(captchaInput.trim(), 10) === captcha.answer) {
+      setHumanUntil(Date.now() + HUMAN_TTL);
+      setCaptchaInput('');
+      toast.success('Verified — you may claim now');
+    } else {
+      toast.error('Wrong answer, try again');
+      setCaptcha(makeCaptcha());
+      setCaptchaInput('');
+    }
+  }, [captcha, captchaInput]);
+  const requireHuman = useCallback((): boolean => {
+    if (isHuman) return true;
+    toast.error('Selesaikan CAPTCHA dulu untuk verifikasi anti-bot');
+    return false;
+  }, [isHuman]);
 
   const isOwner = !!address && !!owner && address.toLowerCase() === owner.toLowerCase();
 
@@ -155,6 +193,7 @@ export default function FaucetView() {
   }, [cooldown]);
 
   const claimOne = useCallback(async (slot: FaucetSlot) => {
+    if (!requireHuman()) return;
     const c = requireSigner(); if (!c) return;
     const block = slotBlockReason(slot, Math.floor(Date.now() / 1000));
     if (block) { toast.error(`${slot.token?.symbol || `#${slot.index}`}: ${block}`); return; }
@@ -174,7 +213,7 @@ export default function FaucetView() {
     } catch (e: any) {
       toast.error(decodeRpcError(e));
     } finally { setBusy(null); }
-  }, [requireSigner, load, slotBlockReason]);
+  }, [requireSigner, requireHuman, load, slotBlockReason]);
 
   /**
    * Claim All — done CLIENT-SIDE per slot (NOT via contract.claimAll()).
@@ -185,6 +224,7 @@ export default function FaucetView() {
    * we skip ineligible slots gracefully and still claim the ready ones.
    */
   const claimAll = useCallback(async () => {
+    if (!requireHuman()) return;
     const c = requireSigner(); if (!c) return;
     const nowSec = Math.floor(Date.now() / 1000);
     const ready: FaucetSlot[] = [];
@@ -227,7 +267,7 @@ export default function FaucetView() {
     }
     load();
     setBusy(null);
-  }, [requireSigner, load, slots, slotBlockReason]);
+  }, [requireSigner, requireHuman, load, slots, slotBlockReason]);
 
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-5xl mx-auto">
@@ -282,17 +322,61 @@ export default function FaucetView() {
 
       {tab === 'claim' && (
         <div>
+          {/* Anti-bot CAPTCHA — required before any claim */}
+          {isConnected && !isHuman && (
+            <motion.div
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-5 rounded-xl border border-wolf-gold/40 bg-wolf-gold/5 p-4 flex flex-col sm:flex-row sm:items-center gap-3"
+            >
+              <div className="flex-1">
+                <div className="text-xs font-bold uppercase tracking-wider text-wolf-gold mb-0.5">🛡️ Human check</div>
+                <div className="text-[11px] text-muted-foreground">Selesaikan soal ini untuk mencegah bot-claim brutal. Verifikasi berlaku 5 menit.</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="px-3 py-2 rounded-lg bg-wolf-surface/80 border border-wolf-border/40 font-mono text-base font-bold select-none">
+                  {captcha.a} {captcha.op} {captcha.b} = ?
+                </div>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={captchaInput}
+                  onChange={e => setCaptchaInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') verifyCaptcha(); }}
+                  placeholder="?"
+                  className="w-20 px-3 py-2 rounded-lg bg-wolf-surface/80 border border-wolf-border/40 text-sm font-mono focus:outline-none focus:border-wolf-gold"
+                />
+                <button
+                  onClick={verifyCaptcha}
+                  className="wolf-btn-primary px-3 py-2 rounded-lg text-xs font-bold"
+                >Verify</button>
+                <button
+                  onClick={() => { setCaptcha(makeCaptcha()); setCaptchaInput(''); }}
+                  title="New question"
+                  className="px-2 py-2 rounded-lg bg-wolf-surface/60 border border-wolf-border/40 text-xs"
+                >🔄</button>
+              </div>
+            </motion.div>
+          )}
+          {isHuman && (
+            <div className="mb-4 text-[11px] text-wolf-green flex items-center gap-2">
+              ✅ Human verified — claims unlocked for {Math.max(0, Math.ceil((humanUntil - Date.now()) / 60000))} min
+            </div>
+          )}
+
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Available Tokens</h2>
             <div className="flex items-center gap-2">
               <button onClick={load} className="text-xs text-muted-foreground hover:text-foreground">🔄 Refresh</button>
               <button
                 onClick={claimAll}
-                disabled={!isConnected || busy === 'claim-all'}
+                disabled={!isConnected || busy === 'claim-all' || !isHuman}
                 className="wolf-btn-primary px-3 py-1.5 rounded-lg text-xs font-bold disabled:opacity-50"
+                title={!isHuman ? 'Selesaikan CAPTCHA dulu' : ''}
               >{busy === 'claim-all' ? 'Claiming…' : '💧 Claim All'}</button>
             </div>
           </div>
+
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {slots.map(slot => {

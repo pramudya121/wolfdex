@@ -47,31 +47,12 @@ export const Route = createRootRoute({
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" },
     ],
-    scripts: [
-      {
-        type: "application/ld+json",
-        children: JSON.stringify({
-          "@context": "https://schema.org",
-          "@graph": [
-            {
-              "@type": "Organization",
-              "@id": "https://wolfdex.lovable.app/#organization",
-              name: "WolfDex",
-              url: "https://wolfdex.lovable.app",
-              logo: "https://wolfdex.lovable.app/images/wdex-logo.png",
-            },
-            {
-              "@type": "WebSite",
-              "@id": "https://wolfdex.lovable.app/#website",
-              url: "https://wolfdex.lovable.app",
-              name: "WolfDex",
-              description: "Premium multichain decentralized exchange on LitVM LiteForge Testnet.",
-              publisher: { "@id": "https://wolfdex.lovable.app/#organization" },
-            },
-          ],
-        }),
-      },
-    ],
+    // NOTE: JSON-LD intentionally NOT injected via head().scripts here.
+    // TanStack's HeadContent reorders <script> nodes between SSR and client,
+    // which causes a hydration mismatch ("server rendered <style>, client
+    // expected <script>"). Inject it once on the client from RootComponent
+    // useEffect instead — crawlers that execute JS still pick it up, and
+    // the hydration tree stays stable.
   }),
   shellComponent: RootShell,
   component: RootComponent,
@@ -148,6 +129,20 @@ function AppLayout() {
 }
 
 function RootComponent() {
+  // Inject JSON-LD on the client only to avoid SSR/hydration mismatch.
+  if (typeof window !== 'undefined' && !document.getElementById('wolfdex-jsonld')) {
+    const s = document.createElement('script');
+    s.id = 'wolfdex-jsonld';
+    s.type = 'application/ld+json';
+    s.textContent = JSON.stringify({
+      "@context": "https://schema.org",
+      "@graph": [
+        { "@type": "Organization", "@id": "https://wolfdex.lovable.app/#organization", name: "WolfDex", url: "https://wolfdex.lovable.app", logo: "https://wolfdex.lovable.app/images/wdex-logo.png" },
+        { "@type": "WebSite", "@id": "https://wolfdex.lovable.app/#website", url: "https://wolfdex.lovable.app", name: "WolfDex", description: "Premium multichain decentralized exchange on LitVM LiteForge Testnet.", publisher: { "@id": "https://wolfdex.lovable.app/#organization" } },
+      ],
+    });
+    document.head.appendChild(s);
+  }
   return (
     <DexProvider>
       <AppLayout />
