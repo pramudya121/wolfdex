@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SwapRouteImport } from './routes/swap'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as PortfolioRouteImport } from './routes/portfolio'
 import { Route as PoolsRouteImport } from './routes/pools'
 import { Route as LiquidityRouteImport } from './routes/liquidity'
@@ -27,6 +28,11 @@ import { Route as ApiAiAgentRouteImport } from './routes/api/ai-agent'
 const SwapRoute = SwapRouteImport.update({
   id: '/swap',
   path: '/swap',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PortfolioRoute = PortfolioRouteImport.update({
@@ -106,6 +112,7 @@ export interface FileRoutesByFullPath {
   '/liquidity': typeof LiquidityRoute
   '/pools': typeof PoolsRoute
   '/portfolio': typeof PortfolioRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/swap': typeof SwapRoute
   '/api/ai-agent': typeof ApiAiAgentRoute
   '/casino/admin': typeof CasinoAdminRoute
@@ -122,6 +129,7 @@ export interface FileRoutesByTo {
   '/liquidity': typeof LiquidityRoute
   '/pools': typeof PoolsRoute
   '/portfolio': typeof PortfolioRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/swap': typeof SwapRoute
   '/api/ai-agent': typeof ApiAiAgentRoute
   '/casino/admin': typeof CasinoAdminRoute
@@ -139,6 +147,7 @@ export interface FileRoutesById {
   '/liquidity': typeof LiquidityRoute
   '/pools': typeof PoolsRoute
   '/portfolio': typeof PortfolioRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/swap': typeof SwapRoute
   '/api/ai-agent': typeof ApiAiAgentRoute
   '/casino/admin': typeof CasinoAdminRoute
@@ -157,6 +166,7 @@ export interface FileRouteTypes {
     | '/liquidity'
     | '/pools'
     | '/portfolio'
+    | '/sitemap.xml'
     | '/swap'
     | '/api/ai-agent'
     | '/casino/admin'
@@ -173,6 +183,7 @@ export interface FileRouteTypes {
     | '/liquidity'
     | '/pools'
     | '/portfolio'
+    | '/sitemap.xml'
     | '/swap'
     | '/api/ai-agent'
     | '/casino/admin'
@@ -189,6 +200,7 @@ export interface FileRouteTypes {
     | '/liquidity'
     | '/pools'
     | '/portfolio'
+    | '/sitemap.xml'
     | '/swap'
     | '/api/ai-agent'
     | '/casino/admin'
@@ -206,6 +218,7 @@ export interface RootRouteChildren {
   LiquidityRoute: typeof LiquidityRoute
   PoolsRoute: typeof PoolsRoute
   PortfolioRoute: typeof PortfolioRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   SwapRoute: typeof SwapRoute
   ApiAiAgentRoute: typeof ApiAiAgentRoute
   TokenAddressRoute: typeof TokenAddressRoute
@@ -218,6 +231,13 @@ declare module '@tanstack/react-router' {
       path: '/swap'
       fullPath: '/swap'
       preLoaderRoute: typeof SwapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/portfolio': {
@@ -336,6 +356,7 @@ const rootRouteChildren: RootRouteChildren = {
   LiquidityRoute: LiquidityRoute,
   PoolsRoute: PoolsRoute,
   PortfolioRoute: PortfolioRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   SwapRoute: SwapRoute,
   ApiAiAgentRoute: ApiAiAgentRoute,
   TokenAddressRoute: TokenAddressRoute,
@@ -343,3 +364,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}

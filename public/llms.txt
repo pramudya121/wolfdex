@@ -1,0 +1,19 @@
+# WolfDex
+
+> Premium multichain decentralized exchange on LitVM LiteForge Testnet (Chain ID 4441). Swap, provide liquidity, farm, launch ERC-20 tokens, and play on-chain casino games.
+
+WolfDex is a full-featured DEX with smart routing, limit orders, MEV protection, MasterChef-style yield farms, a one-click ERC-20 launchpad, and eight provably on-chain casino games. All trades and bets settle on LitVM.
+
+## Pages
+
+- [Home](/): Live on-chain stats, featured tokens, and product highlights.
+- [Swap](/swap): Instant token swaps and on-chain limit orders with smart routing.
+- [Pools](/pools): Browse and create permissionless liquidity pools.
+- [Liquidity](/liquidity): Add or remove liquidity and earn 0.3% trading fees.
+- [Portfolio](/portfolio): Track tokens, LP positions, and farming yields.
+- [Analytics](/analytics): Real-time TVL, volume, and pair price charts.
+- [Launchpad](/launchpad): Deploy your own ERC-20 token in one click with auto-listing.
+- [Farming](/farming): Stake LP tokens to earn rewards every block.
+- [Faucet](/faucet): Claim free test tokens for LitVM LiteForge.
+- [Casino](/casino): Eight on-chain casino games — Coinflip, Slots, Plinko, RPS, Video Poker, Roulette, Lucky Wheel, Spin to Win.
+- [Docs](/docs): Full DeFi guides, contract references, and FAQ.
