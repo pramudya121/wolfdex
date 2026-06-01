@@ -267,7 +267,7 @@ export default function FaucetView() {
     }
     load();
     setBusy(null);
-  }, [requireSigner, load, slots, slotBlockReason]);
+  }, [requireSigner, requireHuman, load, slots, slotBlockReason]);
 
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-5xl mx-auto">
