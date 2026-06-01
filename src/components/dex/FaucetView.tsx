@@ -224,6 +224,7 @@ export default function FaucetView() {
    * we skip ineligible slots gracefully and still claim the ready ones.
    */
   const claimAll = useCallback(async () => {
+    if (!requireHuman()) return;
     const c = requireSigner(); if (!c) return;
     const nowSec = Math.floor(Date.now() / 1000);
     const ready: FaucetSlot[] = [];
