@@ -47,6 +47,31 @@ export const Route = createRootRoute({
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" },
     ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@graph": [
+            {
+              "@type": "Organization",
+              "@id": "https://wolfdex.lovable.app/#organization",
+              name: "WolfDex",
+              url: "https://wolfdex.lovable.app",
+              logo: "https://wolfdex.lovable.app/images/wdex-logo.png",
+            },
+            {
+              "@type": "WebSite",
+              "@id": "https://wolfdex.lovable.app/#website",
+              url: "https://wolfdex.lovable.app",
+              name: "WolfDex",
+              description: "Premium multichain decentralized exchange on LitVM LiteForge Testnet.",
+              publisher: { "@id": "https://wolfdex.lovable.app/#organization" },
+            },
+          ],
+        }),
+      },
+    ],
   }),
   shellComponent: RootShell,
   component: RootComponent,
