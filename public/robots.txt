@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /casino/admin
+
+Sitemap: https://wolfdex.lovable.app/sitemap.xml

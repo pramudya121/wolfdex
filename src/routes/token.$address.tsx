@@ -10,12 +10,22 @@ import { getRegistryToken } from '@/hooks/useLaunchpadRegistry';
 import { useDexContext } from '@/context/DexContext';
 
 export const Route = createFileRoute('/token/$address')({
-  head: ({ params }) => ({
-    meta: [
-      { title: `Token ${params.address.slice(0, 8)}… — WolfDex` },
-      { name: 'description', content: `On-chain token detail on LitVM LiteForge.` },
-    ],
-  }),
+  head: ({ params }) => {
+    const short = `${params.address.slice(0, 8)}…${params.address.slice(-6)}`;
+    const title = `Token ${short} — WolfDex`;
+    const description = `On-chain ERC-20 token details for ${params.address} on LitVM LiteForge Testnet. View total supply, your balance, creator, and trade or add liquidity on WolfDex.`;
+    const url = `https://wolfdex.lovable.app/token/${params.address}`;
+    return {
+      meta: [
+        { title },
+        { name: 'description', content: description },
+        { property: 'og:title', content: title },
+        { property: 'og:description', content: description },
+        { property: 'og:url', content: url },
+      ],
+      links: [{ rel: 'canonical', href: url }],
+    };
+  },
   component: TokenDetailPage,
   notFoundComponent: () => (
     <div className="text-center py-20">
