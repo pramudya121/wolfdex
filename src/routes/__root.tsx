@@ -129,6 +129,20 @@ function AppLayout() {
 }
 
 function RootComponent() {
+  // Inject JSON-LD on the client only to avoid SSR/hydration mismatch.
+  if (typeof window !== 'undefined' && !document.getElementById('wolfdex-jsonld')) {
+    const s = document.createElement('script');
+    s.id = 'wolfdex-jsonld';
+    s.type = 'application/ld+json';
+    s.textContent = JSON.stringify({
+      "@context": "https://schema.org",
+      "@graph": [
+        { "@type": "Organization", "@id": "https://wolfdex.lovable.app/#organization", name: "WolfDex", url: "https://wolfdex.lovable.app", logo: "https://wolfdex.lovable.app/images/wdex-logo.png" },
+        { "@type": "WebSite", "@id": "https://wolfdex.lovable.app/#website", url: "https://wolfdex.lovable.app", name: "WolfDex", description: "Premium multichain decentralized exchange on LitVM LiteForge Testnet.", publisher: { "@id": "https://wolfdex.lovable.app/#organization" } },
+      ],
+    });
+    document.head.appendChild(s);
+  }
   return (
     <DexProvider>
       <AppLayout />
