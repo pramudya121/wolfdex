@@ -213,7 +213,7 @@ export default function FaucetView() {
     } catch (e: any) {
       toast.error(decodeRpcError(e));
     } finally { setBusy(null); }
-  }, [requireSigner, load, slotBlockReason]);
+  }, [requireSigner, requireHuman, load, slotBlockReason]);
 
   /**
    * Claim All — done CLIENT-SIDE per slot (NOT via contract.claimAll()).
