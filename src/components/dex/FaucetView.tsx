@@ -31,6 +31,17 @@ function fmtSecs(s: number) {
   return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
 }
 
+/** Generate a small arithmetic captcha challenge. */
+function makeCaptcha(): { a: number; b: number; op: '+' | '−' | '×'; answer: number } {
+  const ops: Array<'+' | '−' | '×'> = ['+', '−', '×'];
+  const op = ops[Math.floor(Math.random() * ops.length)];
+  let a = Math.floor(Math.random() * 9) + 2;
+  let b = Math.floor(Math.random() * 9) + 2;
+  if (op === '−' && b > a) [a, b] = [b, a];
+  const answer = op === '+' ? a + b : op === '−' ? a - b : a * b;
+  return { a, b, op, answer };
+}
+
 export default function FaucetView() {
   const { wallet } = useDexContext();
   const { signer, address, isConnected, provider } = wallet;
