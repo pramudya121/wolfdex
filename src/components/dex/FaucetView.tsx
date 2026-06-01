@@ -322,17 +322,61 @@ export default function FaucetView() {
 
       {tab === 'claim' && (
         <div>
+          {/* Anti-bot CAPTCHA — required before any claim */}
+          {isConnected && !isHuman && (
+            <motion.div
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-5 rounded-xl border border-wolf-gold/40 bg-wolf-gold/5 p-4 flex flex-col sm:flex-row sm:items-center gap-3"
+            >
+              <div className="flex-1">
+                <div className="text-xs font-bold uppercase tracking-wider text-wolf-gold mb-0.5">🛡️ Human check</div>
+                <div className="text-[11px] text-muted-foreground">Selesaikan soal ini untuk mencegah bot-claim brutal. Verifikasi berlaku 5 menit.</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="px-3 py-2 rounded-lg bg-wolf-surface/80 border border-wolf-border/40 font-mono text-base font-bold select-none">
+                  {captcha.a} {captcha.op} {captcha.b} = ?
+                </div>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={captchaInput}
+                  onChange={e => setCaptchaInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') verifyCaptcha(); }}
+                  placeholder="?"
+                  className="w-20 px-3 py-2 rounded-lg bg-wolf-surface/80 border border-wolf-border/40 text-sm font-mono focus:outline-none focus:border-wolf-gold"
+                />
+                <button
+                  onClick={verifyCaptcha}
+                  className="wolf-btn-primary px-3 py-2 rounded-lg text-xs font-bold"
+                >Verify</button>
+                <button
+                  onClick={() => { setCaptcha(makeCaptcha()); setCaptchaInput(''); }}
+                  title="New question"
+                  className="px-2 py-2 rounded-lg bg-wolf-surface/60 border border-wolf-border/40 text-xs"
+                >🔄</button>
+              </div>
+            </motion.div>
+          )}
+          {isHuman && (
+            <div className="mb-4 text-[11px] text-wolf-green flex items-center gap-2">
+              ✅ Human verified — claims unlocked for {Math.max(0, Math.ceil((humanUntil - Date.now()) / 60000))} min
+            </div>
+          )}
+
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Available Tokens</h2>
             <div className="flex items-center gap-2">
               <button onClick={load} className="text-xs text-muted-foreground hover:text-foreground">🔄 Refresh</button>
               <button
                 onClick={claimAll}
-                disabled={!isConnected || busy === 'claim-all'}
+                disabled={!isConnected || busy === 'claim-all' || !isHuman}
                 className="wolf-btn-primary px-3 py-1.5 rounded-lg text-xs font-bold disabled:opacity-50"
+                title={!isHuman ? 'Selesaikan CAPTCHA dulu' : ''}
               >{busy === 'claim-all' ? 'Claiming…' : '💧 Claim All'}</button>
             </div>
           </div>
+
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {slots.map(slot => {
