@@ -43,6 +43,33 @@ export default function FaucetView() {
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
 
+  // --- Anti-bot CAPTCHA -----------------------------------------------------
+  // Lightweight math captcha. No external SDK / API key. Solving it grants a
+  // short-lived "verified human" window so claims feel snappy but bots that
+  // hammer /claim repeatedly are blocked. Refreshes after each successful
+  // claim AND after 5 minutes idle.
+  const HUMAN_TTL = 5 * 60_000;
+  const [captcha, setCaptcha] = useState(() => makeCaptcha());
+  const [captchaInput, setCaptchaInput] = useState('');
+  const [humanUntil, setHumanUntil] = useState(0);
+  const isHuman = humanUntil > Date.now();
+  const verifyCaptcha = useCallback(() => {
+    if (parseInt(captchaInput.trim(), 10) === captcha.answer) {
+      setHumanUntil(Date.now() + HUMAN_TTL);
+      setCaptchaInput('');
+      toast.success('Verified — you may claim now');
+    } else {
+      toast.error('Wrong answer, try again');
+      setCaptcha(makeCaptcha());
+      setCaptchaInput('');
+    }
+  }, [captcha, captchaInput]);
+  const requireHuman = useCallback((): boolean => {
+    if (isHuman) return true;
+    toast.error('Selesaikan CAPTCHA dulu untuk verifikasi anti-bot');
+    return false;
+  }, [isHuman]);
+
   const isOwner = !!address && !!owner && address.toLowerCase() === owner.toLowerCase();
 
   // 1s ticker for cooldown countdowns
