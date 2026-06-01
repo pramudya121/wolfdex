@@ -1,30 +1,22 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { TOKENS, NATIVE_TOKEN } from '@/config/contracts';
-import { useLaunchpadRegistry, registryToTokenInfo } from '@/hooks/useLaunchpadRegistry';
 
 /**
  * Premium 3D Token Globe — pure CSS 3D transforms.
- * Each token rides a uniquely tilted ring (vertical, horizontal, diagonal),
- * giving a real "universal" / atomic feel rather than flat orbits.
+ *
+ * SECURITY: This globe ONLY orbits curated/verified tokens from `TOKENS`.
+ * Community-launched (registry) tokens are intentionally EXCLUDED so a
+ * malicious launcher cannot inject a misleading logo/symbol onto the
+ * marketing surface of the home page.
  */
 export default function TokenGlobe() {
   const ref = useRef<HTMLDivElement>(null);
-  const { tokens: registryTokens } = useLaunchpadRegistry();
 
-  // All curated tokens + community-launched tokens (dedupe by address).
-  const orbitTokens = useMemo(() => {
-    const map = new Map<string, typeof TOKENS[number]>();
-    for (const t of TOKENS) {
-      if (t.address === NATIVE_TOKEN.address) continue;
-      map.set(t.address.toLowerCase(), t);
-    }
-    for (const r of registryTokens.slice(0, 12)) {
-      const info = registryToTokenInfo(r);
-      const k = info.address.toLowerCase();
-      if (!map.has(k)) map.set(k, info);
-    }
-    return Array.from(map.values());
-  }, [registryTokens]);
+  // Verified-only: curated TOKENS minus the native chain coin.
+  const orbitTokens = useMemo(
+    () => TOKENS.filter(t => t.address !== NATIVE_TOKEN.address),
+    [],
+  );
 
   /**
    * Each ring is tilted on TWO axes (rotateX + rotateZ) so orbits cross
