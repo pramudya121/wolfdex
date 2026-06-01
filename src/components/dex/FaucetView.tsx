@@ -193,6 +193,7 @@ export default function FaucetView() {
   }, [cooldown]);
 
   const claimOne = useCallback(async (slot: FaucetSlot) => {
+    if (!requireHuman()) return;
     const c = requireSigner(); if (!c) return;
     const block = slotBlockReason(slot, Math.floor(Date.now() / 1000));
     if (block) { toast.error(`${slot.token?.symbol || `#${slot.index}`}: ${block}`); return; }
