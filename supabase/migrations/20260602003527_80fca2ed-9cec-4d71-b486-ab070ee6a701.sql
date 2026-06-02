@@ -1,0 +1,2 @@
+ALTER TABLE public.launchpad_tokens ADD COLUMN IF NOT EXISTS verified boolean NOT NULL DEFAULT false;
+CREATE INDEX IF NOT EXISTS idx_launchpad_tokens_verified ON public.launchpad_tokens(verified) WHERE verified = true;

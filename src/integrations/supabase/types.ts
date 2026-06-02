@@ -23,6 +23,7 @@ export type Database = {
           logo_url: string | null
           name: string
           symbol: string
+          verified: boolean
         }
         Insert: {
           address: string
@@ -32,6 +33,7 @@ export type Database = {
           logo_url?: string | null
           name: string
           symbol: string
+          verified?: boolean
         }
         Update: {
           address?: string
@@ -41,6 +43,7 @@ export type Database = {
           logo_url?: string | null
           name?: string
           symbol?: string
+          verified?: boolean
         }
         Relationships: []
       }
