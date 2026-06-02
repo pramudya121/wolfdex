@@ -103,6 +103,8 @@ function AppLayout() {
       <GlobalLimitWatcher />
       <RegistryHydrator />
       <ScrollToTop />
+      <Toaster
+
 
         theme="dark"
         position="top-right"
