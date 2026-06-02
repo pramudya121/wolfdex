@@ -22,10 +22,10 @@ const NAV_ITEMS = [
 ] as const;
 
 const WALLETS: { type: WalletType; name: string; icon: string; badge: string }[] = [
-  { type: 'rabby', name: 'Rabby Wallet', icon: '🐰', badge: 'Installed' },
-  { type: 'metamask', name: 'MetaMask', icon: '🦊', badge: 'Installed' },
-  { type: 'okx', name: 'OKX Wallet', icon: '⭕', badge: 'Popular' },
-  { type: 'bitget', name: 'Bitget Wallet', icon: '🅱️', badge: 'Popular' },
+  { type: 'rabby', name: 'Rabby Wallet', icon: 'https://rabby.io/assets/images/logo-128.png', badge: 'Installed' },
+  { type: 'metamask', name: 'MetaMask', icon: 'https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg', badge: 'Installed' },
+  { type: 'okx', name: 'OKX Wallet', icon: 'https://www.okx.com/cdn/assets/imgs/239/9CC4DC1572DCAFAE.png', badge: 'Popular' },
+  { type: 'bitget', name: 'Bitget Wallet', icon: 'https://img.bitgetimg.com/multiLang/web/8a4cd2c9b8b9b1c0a2f0e2c8b8b9b1c0.png', badge: 'Popular' },
 ];
 
 interface HeaderProps {
