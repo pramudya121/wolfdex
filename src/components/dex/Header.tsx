@@ -81,8 +81,24 @@ export default function Header({ address, balance, isConnected, isConnecting = f
           onClick={() => handleConnect(wallet.type)}
           className="group flex w-full items-center gap-3 rounded-2xl border border-wolf-border/30 bg-wolf-surface/50 px-3 py-3 text-left transition-all hover:border-wolf-red/40 hover:bg-wolf-surface"
         >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-wolf-border/30 bg-background/60 text-xl transition-transform group-hover:scale-105">
-            {wallet.icon}
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-wolf-border/30 bg-background/60 overflow-hidden transition-transform group-hover:scale-105">
+            <img
+              src={wallet.icon}
+              alt={wallet.name}
+              className="h-7 w-7 object-contain"
+              loading="lazy"
+              onError={(e) => {
+                const fallback = wallet.name.charAt(0);
+                (e.currentTarget as HTMLImageElement).style.display = 'none';
+                const parent = (e.currentTarget as HTMLImageElement).parentElement;
+                if (parent && !parent.querySelector('.wallet-fallback')) {
+                  const span = document.createElement('span');
+                  span.className = 'wallet-fallback text-base font-bold';
+                  span.textContent = fallback;
+                  parent.appendChild(span);
+                }
+              }}
+            />
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-semibold text-foreground">{wallet.name}</div>
