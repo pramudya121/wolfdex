@@ -21,6 +21,7 @@ interface DeployedRow {
   totalSupply?: string;
   logo?: string;
   creator?: string;
+  verified?: boolean;
 }
 
 function fmtNum(n: number | string | undefined): string {
