@@ -186,24 +186,47 @@ export default function Header({ address, balance, isConnected, isConnecting = f
 
         <AnimatePresence>
           {mobileNav && (
-            <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="overflow-hidden border-t border-wolf-border/30 min-[1180px]:hidden">
-              <div className="space-y-1 p-3">
-                {NAV_ITEMS.map(item => (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    onClick={() => setMobileNav(false)}
-                    className={`block rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
-                      location.pathname === item.path ? 'bg-wolf-red/15 text-foreground' : 'text-muted-foreground'
-                    }`}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+              className="overflow-hidden border-t border-wolf-border/30 min-[1180px]:hidden"
+            >
+              <div className="p-3 space-y-3">
+                {isConnected && (
+                  <div className="flex items-center justify-between rounded-xl border border-wolf-border/40 bg-wolf-surface/60 px-3 py-2 text-xs">
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+                      {shortAddr}
+                    </span>
+                    <span className="font-semibold text-wolf-gold">{parseFloat(balance).toFixed(3)} zkLTC</span>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-1.5">
+                  {NAV_ITEMS.map(item => {
+                    const active = location.pathname === item.path;
+                    return (
+                      <Link
+                        key={item.path}
+                        to={item.path}
+                        onClick={() => setMobileNav(false)}
+                        className={`rounded-lg px-3 py-2.5 text-sm font-medium transition-all wolf-focus-ring ${
+                          active
+                            ? 'border border-wolf-red/40 bg-gradient-to-br from-wolf-red/20 via-wolf-pink/15 to-wolf-gold/10 text-foreground'
+                            : 'border border-wolf-border/30 bg-wolf-surface/40 text-muted-foreground hover:text-foreground hover:border-wolf-pink/40'
+                        }`}
+                      >
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                </div>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
+
       </motion.header>
 
       <AnimatePresence>

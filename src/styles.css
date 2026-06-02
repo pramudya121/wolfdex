@@ -115,12 +115,50 @@
   * {
     border-color: var(--color-border);
   }
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-display);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+    overscroll-behavior-y: none;
+  }
+  /* Custom scrollbar — slim, themed, non-intrusive */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: oklch(0.10 0.02 280); }
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, oklch(0.30 0.05 290 / 80%), oklch(0.22 0.03 290 / 80%));
+    border-radius: 8px;
+    border: 2px solid oklch(0.10 0.02 280);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, oklch(0.55 0.20 330 / 80%), oklch(0.45 0.22 320 / 80%));
+  }
+  /* Honor reduced-motion users globally */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+  /* Better tap highlight on mobile */
+  a, button { -webkit-tap-highlight-color: transparent; }
+  /* Focus ring used across interactive elements */
+  .wolf-focus-ring:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px oklch(0.11 0.02 280), 0 0 0 4px oklch(0.65 0.25 330 / 70%);
+    border-radius: 8px;
   }
 }
+
 
 @layer utilities {
   .wolf-glow {

@@ -8,6 +8,8 @@ import GlobalTxNotifier from "@/components/dex/GlobalTxNotifier";
 import GlobalLimitWatcher from "@/components/dex/GlobalLimitWatcher";
 import PageTransition from "@/components/dex/PageTransition";
 import RegistryHydrator from "@/components/dex/RegistryHydrator";
+import ScrollToTop from "@/components/dex/ScrollToTop";
+
 import { DexProvider, useDexContext } from "@/context/DexContext";
 import { Toaster } from "sonner";
 
@@ -100,7 +102,10 @@ function AppLayout() {
       <GlobalTxNotifier />
       <GlobalLimitWatcher />
       <RegistryHydrator />
+      <ScrollToTop />
       <Toaster
+
+
         theme="dark"
         position="top-right"
         richColors
