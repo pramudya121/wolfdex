@@ -134,6 +134,7 @@ export default function LaunchpadView() {
               totalSupply: ethers.utils.formatUnits(ts, 18),
               logo: reg?.logo_url || logoMap[addr.toLowerCase()] || FALLBACK_LOGO,
               creator: creatorMap[addr.toLowerCase()],
+              verified: !!reg?.verified,
             };
             // Auto-register so it shows up in TokenModal everywhere
             addToken({
