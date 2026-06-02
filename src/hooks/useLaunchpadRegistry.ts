@@ -14,6 +14,7 @@ export interface RegistryToken {
   decimals: number;
   logo_url: string | null;
   creator: string | null;
+  verified?: boolean;
 }
 
 const memCache: Map<string, RegistryToken> = new Map();
