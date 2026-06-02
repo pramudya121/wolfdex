@@ -585,6 +585,9 @@ export default function LaunchpadView() {
                       >
                         <div className="font-semibold text-sm truncate flex items-center gap-1.5 hover:text-wolf-pink transition-colors">
                           {t.name || '—'} <span className="text-muted-foreground font-normal">({t.symbol || '?'})</span>
+                          {t.verified && (
+                            <span title="Verified token" className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-500/20 text-blue-400 border border-blue-400/40 text-[10px]">✓</span>
+                          )}
                           {isMine && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-wolf-gold/20 text-wolf-gold border border-wolf-gold/40 uppercase tracking-wide">mine</span>}
                         </div>
                         <div className="text-[11px] text-muted-foreground flex items-center gap-2">
