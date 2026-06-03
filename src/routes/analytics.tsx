@@ -1,5 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import AnalyticsView from "@/components/dex/AnalyticsView";
+import { lazy, Suspense } from "react";
+import RouteSkeleton from "@/components/dex/ui/RouteSkeleton";
+
+const AnalyticsView = lazy(() => import("@/components/dex/AnalyticsView"));
 
 export const Route = createFileRoute("/analytics")({
   head: () => ({
@@ -18,7 +21,10 @@ export const Route = createFileRoute("/analytics")({
 function AnalyticsPage() {
   return (
     <div className="pt-8">
-      <AnalyticsView />
+      <Suspense fallback={<RouteSkeleton variant="grid" />}>
+        <AnalyticsView />
+      </Suspense>
     </div>
   );
 }
+

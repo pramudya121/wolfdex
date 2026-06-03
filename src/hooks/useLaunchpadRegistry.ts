@@ -26,24 +26,42 @@ const ALLOWED_LOGO_MIME: Record<string, string> = {
   png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
   gif: 'image/gif', webp: 'image/webp',
 };
+const MIME_TO_EXT: Record<string, string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/gif': 'gif',
+  'image/webp': 'webp',
+};
 const MAX_LOGO_BYTES = 512 * 1024;
 
 export async function uploadTokenLogo(file: File, address: string): Promise<string> {
-  const ext = (file.name.split('.').pop() || 'png').toLowerCase();
-  const safeMime = ALLOWED_LOGO_MIME[ext];
-  if (!safeMime) throw new Error('Unsupported image type. Use PNG, JPG, GIF, or WEBP.');
   if (file.size > MAX_LOGO_BYTES) throw new Error('Logo too large (max 512 KB).');
+  // Prefer the browser-provided MIME type (we already validated it in
+  // acceptLogoFile). Fall back to the filename extension for the rare case
+  // where the picker hands us an empty file.type. Deriving from MIME fixes
+  // failures for files with unusual extensions (e.g. .jfif → image/jpeg)
+  // and files with no extension at all.
+  const mimeFromType = (file.type || '').toLowerCase();
+  let ext = MIME_TO_EXT[mimeFromType];
+  let safeMime = mimeFromType && MIME_TO_EXT[mimeFromType] ? mimeFromType : undefined;
+  if (!ext) {
+    const nameExt = (file.name.includes('.') ? file.name.split('.').pop()! : '').toLowerCase();
+    ext = nameExt;
+    safeMime = ALLOWED_LOGO_MIME[nameExt];
+  }
+  if (!ext || !safeMime) {
+    throw new Error('Unsupported image type. Use PNG, JPG, GIF, or WEBP.');
+  }
   const path = `${address.toLowerCase()}-${Date.now()}.${ext}`;
   const { error } = await supabase.storage.from('token-logos').upload(path, file, {
     cacheControl: '31536000',
-    // Write-once: timestamped path makes collisions impossible, and disabling
-    // upsert means no UPDATE policy is needed on storage.objects.
     upsert: false,
-    // Use server-validated MIME, NOT caller-controlled file.type
     contentType: safeMime,
   });
-  if (error) throw error;
+  if (error) throw new Error(error.message || 'Storage upload failed');
   const { data } = supabase.storage.from('token-logos').getPublicUrl(path);
+  if (!data?.publicUrl) throw new Error('Could not resolve public URL for uploaded logo');
   return data.publicUrl;
 }
 

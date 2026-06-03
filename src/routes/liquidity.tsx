@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import LiquidityPanel from "@/components/dex/LiquidityPanel";
+import { lazy, Suspense } from "react";
+import RouteSkeleton from "@/components/dex/ui/RouteSkeleton";
 import TextGenerateEffect from "@/components/dex/ui/TextGenerateEffect";
 import { useDexContext } from "@/context/DexContext";
+
+const LiquidityPanel = lazy(() => import("@/components/dex/LiquidityPanel"));
 
 export const Route = createFileRoute("/liquidity")({
   head: () => ({
@@ -64,18 +67,20 @@ function LiquidityPage() {
           <TextGenerateEffect text="Add liquidity to earn 0.3% on every trade through your pool." delay={0.4} />
         </p>
       </div>
-      <LiquidityPanel
-        addLiquidity={addLiquidity}
-        removeLiquidity={removeLiquidity}
-        getTokenBalance={dex.getTokenBalance}
-        getPairAddress={dex.getPairAddress}
-        getPairInfo={dex.getPairInfo}
-        loading={dex.loading}
-        txHash={dex.txHash}
-        error={dex.error}
-        isConnected={wallet.isConnected}
-        onConnectClick={() => {}}
-      />
+      <Suspense fallback={<RouteSkeleton variant="panel" />}>
+        <LiquidityPanel
+          addLiquidity={addLiquidity}
+          removeLiquidity={removeLiquidity}
+          getTokenBalance={dex.getTokenBalance}
+          getPairAddress={dex.getPairAddress}
+          getPairInfo={dex.getPairInfo}
+          loading={dex.loading}
+          txHash={dex.txHash}
+          error={dex.error}
+          isConnected={wallet.isConnected}
+          onConnectClick={() => {}}
+        />
+      </Suspense>
     </div>
   );
 }

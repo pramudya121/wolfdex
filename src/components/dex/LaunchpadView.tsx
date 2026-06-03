@@ -247,7 +247,10 @@ export default function LaunchpadView() {
           finalLogo = await uploadTokenLogo(logoFile, checksum);
         } catch (upErr: any) {
           console.warn('Logo upload failed, using fallback', upErr);
-          toast.warning('Logo upload failed', { description: 'Token deployed without a custom logo.' });
+          const reason = upErr?.message || String(upErr || 'Unknown error');
+          toast.warning('Logo upload failed', {
+            description: `Token deployed without a custom logo. (${reason})`,
+          });
         }
       }
 

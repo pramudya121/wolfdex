@@ -1,6 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import PoolsView from "@/components/dex/PoolsView";
+import { lazy, Suspense } from "react";
+import RouteSkeleton from "@/components/dex/ui/RouteSkeleton";
 import { useDexContext } from "@/context/DexContext";
+
+const PoolsView = lazy(() => import("@/components/dex/PoolsView"));
 
 export const Route = createFileRoute("/pools")({
   head: () => ({
@@ -21,7 +24,10 @@ function PoolsPage() {
 
   return (
     <div className="pt-8">
-      <PoolsView isConnected={wallet.isConnected} />
+      <Suspense fallback={<RouteSkeleton variant="grid" />}>
+        <PoolsView isConnected={wallet.isConnected} />
+      </Suspense>
     </div>
   );
 }
+
