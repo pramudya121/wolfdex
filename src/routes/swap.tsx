@@ -1,13 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { motion } from "framer-motion";
-import SwapCard from "@/components/dex/SwapCard";
-import LimitOrderCard from "@/components/dex/LimitOrderCard";
-import OpenOrdersList from "@/components/dex/OpenOrdersList";
 import LivePriceTicker from "@/components/dex/LivePriceTicker";
 import TextGenerateEffect from "@/components/dex/ui/TextGenerateEffect";
+import RouteSkeleton from "@/components/dex/ui/RouteSkeleton";
 import { useDexContext } from "@/context/DexContext";
 import { useLimitOrders } from "@/hooks/useLimitOrders";
+
+const SwapCard = lazy(() => import("@/components/dex/SwapCard"));
+const LimitOrderCard = lazy(() => import("@/components/dex/LimitOrderCard"));
+const OpenOrdersList = lazy(() => import("@/components/dex/OpenOrdersList"));
 
 export const Route = createFileRoute("/swap")({
   head: () => ({
