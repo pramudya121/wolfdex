@@ -147,10 +147,10 @@ function HomePage() {
       {/* Stats strip — REAL on-chain data */}
       <section className="max-w-7xl mx-auto px-4 mb-12">
         <div className="flex items-center justify-between mb-3 px-1">
-          <h3 className="text-xs uppercase tracking-[0.2em] text-muted-foreground font-semibold">
+          <h2 className="text-xs uppercase tracking-[0.2em] text-muted-foreground font-semibold">
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-wolf-green animate-pulse mr-2" />
             On-chain stats {stats.loaded ? '· Live' : '· Loading…'}
-          </h3>
+          </h2>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[

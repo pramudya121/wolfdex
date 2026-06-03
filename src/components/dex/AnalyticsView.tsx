@@ -170,7 +170,7 @@ export default function AnalyticsView() {
             {/* TVL Chart */}
             <div className="wolf-card rounded-xl p-4">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-sm">Total Value Locked</h3>
+                <h2 className="font-bold text-sm">Total Value Locked</h2>
                 <div className="flex gap-1">
                   {(['7d', '30d', '90d'] as const).map(p => (
                     <button key={p} onClick={() => setChartPeriod(p)}
@@ -199,7 +199,7 @@ export default function AnalyticsView() {
             {/* Volume Chart */}
             <div className="wolf-card rounded-xl p-4">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-sm">Trading Volume</h3>
+                <h2 className="font-bold text-sm">Trading Volume</h2>
               </div>
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={chartData}>
@@ -217,7 +217,7 @@ export default function AnalyticsView() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Top Tokens */}
             <div className="wolf-card rounded-xl p-4">
-              <h3 className="font-bold text-sm mb-4">🔥 Top Tokens</h3>
+              <h2 className="font-bold text-sm mb-4">🔥 Top Tokens</h2>
               <div className="space-y-2">
                 {topTokens.map((t, i) => (
                   <div key={t.address} className="flex items-center justify-between py-2 px-2 rounded-lg hover:bg-wolf-surface/50 transition-all">
@@ -242,7 +242,7 @@ export default function AnalyticsView() {
 
             {/* Top Pools */}
             <div className="wolf-card rounded-xl p-4">
-              <h3 className="font-bold text-sm mb-4">🏊 Top Pools</h3>
+              <h2 className="font-bold text-sm mb-4">🏊 Top Pools</h2>
               <div className="space-y-2">
                 {pools.slice().sort((a, b) => b.tvl - a.tvl).slice(0, 6).map((p, i) => (
                   <button key={p.address} onClick={() => setSelectedPair(p)} className="w-full flex items-center justify-between py-2 px-2 rounded-lg hover:bg-wolf-surface/50 transition-all text-left group">
@@ -287,7 +287,7 @@ export default function AnalyticsView() {
                     <img src={selectedPair.logo1} alt="" className="w-8 h-8 rounded-full ring-2 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
                   </div>
                   <div>
-                    <h3 className="font-bold text-lg">{selectedPair.symbol0}/{selectedPair.symbol1}</h3>
+                    <h2 className="font-bold text-lg">{selectedPair.symbol0}/{selectedPair.symbol1}</h2>
                     <p className="text-[10px] font-mono text-muted-foreground">{selectedPair.address.slice(0, 10)}…{selectedPair.address.slice(-8)}</p>
                   </div>
                 </div>
