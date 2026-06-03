@@ -150,7 +150,7 @@ function HomePage() {
           <h2 className="text-xs uppercase tracking-[0.2em] text-muted-foreground font-semibold">
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-wolf-green animate-pulse mr-2" />
             On-chain stats {stats.loaded ? '· Live' : '· Loading…'}
-          </h3>
+          </h2>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[

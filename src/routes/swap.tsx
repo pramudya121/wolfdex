@@ -136,7 +136,7 @@ function SwapPage() {
                 <div className="moving-border-wrap w-full mx-auto">
                   <div className="moving-border-inner rounded-2xl p-4">
                     <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-bold flex items-center gap-2">
+                      <h2 className="text-sm font-bold flex items-center gap-2">
                         Your On-Chain Orders
                         <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-wolf-pink/15 text-wolf-pink">
                           {limitOrders.list.length}
