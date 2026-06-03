@@ -141,7 +141,7 @@ function SwapPage() {
                         <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-wolf-pink/15 text-wolf-pink">
                           {limitOrders.list.length}
                         </span>
-                      </h3>
+                      </h2>
                       <button onClick={() => limitOrders.refresh()}
                         className="text-[11px] text-muted-foreground hover:text-wolf-gold transition-colors"
                       >🔄 Refresh</button>
