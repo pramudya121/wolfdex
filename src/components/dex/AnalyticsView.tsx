@@ -287,7 +287,7 @@ export default function AnalyticsView() {
                     <img src={selectedPair.logo1} alt="" className="w-8 h-8 rounded-full ring-2 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
                   </div>
                   <div>
-                    <h3 className="font-bold text-lg">{selectedPair.symbol0}/{selectedPair.symbol1}</h3>
+                    <h2 className="font-bold text-lg">{selectedPair.symbol0}/{selectedPair.symbol1}</h2>
                     <p className="text-[10px] font-mono text-muted-foreground">{selectedPair.address.slice(0, 10)}…{selectedPair.address.slice(-8)}</p>
                   </div>
                 </div>
