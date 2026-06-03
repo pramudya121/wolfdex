@@ -101,63 +101,65 @@ function SwapPage() {
         </div>
 
         <div className="w-full max-w-[420px] relative z-10">
-          {tab === 'swap' ? (
-            <motion.div key="swap"
-              initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.15, ease: 'easeOut' }}
-            >
-              <SwapCard
-                  swap={swap}
-                  getAmountsOut={dex.getAmountsOut}
-                  getBestRoute={dex.getBestRoute}
-                  previewSwap={dex.previewSwap}
-                  getTokenBalance={dex.getTokenBalance}
-                  loading={dex.loading}
-                  txHash={dex.txHash}
-                  error={dex.error}
-                  isConnected={wallet.isConnected}
-                  onConnectClick={() => {}}
-                />
-            </motion.div>
-          ) : (
-            <motion.div key="limit"
-              initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.15, ease: 'easeOut' }}
-              className="space-y-5"
-            >
-                <LimitOrderCard
-                  getBestRoute={dex.getBestRoute}
-                  getTokenBalance={dex.getTokenBalance}
-                  isConnected={wallet.isConnected}
-                  account={wallet.address}
-                  onConnectClick={() => {}}
-                  onCreate={limitOrders.create}
-                />
+          <Suspense fallback={<RouteSkeleton variant="panel" />}>
+            {tab === 'swap' ? (
+              <motion.div key="swap"
+                initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
+              >
+                <SwapCard
+                    swap={swap}
+                    getAmountsOut={dex.getAmountsOut}
+                    getBestRoute={dex.getBestRoute}
+                    previewSwap={dex.previewSwap}
+                    getTokenBalance={dex.getTokenBalance}
+                    loading={dex.loading}
+                    txHash={dex.txHash}
+                    error={dex.error}
+                    isConnected={wallet.isConnected}
+                    onConnectClick={() => {}}
+                  />
+              </motion.div>
+            ) : (
+              <motion.div key="limit"
+                initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
+                className="space-y-5"
+              >
+                  <LimitOrderCard
+                    getBestRoute={dex.getBestRoute}
+                    getTokenBalance={dex.getTokenBalance}
+                    isConnected={wallet.isConnected}
+                    account={wallet.address}
+                    onConnectClick={() => {}}
+                    onCreate={limitOrders.create}
+                  />
 
-                {/* Open orders panel */}
-                <div className="moving-border-wrap w-full mx-auto">
-                  <div className="moving-border-inner rounded-2xl p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h2 className="text-sm font-bold flex items-center gap-2">
-                        Your On-Chain Orders
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-wolf-pink/15 text-wolf-pink">
-                          {limitOrders.list.length}
-                        </span>
-                      </h2>
-                      <button onClick={() => limitOrders.refresh()}
-                        className="text-[11px] text-muted-foreground hover:text-wolf-gold transition-colors"
-                      >🔄 Refresh</button>
+                  {/* Open orders panel */}
+                  <div className="moving-border-wrap w-full mx-auto">
+                    <div className="moving-border-inner rounded-2xl p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h2 className="text-sm font-bold flex items-center gap-2">
+                          Your On-Chain Orders
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-wolf-pink/15 text-wolf-pink">
+                            {limitOrders.list.length}
+                          </span>
+                        </h2>
+                        <button onClick={() => limitOrders.refresh()}
+                          className="text-[11px] text-muted-foreground hover:text-wolf-gold transition-colors"
+                        >🔄 Refresh</button>
+                      </div>
+                      <OpenOrdersList
+                        orders={limitOrders.list}
+                        onCancel={limitOrders.cancel}
+                        onFill={limitOrders.fill}
+                        account={wallet.address}
+                      />
                     </div>
-                    <OpenOrdersList
-                      orders={limitOrders.list}
-                      onCancel={limitOrders.cancel}
-                      onFill={limitOrders.fill}
-                      account={wallet.address}
-                    />
                   </div>
-                </div>
-            </motion.div>
-          )}
+              </motion.div>
+            )}
+          </Suspense>
         </div>
       </div>
     </>
