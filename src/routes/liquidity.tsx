@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import LiquidityPanel from "@/components/dex/LiquidityPanel";
+import { lazy, Suspense } from "react";
+import RouteSkeleton from "@/components/dex/ui/RouteSkeleton";
 import TextGenerateEffect from "@/components/dex/ui/TextGenerateEffect";
 import { useDexContext } from "@/context/DexContext";
+
+const LiquidityPanel = lazy(() => import("@/components/dex/LiquidityPanel"));
 
 export const Route = createFileRoute("/liquidity")({
   head: () => ({
