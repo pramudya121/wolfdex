@@ -36,7 +36,9 @@ export async function uploadTokenLogo(file: File, address: string): Promise<stri
   const path = `${address.toLowerCase()}-${Date.now()}.${ext}`;
   const { error } = await supabase.storage.from('token-logos').upload(path, file, {
     cacheControl: '31536000',
-    upsert: true,
+    // Write-once: timestamped path makes collisions impossible, and disabling
+    // upsert means no UPDATE policy is needed on storage.objects.
+    upsert: false,
     // Use server-validated MIME, NOT caller-controlled file.type
     contentType: safeMime,
   });

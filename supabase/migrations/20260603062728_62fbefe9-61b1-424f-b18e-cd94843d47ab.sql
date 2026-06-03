@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "logos_public_update" ON storage.objects;
