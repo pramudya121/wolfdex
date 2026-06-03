@@ -33,12 +33,7 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "WOLFDEX — Decentralized Exchange on LitVM LiteForge" },
-      { name: "description", content: "Premium decentralized exchange on LitVM LiteForge Testnet. Swap, provide liquidity, and earn with WOLFDEX." },
-      { property: "og:title", content: "WOLFDEX — Decentralized Exchange on LitVM LiteForge" },
-      { name: "twitter:title", content: "WOLFDEX — Decentralized Exchange on LitVM LiteForge" },
-      { property: "og:description", content: "Premium decentralized exchange on LitVM LiteForge Testnet. Swap, provide liquidity, and earn with WOLFDEX." },
-      { name: "twitter:description", content: "Premium decentralized exchange on LitVM LiteForge Testnet. Swap, provide liquidity, and earn with WOLFDEX." },
+      { property: "og:site_name", content: "WOLFDEX" },
       { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/xE1Z15HujxVUyhuL9bIkrIFCS893/social-images/social-1776587143169-ChatGPT_Image_16_Apr_2026,_23.06.40.webp" },
       { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/xE1Z15HujxVUyhuL9bIkrIFCS893/social-images/social-1776587143169-ChatGPT_Image_16_Apr_2026,_23.06.40.webp" },
       { name: "twitter:card", content: "summary_large_image" },

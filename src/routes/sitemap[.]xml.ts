@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const BASE_URL = "https://wolfdex.lovable.app";
 
@@ -26,6 +27,21 @@ export const Route = createFileRoute("/sitemap.xml")({
           { path: "/casino", changefreq: "weekly", priority: "0.7" },
           { path: "/docs", changefreq: "weekly", priority: "0.7" },
         ];
+
+        // Add one entry per launched token (dynamic /token/$address route).
+        try {
+          const { data: tokens } = await supabaseAdmin
+            .from("launchpad_tokens")
+            .select("address")
+            .limit(1000);
+          for (const t of tokens ?? []) {
+            if (t?.address) {
+              entries.push({ path: `/token/${t.address}`, changefreq: "weekly", priority: "0.5" });
+            }
+          }
+        } catch (err) {
+          console.warn("[sitemap] failed to load launchpad_tokens:", err);
+        }
 
         const urls = entries.map((e) =>
           [
