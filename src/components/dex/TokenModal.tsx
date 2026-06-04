@@ -20,7 +20,19 @@ export default function TokenModal({ isOpen, onClose, onSelect, excludeAddress }
   const [balances, setBalances] = useState<Record<string, string>>({});
   const [loadingBalances, setLoadingBalances] = useState(false);
 
-  const allTokens = useMemo(() => [...TOKENS, ...customTokens], [customTokens]);
+  // Dedupe by lowercased address — curated TOKENS win over customTokens/registry
+  // copies so a token registered in Supabase doesn't appear twice in the picker.
+  const allTokens = useMemo(() => {
+    const seen = new Set<string>();
+    const out: TokenInfo[] = [];
+    for (const t of [...TOKENS, ...customTokens]) {
+      const key = t.address.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(t);
+    }
+    return out;
+  }, [customTokens]);
 
   // Fetch balances for ALL tokens in a single multicall whenever modal opens
   useEffect(() => {
