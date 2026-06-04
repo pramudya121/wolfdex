@@ -249,7 +249,10 @@ function checkRateLimit(ip: string): boolean {
 const MAX_MESSAGES = 40;
 const MAX_CONTENT_CHARS = 4000;
 const MAX_BODY_BYTES = 200_000; // ~200 KB hard cap on payload
-const ALLOWED_ROLES = new Set(['user', 'assistant', 'tool', 'system']);
+// Note: 'system' is intentionally excluded — the server injects the system
+// prompt itself; allowing clients to send role:'system' would let them
+// override safety rules via prompt injection.
+const ALLOWED_ROLES = new Set(['user', 'assistant', 'tool']);
 
 function sanitizeMessages(raw: unknown): { ok: true; messages: any[] } | { ok: false; error: string } {
   if (!Array.isArray(raw)) return { ok: false, error: 'messages must be an array' };
