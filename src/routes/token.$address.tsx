@@ -64,18 +64,26 @@ function TokenDetailPage() {
         const provider = getReadProvider();
         const c = new ethers.Contract(address, ERC20_ABI, provider);
         const reg = getRegistryToken(address);
-        const [n, s, dec, ts, bal] = await Promise.all([
-          c.name().catch(() => reg?.name || 'Unknown'),
-          c.symbol().catch(() => reg?.symbol || '?'),
-          c.decimals().catch(() => 18),
-          c.totalSupply().catch(() => ethers.constants.Zero),
-          wallet.address ? c.balanceOf(wallet.address).catch(() => ethers.constants.Zero) : Promise.resolve(ethers.constants.Zero),
+        // On-chain is the source of truth. Registry is only used when the
+        // ERC-20 call fails (some tokens omit name/symbol).
+        const FAIL = Symbol('fail');
+        const safe = <T,>(p: Promise<T>) => p.catch(() => FAIL as unknown as T);
+        const [nRaw, sRaw, decRaw, tsRaw, balRaw] = await Promise.all([
+          safe(c.name()),
+          safe(c.symbol()),
+          safe(c.decimals()),
+          safe(c.totalSupply()),
+          wallet.address ? safe(c.balanceOf(wallet.address)) : Promise.resolve(ethers.constants.Zero),
         ]);
         if (cancelled) return;
-        const decimals = Number(dec) || 18;
+        const name = nRaw !== (FAIL as any) ? String(nRaw) : (reg?.name || 'Unknown Token');
+        const symbol = sRaw !== (FAIL as any) ? String(sRaw) : (reg?.symbol || '?');
+        const decimals = decRaw !== (FAIL as any) ? Number(decRaw) : (reg?.decimals ?? 18);
+        const ts = tsRaw !== (FAIL as any) ? (tsRaw as ethers.BigNumber) : ethers.constants.Zero;
+        const bal = balRaw !== (FAIL as any) ? (balRaw as ethers.BigNumber) : ethers.constants.Zero;
         setData({
-          name: reg?.name || String(n),
-          symbol: reg?.symbol || String(s),
+          name,
+          symbol,
           decimals,
           totalSupply: ethers.utils.formatUnits(ts, decimals),
           logo: reg?.logo_url || '/images/wdex-logo.png',
