@@ -111,6 +111,13 @@ export const TOKENS: TokenInfo[] = [
     decimals: 18,
     logo: '/images/wdex-logo.png',
   },
+  {
+    address: '0x4630632194D44BC7205BA41CBB0a2014AD36A4Fc',
+    symbol: 'MULTY',
+    name: 'Multy',
+    decimals: 18,
+    logo: '/images/multy-logo.jpg',
+  },
 ];
 
 /**
