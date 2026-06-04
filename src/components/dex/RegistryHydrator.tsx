@@ -6,6 +6,7 @@
 import { useEffect } from 'react';
 import { useLaunchpadRegistry } from '@/hooks/useLaunchpadRegistry';
 import { useCustomTokens } from '@/hooks/useCustomTokens';
+import { TOKENS } from '@/config/contracts';
 import { ethers } from 'ethers';
 
 export default function RegistryHydrator() {
@@ -13,7 +14,11 @@ export default function RegistryHydrator() {
   const { addToken } = useCustomTokens();
 
   useEffect(() => {
+    const curated = new Set(TOKENS.map(t => t.address.toLowerCase()));
     for (const t of tokens) {
+      // Skip tokens that are already in the curated list — they'd show up
+      // twice in TokenModal (curated + custom) otherwise.
+      if (curated.has(t.address.toLowerCase())) continue;
       try {
         addToken({
           address: ethers.utils.getAddress(t.address),
