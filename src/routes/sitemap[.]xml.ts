@@ -30,7 +30,7 @@ export const Route = createFileRoute("/sitemap.xml")({
 
         // Add one entry per launched token (dynamic /token/$address route).
         try {
-          const { data: tokens } = await supabaseAdmin
+          const { data: tokens } = await supabase
             .from("launchpad_tokens")
             .select("address")
             .limit(1000);
