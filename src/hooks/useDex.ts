@@ -615,16 +615,64 @@ export function useDex(signer: ethers.Signer | null, address: string | null) {
     } catch { return null; }
   }, [getPair]);
 
+  /**
+   * Batch-fetch pair info for many pairs in ONE multicall RPC round-trip.
+   * 4 calls per pair (reserves, token0, token1, totalSupply) collapsed
+   * from N*4 sequential eth_calls into a single aggregated request.
+   */
+  const getPairInfosBatch = useCallback(async (pairAddresses: string[]) => {
+    if (pairAddresses.length === 0) return {};
+    const { multicall } = await import('@/lib/multicall');
+    const calls = pairAddresses.flatMap(addr => ([
+      { target: addr, abi: PAIR_ABI, functionName: 'getReserves' },
+      { target: addr, abi: PAIR_ABI, functionName: 'token0' },
+      { target: addr, abi: PAIR_ABI, functionName: 'token1' },
+      { target: addr, abi: PAIR_ABI, functionName: 'totalSupply' },
+    ]));
+    const res = await multicall(calls);
+    const out: Record<string, { reserve0: string; reserve1: string; token0: string; token1: string; totalSupply: string } | null> = {};
+    pairAddresses.forEach((addr, i) => {
+      const base = i * 4;
+      const reserves = res[base];
+      const token0 = res[base + 1];
+      const token1 = res[base + 2];
+      const ts = res[base + 3];
+      if (!reserves?.success || !token0?.success || !token1?.success || !ts?.success) {
+        out[addr] = null;
+        return;
+      }
+      try {
+        const r: any = reserves.result;
+        out[addr] = {
+          reserve0: ethers.utils.formatEther(r[0] ?? r.reserve0),
+          reserve1: ethers.utils.formatEther(r[1] ?? r.reserve1),
+          token0: token0.result as string,
+          token1: token1.result as string,
+          totalSupply: ethers.utils.formatEther(ts.result as ethers.BigNumber),
+        };
+      } catch { out[addr] = null; }
+    });
+    return out;
+  }, []);
+
   const getAllPairs = useCallback(async () => {
     try {
       const factory = getFactory();
       const length = await factory.allPairsLength();
       const count = Math.min(length.toNumber(), 50);
-      // Parallelize factory.allPairs(i) calls — was sequential
-      const pairs = await Promise.all(
-        Array.from({ length: count }, (_, i) => factory.allPairs(i).catch(() => null))
-      );
-      return pairs.filter((p): p is string => !!p);
+      if (count === 0) return [];
+      // Batch all factory.allPairs(i) reads into ONE multicall
+      const { multicall } = await import('@/lib/multicall');
+      const calls = Array.from({ length: count }, (_, i) => ({
+        target: CONTRACTS.FACTORY,
+        abi: FACTORY_ABI,
+        functionName: 'allPairs',
+        args: [i],
+      }));
+      const res = await multicall(calls);
+      return res
+        .map(r => (r.success ? (r.result as string) : null))
+        .filter((p): p is string => !!p);
     } catch { return []; }
   }, [getFactory]);
 
@@ -632,7 +680,7 @@ export function useDex(signer: ethers.Signer | null, address: string | null) {
     loading, txHash, error, setError,
     swap, addLiquidity, removeLiquidity,
     getAmountsOut, getBestRoute, previewSwap, getTokenBalance, getMultipleBalances,
-    getPairAddress, getPairInfo, getAllPairs,
+    getPairAddress, getPairInfo, getPairInfosBatch, getAllPairs,
     approveToken, getErc20,
   };
 }
