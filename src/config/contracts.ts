@@ -1,8 +1,18 @@
+/**
+ * Load-balanced RPC pool. The runtime (src/lib/rpc.ts) round-robins healthy
+ * endpoints and quarantines failing ones for 30s, so adding extra mirrors
+ * here automatically distributes read traffic and survives single-RPC outages.
+ * Keep the primary first — it's used as the fallback for write tx.
+ */
 export const CHAIN_CONFIG = {
   chainId: 4441,
   chainIdHex: '0x1159',
   chainName: 'LitVM LiteForge',
   rpcUrl: 'https://liteforge.rpc.caldera.xyz/http',
+  rpcUrls: [
+    'https://liteforge.rpc.caldera.xyz/http',
+    // add additional mirrors here, e.g. 'https://rpc2.liteforge…'
+  ],
   symbol: 'zkLTC',
   decimals: 18,
   blockExplorer: 'https://liteforge.explorer.caldera.xyz',
