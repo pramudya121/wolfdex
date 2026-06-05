@@ -138,9 +138,8 @@ export function DexProvider({ children }: { children: ReactNode }) {
 
     inflightRef.current = (async () => {
       const pairs = await dex.getAllPairs();
-      const infos: Record<string, PairInfo | null> = {};
-      const results = await Promise.all(pairs.map(p => dex.getPairInfo(p)));
-      pairs.forEach((p, i) => { infos[p] = results[i]; });
+      // Single multicall RPC for all pairs (was N*4 sequential calls)
+      const infos = pairs.length > 0 ? await dex.getPairInfosBatch(pairs) : {};
       const next: PairsCache = { pairs, infos, fetchedAt: Date.now() };
       cacheRef.current = next;
       // Persist for next page load / next session
