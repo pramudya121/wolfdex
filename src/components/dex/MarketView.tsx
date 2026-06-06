@@ -393,7 +393,6 @@ function MarketCard({
       <div className="mt-4 grid grid-cols-4 gap-1.5">
         <Link
           to="/swap"
-          search={{ from: undefined, to: token.address } as any}
           className="rounded-xl bg-gradient-to-br from-wolf-red to-wolf-pink px-2 py-2 text-center text-[11px] font-bold text-white transition-transform hover:scale-[1.02]"
         >
           Swap
