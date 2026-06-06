@@ -9,6 +9,7 @@ import { WolfSkeleton, WolfSkeletonOrb, WolfSpinner } from './ui/WolfSkeleton';
 
 const NAV_ITEMS = [
   { path: '/', label: 'Home' },
+  { path: '/market', label: 'Market' },
   { path: '/swap', label: 'Swap' },
   { path: '/liquidity', label: 'Liquidity' },
   { path: '/pools', label: 'Pools' },
