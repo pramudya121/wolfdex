@@ -17,6 +17,7 @@ import { Route as LiquidityRouteImport } from './routes/liquidity'
 import { Route as LaunchpadRouteImport } from './routes/launchpad'
 import { Route as FaucetRouteImport } from './routes/faucet'
 import { Route as FarmingRouteImport } from './routes/farming'
+import { Route as DomainsRouteImport } from './routes/domains'
 import { Route as DocsRouteImport } from './routes/docs'
 import { Route as CasinoRouteImport } from './routes/casino'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
@@ -65,6 +66,11 @@ const FarmingRoute = FarmingRouteImport.update({
   path: '/farming',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DomainsRoute = DomainsRouteImport.update({
+  id: '/domains',
+  path: '/domains',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DocsRoute = DocsRouteImport.update({
   id: '/docs',
   path: '/docs',
@@ -106,6 +112,7 @@ export interface FileRoutesByFullPath {
   '/analytics': typeof AnalyticsRoute
   '/casino': typeof CasinoRouteWithChildren
   '/docs': typeof DocsRoute
+  '/domains': typeof DomainsRoute
   '/farming': typeof FarmingRoute
   '/faucet': typeof FaucetRoute
   '/launchpad': typeof LaunchpadRoute
@@ -123,6 +130,7 @@ export interface FileRoutesByTo {
   '/analytics': typeof AnalyticsRoute
   '/casino': typeof CasinoRouteWithChildren
   '/docs': typeof DocsRoute
+  '/domains': typeof DomainsRoute
   '/farming': typeof FarmingRoute
   '/faucet': typeof FaucetRoute
   '/launchpad': typeof LaunchpadRoute
@@ -141,6 +149,7 @@ export interface FileRoutesById {
   '/analytics': typeof AnalyticsRoute
   '/casino': typeof CasinoRouteWithChildren
   '/docs': typeof DocsRoute
+  '/domains': typeof DomainsRoute
   '/farming': typeof FarmingRoute
   '/faucet': typeof FaucetRoute
   '/launchpad': typeof LaunchpadRoute
@@ -160,6 +169,7 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/casino'
     | '/docs'
+    | '/domains'
     | '/farming'
     | '/faucet'
     | '/launchpad'
@@ -177,6 +187,7 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/casino'
     | '/docs'
+    | '/domains'
     | '/farming'
     | '/faucet'
     | '/launchpad'
@@ -194,6 +205,7 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/casino'
     | '/docs'
+    | '/domains'
     | '/farming'
     | '/faucet'
     | '/launchpad'
@@ -212,6 +224,7 @@ export interface RootRouteChildren {
   AnalyticsRoute: typeof AnalyticsRoute
   CasinoRoute: typeof CasinoRouteWithChildren
   DocsRoute: typeof DocsRoute
+  DomainsRoute: typeof DomainsRoute
   FarmingRoute: typeof FarmingRoute
   FaucetRoute: typeof FaucetRoute
   LaunchpadRoute: typeof LaunchpadRoute
@@ -282,6 +295,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FarmingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/domains': {
+      id: '/domains'
+      path: '/domains'
+      fullPath: '/domains'
+      preLoaderRoute: typeof DomainsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/docs': {
       id: '/docs'
       path: '/docs'
@@ -350,6 +370,7 @@ const rootRouteChildren: RootRouteChildren = {
   AnalyticsRoute: AnalyticsRoute,
   CasinoRoute: CasinoRouteWithChildren,
   DocsRoute: DocsRoute,
+  DomainsRoute: DomainsRoute,
   FarmingRoute: FarmingRoute,
   FaucetRoute: FaucetRoute,
   LaunchpadRoute: LaunchpadRoute,
