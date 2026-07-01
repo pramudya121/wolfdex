@@ -9,7 +9,6 @@ import { WolfSkeleton, WolfSkeletonOrb, WolfSpinner } from './ui/WolfSkeleton';
 
 const NAV_ITEMS = [
   { path: '/', label: 'Home' },
-  { path: '/market', label: 'Market' },
   { path: '/swap', label: 'Swap' },
   { path: '/liquidity', label: 'Liquidity' },
   { path: '/pools', label: 'Pools' },
@@ -20,6 +19,7 @@ const NAV_ITEMS = [
   { path: '/faucet', label: 'Faucet' },
   { path: '/docs', label: 'Docs' },
   { path: '/launchpad', label: 'Launchpad' },
+  { path: '/domains', label: 'Domains' },
 ] as const;
 
 const WALLETS: { type: WalletType; name: string; icon: string; badge: string }[] = [
