@@ -245,3 +245,77 @@ export const LAUNCHPAD_ABI = [
   'function getAllTokens() view returns (address[])',
   'event TokenDeployed(address indexed creator, address token)',
 ];
+
+/**
+ * DEX Name Service ABIs.
+ * - Registry: node/resolver/owner mapping (ENS-style).
+ * - BaseRegistrar: ERC721 for .dex tokenIds with expiries.
+ * - Controller: commit/reveal registration + renewals + pricing.
+ * - Resolver: public resolver for addr / text / contenthash / reverse.
+ */
+export const DNS_REGISTRY_ABI = [
+  'function owner(bytes32 node) view returns (address)',
+  'function resolver(bytes32 node) view returns (address)',
+  'function ttl(bytes32 node) view returns (uint64)',
+  'function setOwner(bytes32 node, address owner)',
+  'function setResolver(bytes32 node, address resolver)',
+  'function setTTL(bytes32 node, uint64 ttl)',
+  'function setSubnodeOwner(bytes32 parent, bytes32 label, address owner) returns (bytes32 subnode)',
+  'event Transfer(bytes32 indexed node, address owner)',
+  'event NewResolver(bytes32 indexed node, address resolver)',
+  'event NewTTL(bytes32 indexed node, uint64 ttl)',
+];
+
+export const DNS_BASE_REGISTRAR_ABI = [
+  'function ownerOf(uint256 tokenId) view returns (address)',
+  'function balanceOf(address account) view returns (uint256)',
+  'function expiries(uint256 tokenId) view returns (uint256)',
+  'function isExpired(uint256 tokenId) view returns (bool)',
+  'function getApproved(uint256 tokenId) view returns (address)',
+  'function controllers(address) view returns (bool)',
+  'function owner() view returns (address)',
+  'function registry() view returns (address)',
+  'function approve(address to, uint256 tokenId)',
+  'function transferFrom(address from, address to, uint256 tokenId)',
+  'function reclaim(uint256 tokenId, bytes32 label)',
+  'function burn(uint256 tokenId)',
+  'function mint(address to, uint256 tokenId, uint256 expiry)',
+  'function addController(address controller)',
+  'function removeController(address controller)',
+  'event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)',
+  'event Approval(address indexed owner, address indexed approved, uint256 indexed tokenId)',
+];
+
+export const DNS_CONTROLLER_ABI = [
+  'function isAvailable(string name) view returns (bool)',
+  'function price(string name, uint256 duration) pure returns (uint256)',
+  'function makeCommitment(string name, address registrant, bytes32 secret) pure returns (bytes32)',
+  'function commit(bytes32 commitment, string name)',
+  'function register(string name, address registrant, uint256 duration, bytes32 secret) payable',
+  'function renew(string name, uint256 duration) payable',
+  'function domains(string) view returns (address owner, uint256 expires)',
+  'function domainInfo(string name) view returns (address, uint256, bool)',
+  'function commitments(bytes32) view returns (uint256 timestamp, bytes32 nameHash, address committer)',
+  'function COMMIT_REVEAL_DELAY() view returns (uint256)',
+  'function COMMIT_REVEAL_EXPIRY() view returns (uint256)',
+  'function GRACE_PERIOD() view returns (uint256)',
+  'function MIN_REGISTRATION_DURATION() view returns (uint256)',
+  'function collectedFees() view returns (uint256)',
+  'function owner() view returns (address)',
+  'function withdraw(address to)',
+  'function transferOwnership(address newOwner)',
+  'event DomainRegistered(string indexed name, address indexed owner, uint256 expires, uint256 price)',
+  'event DomainRenewed(string indexed name, uint256 newExpiry, uint256 price)',
+  'event Withdraw(address indexed to, uint256 amount)',
+];
+
+export const DNS_RESOLVER_ABI = [
+  'function getAddress(string name, string chain) view returns (string)',
+  'function getContentHash(string name) view returns (string)',
+  'function getText(string name, string key) view returns (string)',
+  'function getReverse(address user) view returns (string)',
+  'function setAddress(string name, string chain, string addr)',
+  'function setContentHash(string name, string hash)',
+  'function setText(string name, string key, string value)',
+  'function setReverse(address user, string name)',
+];

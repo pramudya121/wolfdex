@@ -13,7 +13,6 @@ import { Route as SwapRouteImport } from './routes/swap'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as PortfolioRouteImport } from './routes/portfolio'
 import { Route as PoolsRouteImport } from './routes/pools'
-import { Route as MarketRouteImport } from './routes/market'
 import { Route as LiquidityRouteImport } from './routes/liquidity'
 import { Route as LaunchpadRouteImport } from './routes/launchpad'
 import { Route as FaucetRouteImport } from './routes/faucet'
@@ -44,11 +43,6 @@ const PortfolioRoute = PortfolioRouteImport.update({
 const PoolsRoute = PoolsRouteImport.update({
   id: '/pools',
   path: '/pools',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MarketRoute = MarketRouteImport.update({
-  id: '/market',
-  path: '/market',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LiquidityRoute = LiquidityRouteImport.update({
@@ -116,7 +110,6 @@ export interface FileRoutesByFullPath {
   '/faucet': typeof FaucetRoute
   '/launchpad': typeof LaunchpadRoute
   '/liquidity': typeof LiquidityRoute
-  '/market': typeof MarketRoute
   '/pools': typeof PoolsRoute
   '/portfolio': typeof PortfolioRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -134,7 +127,6 @@ export interface FileRoutesByTo {
   '/faucet': typeof FaucetRoute
   '/launchpad': typeof LaunchpadRoute
   '/liquidity': typeof LiquidityRoute
-  '/market': typeof MarketRoute
   '/pools': typeof PoolsRoute
   '/portfolio': typeof PortfolioRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -153,7 +145,6 @@ export interface FileRoutesById {
   '/faucet': typeof FaucetRoute
   '/launchpad': typeof LaunchpadRoute
   '/liquidity': typeof LiquidityRoute
-  '/market': typeof MarketRoute
   '/pools': typeof PoolsRoute
   '/portfolio': typeof PortfolioRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -173,7 +164,6 @@ export interface FileRouteTypes {
     | '/faucet'
     | '/launchpad'
     | '/liquidity'
-    | '/market'
     | '/pools'
     | '/portfolio'
     | '/sitemap.xml'
@@ -191,7 +181,6 @@ export interface FileRouteTypes {
     | '/faucet'
     | '/launchpad'
     | '/liquidity'
-    | '/market'
     | '/pools'
     | '/portfolio'
     | '/sitemap.xml'
@@ -209,7 +198,6 @@ export interface FileRouteTypes {
     | '/faucet'
     | '/launchpad'
     | '/liquidity'
-    | '/market'
     | '/pools'
     | '/portfolio'
     | '/sitemap.xml'
@@ -228,7 +216,6 @@ export interface RootRouteChildren {
   FaucetRoute: typeof FaucetRoute
   LaunchpadRoute: typeof LaunchpadRoute
   LiquidityRoute: typeof LiquidityRoute
-  MarketRoute: typeof MarketRoute
   PoolsRoute: typeof PoolsRoute
   PortfolioRoute: typeof PortfolioRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
@@ -265,13 +252,6 @@ declare module '@tanstack/react-router' {
       path: '/pools'
       fullPath: '/pools'
       preLoaderRoute: typeof PoolsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/market': {
-      id: '/market'
-      path: '/market'
-      fullPath: '/market'
-      preLoaderRoute: typeof MarketRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/liquidity': {
@@ -374,7 +354,6 @@ const rootRouteChildren: RootRouteChildren = {
   FaucetRoute: FaucetRoute,
   LaunchpadRoute: LaunchpadRoute,
   LiquidityRoute: LiquidityRoute,
-  MarketRoute: MarketRoute,
   PoolsRoute: PoolsRoute,
   PortfolioRoute: PortfolioRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
