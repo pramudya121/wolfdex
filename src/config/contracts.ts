@@ -35,7 +35,15 @@ export const CONTRACTS = {
   // ERC20 Launchpad — anyone can deploy a SimpleERC20 (createToken).
   // Source: 0x5C13d96355EA57D8e514Ac825A93f0be20DD84F5 on LitVM LiteForge.
   LAUNCHPAD: '0x5C13d96355EA57D8e514Ac825A93f0be20DD84F5',
+  // DEX Name Service — .dex domain registry + registrar + resolver.
+  DNS_REGISTRY: '0xcD94F3cF2cC78AcDA503A1C685003aA25F947fd6',
+  DNS_BASE_REGISTRAR: '0x9A47Cb878Bf7B0e5b10c27F0320243381C7D0bA1',
+  DNS_CONTROLLER: '0x02aC6445843e9D30F1f4512DfaA2F4289bED2224',
+  DNS_RESOLVER: '0x70943a7eA0D2f717030021dbc8cce8dfaCbea79A',
 };
+
+/** TLD used by the DEX Name Service (e.g. "alice.dex"). */
+export const DNS_TLD = 'dex';
 
 /**
  * Faucet token list — order MUST match the on-chain `tokens(uint256)` slots

@@ -13,11 +13,11 @@ import { Route as SwapRouteImport } from './routes/swap'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as PortfolioRouteImport } from './routes/portfolio'
 import { Route as PoolsRouteImport } from './routes/pools'
-import { Route as MarketRouteImport } from './routes/market'
 import { Route as LiquidityRouteImport } from './routes/liquidity'
 import { Route as LaunchpadRouteImport } from './routes/launchpad'
 import { Route as FaucetRouteImport } from './routes/faucet'
 import { Route as FarmingRouteImport } from './routes/farming'
+import { Route as DomainsRouteImport } from './routes/domains'
 import { Route as DocsRouteImport } from './routes/docs'
 import { Route as CasinoRouteImport } from './routes/casino'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
@@ -46,11 +46,6 @@ const PoolsRoute = PoolsRouteImport.update({
   path: '/pools',
   getParentRoute: () => rootRouteImport,
 } as any)
-const MarketRoute = MarketRouteImport.update({
-  id: '/market',
-  path: '/market',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const LiquidityRoute = LiquidityRouteImport.update({
   id: '/liquidity',
   path: '/liquidity',
@@ -69,6 +64,11 @@ const FaucetRoute = FaucetRouteImport.update({
 const FarmingRoute = FarmingRouteImport.update({
   id: '/farming',
   path: '/farming',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DomainsRoute = DomainsRouteImport.update({
+  id: '/domains',
+  path: '/domains',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DocsRoute = DocsRouteImport.update({
@@ -112,11 +112,11 @@ export interface FileRoutesByFullPath {
   '/analytics': typeof AnalyticsRoute
   '/casino': typeof CasinoRouteWithChildren
   '/docs': typeof DocsRoute
+  '/domains': typeof DomainsRoute
   '/farming': typeof FarmingRoute
   '/faucet': typeof FaucetRoute
   '/launchpad': typeof LaunchpadRoute
   '/liquidity': typeof LiquidityRoute
-  '/market': typeof MarketRoute
   '/pools': typeof PoolsRoute
   '/portfolio': typeof PortfolioRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -130,11 +130,11 @@ export interface FileRoutesByTo {
   '/analytics': typeof AnalyticsRoute
   '/casino': typeof CasinoRouteWithChildren
   '/docs': typeof DocsRoute
+  '/domains': typeof DomainsRoute
   '/farming': typeof FarmingRoute
   '/faucet': typeof FaucetRoute
   '/launchpad': typeof LaunchpadRoute
   '/liquidity': typeof LiquidityRoute
-  '/market': typeof MarketRoute
   '/pools': typeof PoolsRoute
   '/portfolio': typeof PortfolioRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -149,11 +149,11 @@ export interface FileRoutesById {
   '/analytics': typeof AnalyticsRoute
   '/casino': typeof CasinoRouteWithChildren
   '/docs': typeof DocsRoute
+  '/domains': typeof DomainsRoute
   '/farming': typeof FarmingRoute
   '/faucet': typeof FaucetRoute
   '/launchpad': typeof LaunchpadRoute
   '/liquidity': typeof LiquidityRoute
-  '/market': typeof MarketRoute
   '/pools': typeof PoolsRoute
   '/portfolio': typeof PortfolioRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -169,11 +169,11 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/casino'
     | '/docs'
+    | '/domains'
     | '/farming'
     | '/faucet'
     | '/launchpad'
     | '/liquidity'
-    | '/market'
     | '/pools'
     | '/portfolio'
     | '/sitemap.xml'
@@ -187,11 +187,11 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/casino'
     | '/docs'
+    | '/domains'
     | '/farming'
     | '/faucet'
     | '/launchpad'
     | '/liquidity'
-    | '/market'
     | '/pools'
     | '/portfolio'
     | '/sitemap.xml'
@@ -205,11 +205,11 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/casino'
     | '/docs'
+    | '/domains'
     | '/farming'
     | '/faucet'
     | '/launchpad'
     | '/liquidity'
-    | '/market'
     | '/pools'
     | '/portfolio'
     | '/sitemap.xml'
@@ -224,11 +224,11 @@ export interface RootRouteChildren {
   AnalyticsRoute: typeof AnalyticsRoute
   CasinoRoute: typeof CasinoRouteWithChildren
   DocsRoute: typeof DocsRoute
+  DomainsRoute: typeof DomainsRoute
   FarmingRoute: typeof FarmingRoute
   FaucetRoute: typeof FaucetRoute
   LaunchpadRoute: typeof LaunchpadRoute
   LiquidityRoute: typeof LiquidityRoute
-  MarketRoute: typeof MarketRoute
   PoolsRoute: typeof PoolsRoute
   PortfolioRoute: typeof PortfolioRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
@@ -267,13 +267,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PoolsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/market': {
-      id: '/market'
-      path: '/market'
-      fullPath: '/market'
-      preLoaderRoute: typeof MarketRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/liquidity': {
       id: '/liquidity'
       path: '/liquidity'
@@ -300,6 +293,13 @@ declare module '@tanstack/react-router' {
       path: '/farming'
       fullPath: '/farming'
       preLoaderRoute: typeof FarmingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/domains': {
+      id: '/domains'
+      path: '/domains'
+      fullPath: '/domains'
+      preLoaderRoute: typeof DomainsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/docs': {
@@ -370,11 +370,11 @@ const rootRouteChildren: RootRouteChildren = {
   AnalyticsRoute: AnalyticsRoute,
   CasinoRoute: CasinoRouteWithChildren,
   DocsRoute: DocsRoute,
+  DomainsRoute: DomainsRoute,
   FarmingRoute: FarmingRoute,
   FaucetRoute: FaucetRoute,
   LaunchpadRoute: LaunchpadRoute,
   LiquidityRoute: LiquidityRoute,
-  MarketRoute: MarketRoute,
   PoolsRoute: PoolsRoute,
   PortfolioRoute: PortfolioRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
