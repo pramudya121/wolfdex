@@ -17,9 +17,9 @@ const NAV_ITEMS = [
   { path: '/analytics', label: 'Analytics' },
   { path: '/portfolio', label: 'Portfolio' },
   { path: '/faucet', label: 'Faucet' },
-  { path: '/docs', label: 'Docs' },
   { path: '/launchpad', label: 'Launchpad' },
   { path: '/domains', label: 'Domains' },
+  { path: '/docs', label: 'Docs' },
 ] as const;
 
 const WALLETS: { type: WalletType; name: string; icon: string; badge: string }[] = [
