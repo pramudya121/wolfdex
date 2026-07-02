@@ -17,6 +17,9 @@ import {
   Copy,
   ExternalLink,
   ShieldCheck,
+  Flame,
+  Zap,
+  Crown,
 } from 'lucide-react';
 import { useDexContext } from '@/context/DexContext';
 import { CONTRACTS, CHAIN_CONFIG, DNS_TLD } from '@/config/contracts';
@@ -24,6 +27,7 @@ import {
   DNS_CONTROLLER_ABI,
   DNS_BASE_REGISTRAR_ABI,
   DNS_RESOLVER_ABI,
+  DNS_REGISTRY_ABI,
 } from '@/config/abis';
 import { getReadProvider } from '@/lib/rpc';
 
@@ -41,7 +45,7 @@ type OwnedDomain = {
 type Availability =
   | { state: 'idle' }
   | { state: 'checking' }
-  | { state: 'available'; name: string; priceUsd: number }
+  | { state: 'available'; name: string; priceUsd: number; priceWei: ethers.BigNumber | null }
   | { state: 'taken'; name: string; owner: string; expires: number };
 
 const USD_PER_YEAR = (len: number): number => {
@@ -57,6 +61,10 @@ const fmtDate = (ts: number) =>
   ts ? new Date(ts * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
 
 const LOCAL_PRIMARY_KEY = 'wolfdex.dns.primary';
+
+// Namehash for reverse lookups / tokenId (label hash)
+const labelHash = (name: string) =>
+  ethers.utils.solidityKeccak256(['string'], [name.toLowerCase()]);
 
 /* -------------------------------------------------------------------------- */
 /*  Component                                                                  */
@@ -74,87 +82,125 @@ export default function DomainsView() {
   const [owned, setOwned] = useState<OwnedDomain[]>([]);
   const [loadingOwned, setLoadingOwned] = useState(false);
   const [primaryName, setPrimaryName] = useState<string>('');
+  const [gasEstimate, setGasEstimate] = useState<{
+    gasWei: ethers.BigNumber;
+    gasNative: string;
+  } | null>(null);
 
-  /* --- Real-time input sanitation ---------------------------------------- */
   const handleQueryChange = (raw: string) => {
     const clean = raw.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9-]/g, '');
     setQuery(clean);
     if (availability.state !== 'idle') setAvailability({ state: 'idle' });
+    setGasEstimate(null);
   };
 
   const nameValid = query.length >= 3 && DOMAIN_REGEX.test(query);
 
-  /* --- Load local primary preference ------------------------------------- */
   useEffect(() => {
     if (!address) return;
     try {
       const map = JSON.parse(localStorage.getItem(LOCAL_PRIMARY_KEY) || '{}');
       setPrimaryName(map[address.toLowerCase()] || '');
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
   }, [address]);
 
-  /* ---------------------------------------------------------------------- */
-  /*  handleSearch — cek ketersediaan domain di on-chain controller         */
-  /* ---------------------------------------------------------------------- */
+  /* ------------------------------------------------------------------ */
+  /*  handleSearch — on-chain availability via Controller + Registry    */
+  /* ------------------------------------------------------------------ */
   const handleSearch = useCallback(async () => {
     if (!nameValid) {
-      toast.error('Enter a valid domain (min 3 chars, a-z, 0-9, -)');
+      toast.error('Enter a valid name (min 3 chars, a-z, 0-9, -)');
       return;
     }
     setAvailability({ state: 'checking' });
+    setGasEstimate(null);
     try {
       const provider = getReadProvider();
-      const controller = new ethers.Contract(
-        CONTRACTS.DNS_CONTROLLER,
-        DNS_CONTROLLER_ABI,
-        provider,
-      );
+      const controller = new ethers.Contract(CONTRACTS.DNS_CONTROLLER, DNS_CONTROLLER_ABI, provider);
+      const registrar = new ethers.Contract(CONTRACTS.DNS_BASE_REGISTRAR, DNS_BASE_REGISTRAR_ABI, provider);
 
-      // === INTEGRASI KONTRAK (READ) =====================================
-      // DomainRegistrarController.isAvailable(name)  → bool
-      // DomainRegistrarController.domainInfo(name)   → (owner, expires, available)
-      // Perhitungan harga pakai formula UI (USD_PER_YEAR) agar konsisten
-      // untuk semua chain; kalau ingin harga on-chain pakai:
-      //   controller.price(name, duration)  → uint256 (wei)
-      // ==================================================================
-      const [available, info] = await Promise.all([
-        controller.isAvailable(query).catch(() => null),
+      // Prefer explicit domainInfo (owner, expires, available); fall back to
+      // isAvailable + registrar.expiries when the controller variant is older.
+      const [info, availFlag, priceRes] = await Promise.all([
         controller.domainInfo(query).catch(() => null),
+        controller.isAvailable(query).catch(() => null),
+        controller.price(query, 365 * 24 * 60 * 60).catch(() => null),
       ]);
 
-      const isAvail =
-        typeof available === 'boolean'
-          ? available
-          : info
-          ? Boolean(info[2])
-          : true;
+      let isAvail: boolean;
+      let ownerAddr = ethers.constants.AddressZero;
+      let expires = 0;
+
+      if (info && Array.isArray(info)) {
+        ownerAddr = info[0];
+        expires = Number(info[1] || 0);
+        isAvail = Boolean(info[2]);
+      } else if (typeof availFlag === 'boolean') {
+        isAvail = availFlag;
+        if (!isAvail) {
+          const tokenId = labelHash(query);
+          const [o, e] = await Promise.all([
+            registrar.ownerOf(tokenId).catch(() => ethers.constants.AddressZero),
+            registrar.expiries(tokenId).catch(() => ethers.BigNumber.from(0)),
+          ]);
+          ownerAddr = o;
+          expires = Number(e);
+        }
+      } else {
+        isAvail = true;
+      }
 
       if (isAvail) {
         setAvailability({
           state: 'available',
           name: query,
           priceUsd: USD_PER_YEAR(query.length),
+          priceWei: priceRes ? ethers.BigNumber.from(priceRes) : null,
         });
       } else {
-        setAvailability({
-          state: 'taken',
-          name: query,
-          owner: info?.[0] || ethers.constants.AddressZero,
-          expires: info?.[1] ? Number(info[1]) : 0,
-        });
+        setAvailability({ state: 'taken', name: query, owner: ownerAddr, expires });
       }
     } catch (err: any) {
-      console.error('[DNS] isAvailable', err);
+      console.error('[DNS] search', err);
       toast.error(err?.shortMessage || err?.message || 'Failed to check availability');
       setAvailability({ state: 'idle' });
     }
   }, [nameValid, query]);
 
-  /* ---------------------------------------------------------------------- */
-  /*  handleMint — commit/reveal registration flow                          */
-  /* ---------------------------------------------------------------------- */
+  /* ------------------------------------------------------------------ */
+  /*  Gas estimate for mint (commit + register together)                */
+  /* ------------------------------------------------------------------ */
+  useEffect(() => {
+    if (availability.state !== 'available' || !wallet.signer || !address) {
+      setGasEstimate(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const provider = getReadProvider();
+        const controller = new ethers.Contract(CONTRACTS.DNS_CONTROLLER, DNS_CONTROLLER_ABI, provider);
+        const gasPrice = await provider.getGasPrice();
+        // Heuristic budget: commit (~60k) + register (~180k) = ~240k gas.
+        const gasUnits = ethers.BigNumber.from(240_000);
+        const totalWei = gasPrice.mul(gasUnits);
+        if (!cancelled) {
+          setGasEstimate({
+            gasWei: totalWei,
+            gasNative: parseFloat(ethers.utils.formatEther(totalWei)).toFixed(6),
+          });
+        }
+        void controller; // referenced for future refinement
+      } catch (err) {
+        console.warn('[DNS] gas estimate', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [availability, wallet.signer, address, years]);
+
+  /* ------------------------------------------------------------------ */
+  /*  handleMint — commit / reveal / register                            */
+  /* ------------------------------------------------------------------ */
   const handleMint = useCallback(async () => {
     if (availability.state !== 'available') return;
     if (!wallet.signer || !address) {
@@ -166,19 +212,8 @@ export default function DomainsView() {
     const duration = years * 365 * 24 * 60 * 60;
 
     try {
-      const controller = new ethers.Contract(
-        CONTRACTS.DNS_CONTROLLER,
-        DNS_CONTROLLER_ABI,
-        wallet.signer,
-      );
+      const controller = new ethers.Contract(CONTRACTS.DNS_CONTROLLER, DNS_CONTROLLER_ABI, wallet.signer);
 
-      // === INTEGRASI KONTRAK (WRITE) — Commit/Reveal =====================
-      // 1) buat secret acak 32 byte (disimpan di memory, JANGAN kirim ke server)
-      // 2) commitment = controller.makeCommitment(name, registrant, secret)
-      // 3) controller.commit(commitment, name)  → tunggu COMMIT_REVEAL_DELAY
-      // 4) controller.register(name, registrant, duration, secret, { value: price })
-      //    price bisa diambil dari controller.price(name, duration).
-      // ==================================================================
       const secret = ethers.utils.hexlify(ethers.utils.randomBytes(32));
       const commitment: string = await controller.makeCommitment(name, address, secret);
       const delay: ethers.BigNumber = await controller
@@ -186,9 +221,9 @@ export default function DomainsView() {
         .catch(() => ethers.BigNumber.from(60));
       const priceWei: ethers.BigNumber = await controller
         .price(name, duration)
-        .catch(() => ethers.utils.parseEther('0'));
+        .catch(() => ethers.BigNumber.from(0));
 
-      toast.loading('Step 1/2 — committing…', { id: 'mint' });
+      toast.loading('Step 1/2 — committing to chain…', { id: 'mint' });
       const commitTx = await controller.commit(commitment, name);
       await commitTx.wait();
 
@@ -196,13 +231,11 @@ export default function DomainsView() {
       toast.loading(`Waiting ${Math.ceil(waitMs / 1000)}s reveal window…`, { id: 'mint' });
       await new Promise(r => setTimeout(r, waitMs));
 
-      toast.loading('Step 2/2 — registering…', { id: 'mint' });
-      const regTx = await controller.register(name, address, duration, secret, {
-        value: priceWei,
-      });
+      toast.loading('Step 2/2 — registering domain…', { id: 'mint' });
+      const regTx = await controller.register(name, address, duration, secret, { value: priceWei });
       await regTx.wait();
 
-      toast.success(`🎉 ${name}.${DNS_TLD} minted!`, { id: 'mint' });
+      toast.success(`🎉 ${name}.${DNS_TLD} is yours!`, { id: 'mint' });
       setAvailability({ state: 'idle' });
       setQuery('');
       loadOwned();
@@ -212,76 +245,58 @@ export default function DomainsView() {
     } finally {
       setMinting(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [availability, address, wallet.signer, years, setShowWalletModal]);
 
-  /* ---------------------------------------------------------------------- */
-  /*  loadOwned — read balance + tokenIds owned by user                     */
-  /* ---------------------------------------------------------------------- */
+  /* ------------------------------------------------------------------ */
+  /*  loadOwned — index via DomainRegistered event + verify ownership   */
+  /* ------------------------------------------------------------------ */
   const loadOwned = useCallback(async () => {
-    if (!address) {
-      setOwned([]);
-      return;
-    }
+    if (!address) { setOwned([]); return; }
     setLoadingOwned(true);
     try {
       const provider = getReadProvider();
-      const registrar = new ethers.Contract(
-        CONTRACTS.DNS_BASE_REGISTRAR,
-        DNS_BASE_REGISTRAR_ABI,
-        provider,
-      );
+      const controller = new ethers.Contract(CONTRACTS.DNS_CONTROLLER, DNS_CONTROLLER_ABI, provider);
+      const registrar = new ethers.Contract(CONTRACTS.DNS_BASE_REGISTRAR, DNS_BASE_REGISTRAR_ABI, provider);
+      const resolver = new ethers.Contract(CONTRACTS.DNS_RESOLVER, DNS_RESOLVER_ABI, provider);
 
-      // === INTEGRASI KONTRAK (READ) =====================================
-      // Cara paling akurat: index event Transfer(to == address) untuk
-      // menemukan semua tokenId yang pernah diterima user, lalu filter
-      // yang masih dimiliki via ownerOf. Untuk chain testnet volume rendah,
-      // scan window blok terakhir sudah cukup.
-      // ==================================================================
-      const balance: ethers.BigNumber = await registrar.balanceOf(address).catch(() => ethers.BigNumber.from(0));
-      const fromBlock = Math.max(0, (await provider.getBlockNumber()) - 200_000);
-      const filter = registrar.filters.Transfer(null, address);
-      const logs = await registrar.queryFilter(filter, fromBlock).catch(() => []);
+      const currentBlock = await provider.getBlockNumber();
+      const fromBlock = Math.max(0, currentBlock - 500_000);
 
-      const ids = new Set<string>();
-      for (const log of logs) {
-        const tokenId = log.args?.tokenId?.toString();
-        if (tokenId) ids.add(tokenId);
-      }
+      // Query DomainRegistered(name indexed, owner indexed, ...) — gives us the
+      // human-readable name (via topic) plus the owner filter.
+      const filter = controller.filters.DomainRegistered(null, address);
+      const logs = await controller.queryFilter(filter, fromBlock).catch(() => [] as ethers.Event[]);
 
-      const results: OwnedDomain[] = [];
-      const resolver = new ethers.Contract(
-        CONTRACTS.DNS_RESOLVER,
-        DNS_RESOLVER_ABI,
-        provider,
-      );
       const reverse: string = await resolver.getReverse(address).catch(() => '');
+      const primaryLabel = reverse ? reverse.split('.')[0] : '';
 
-      for (const tokenId of ids) {
+      // Names come from event args (unindexed string). If a projector only
+      // exposes the keccak, fall back to a hex snippet.
+      const seen = new Map<string, OwnedDomain>();
+      for (const log of logs) {
         try {
-          const [owner, expires]: [string, ethers.BigNumber] = await Promise.all([
-            registrar.ownerOf(tokenId),
-            registrar.expiries(tokenId),
+          const name: string =
+            typeof log.args?.name === 'string' && log.args.name.length > 0
+              ? log.args.name
+              : '';
+          if (!name) continue;
+          const tokenId = labelHash(name);
+          const [owner, expires] = await Promise.all([
+            registrar.ownerOf(tokenId).catch(() => ethers.constants.AddressZero),
+            registrar.expiries(tokenId).catch(() => ethers.BigNumber.from(0)),
           ]);
           if (owner.toLowerCase() !== address.toLowerCase()) continue;
-          // We can't easily reverse a tokenId → label without an off-chain
-          // index. Fall back to the last 6 hex chars for display.
-          const label = `0x${tokenId.slice(-8)}`;
-          results.push({
-            name: label,
+          seen.set(tokenId, {
+            name,
             tokenId,
             expires: Number(expires),
-            primary: reverse ? reverse.split('.')[0] === label : false,
+            primary: name === primaryLabel,
           });
-        } catch {
-          /* skip */
-        }
-        if (results.length >= 24) break;
+        } catch { /* skip */ }
       }
-      // Ensure balance sanity
-      if (results.length === 0 && balance.gt(0)) {
-        toast.message('Owned domains detected on-chain — indexing them may take a moment.');
-      }
-      setOwned(results);
+
+      setOwned(Array.from(seen.values()).sort((a, b) => b.expires - a.expires));
     } catch (err) {
       console.error('[DNS] loadOwned', err);
     } finally {
@@ -289,13 +304,11 @@ export default function DomainsView() {
     }
   }, [address]);
 
-  useEffect(() => {
-    loadOwned();
-  }, [loadOwned]);
+  useEffect(() => { loadOwned(); }, [loadOwned]);
 
-  /* ---------------------------------------------------------------------- */
-  /*  handleSetPrimary — set reverse record via resolver                    */
-  /* ---------------------------------------------------------------------- */
+  /* ------------------------------------------------------------------ */
+  /*  handleSetPrimary — reverse record + registry resolver             */
+  /* ------------------------------------------------------------------ */
   const handleSetPrimary = useCallback(
     async (name: string) => {
       if (!wallet.signer || !address) {
@@ -303,36 +316,24 @@ export default function DomainsView() {
         return;
       }
       try {
-        // === INTEGRASI KONTRAK (WRITE) =================================
-        // PublicResolver.setReverse(user, "namelengkap.dex")
-        // Sesuaikan `full` dengan format nama on-chain kamu (mungkin butuh
-        // TLD, mungkin tidak). Contract di atas simpan string apa adanya.
-        // ================================================================
         const full = `${name}.${DNS_TLD}`;
-        const resolver = new ethers.Contract(
-          CONTRACTS.DNS_RESOLVER,
-          DNS_RESOLVER_ABI,
-          wallet.signer,
-        );
+        const resolver = new ethers.Contract(CONTRACTS.DNS_RESOLVER, DNS_RESOLVER_ABI, wallet.signer);
         toast.loading(`Setting ${full} as primary…`, { id: 'primary' });
         const tx = await resolver.setReverse(address, full);
         await tx.wait();
 
-        // Persist locally so UI updates instantly, even if resolver read
-        // hasn't propagated yet.
         try {
           const map = JSON.parse(localStorage.getItem(LOCAL_PRIMARY_KEY) || '{}');
           map[address.toLowerCase()] = name;
           localStorage.setItem(LOCAL_PRIMARY_KEY, JSON.stringify(map));
-        } catch {
-          /* ignore */
-        }
+        } catch { /* ignore */ }
+
         setPrimaryName(name);
         setOwned(o => o.map(d => ({ ...d, primary: d.name === name })));
         toast.success(`${full} is now your primary domain`, { id: 'primary' });
       } catch (err: any) {
         console.error('[DNS] setPrimary', err);
-        toast.error(err?.shortMessage || err?.message || 'Set primary failed', { id: 'primary' });
+        toast.error(err?.shortMessage || err?.message || 'Failed to set primary', { id: 'primary' });
       }
     },
     [address, wallet.signer, setShowWalletModal],
@@ -343,54 +344,60 @@ export default function DomainsView() {
     return availability.priceUsd * years;
   }, [availability, years]);
 
-  /* ---------------------------------------------------------------------- */
-  /*  Render                                                                */
-  /* ---------------------------------------------------------------------- */
+  const rarityBadge = useMemo(() => {
+    if (availability.state !== 'available') return null;
+    const len = availability.name.length;
+    if (len <= 3) return { icon: Crown, label: 'Ultra Rare', accent: 'from-amber-400 to-rose-500' };
+    if (len === 4) return { icon: Flame, label: 'Rare', accent: 'from-orange-400 to-pink-500' };
+    return { icon: Sparkles, label: 'Standard', accent: 'from-fuchsia-400 to-purple-500' };
+  }, [availability]);
+
+  /* ---------------------------------------------------------------- */
+  /*  Render                                                          */
+  /* ---------------------------------------------------------------- */
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-background pt-20 pb-24">
-      {/* Ambient background */}
+    <div className="relative min-h-screen w-full overflow-hidden bg-background pb-24">
+      {/* Ambient background — luxury glow */}
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div
-          className="absolute -top-40 left-1/2 h-[520px] w-[860px] -translate-x-1/2 rounded-full opacity-40 blur-3xl"
-          style={{
-            background:
-              'radial-gradient(closest-side, oklch(0.65 0.25 330 / 55%), transparent 70%)',
-          }}
+          className="absolute -top-56 left-1/2 h-[640px] w-[1020px] -translate-x-1/2 rounded-full opacity-50 blur-3xl"
+          style={{ background: 'radial-gradient(closest-side, oklch(0.65 0.28 330 / 55%), transparent 70%)' }}
         />
         <div
-          className="absolute bottom-0 right-0 h-[380px] w-[520px] rounded-full opacity-30 blur-3xl"
-          style={{
-            background:
-              'radial-gradient(closest-side, oklch(0.7 0.2 45 / 45%), transparent 70%)',
-          }}
+          className="absolute bottom-0 right-0 h-[420px] w-[600px] rounded-full opacity-40 blur-3xl"
+          style={{ background: 'radial-gradient(closest-side, oklch(0.75 0.22 55 / 45%), transparent 70%)' }}
+        />
+        <div
+          className="absolute bottom-24 left-0 h-[380px] w-[520px] rounded-full opacity-30 blur-3xl"
+          style={{ background: 'radial-gradient(closest-side, oklch(0.7 0.22 280 / 45%), transparent 70%)' }}
         />
       </div>
 
       <div className="mx-auto w-full max-w-5xl px-4 sm:px-6">
-        {/* -------- Internal header ---------------------------------------- */}
-        <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
+        {/* Internal header */}
+        <header className="mb-8 flex flex-wrap items-start justify-between gap-4 pt-2">
           <motion.div
             initial={{ opacity: 0, y: -12 }}
             animate={{ opacity: 1, y: 0 }}
             className="flex items-center gap-3"
           >
-            <div className="grid h-11 w-11 place-items-center rounded-2xl border border-wolf-border/40 bg-wolf-surface/60">
-              <Globe className="h-5 w-5 text-wolf-pink" />
+            <div className="relative grid h-12 w-12 place-items-center rounded-2xl border border-wolf-border/40 bg-gradient-to-br from-wolf-surface/80 to-background shadow-[0_0_40px_-10px_oklch(0.7_0.25_330_/_60%)]">
+              <Globe className="h-6 w-6 text-wolf-pink" />
+              <span className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-wolf-pink/10 to-transparent" />
             </div>
             <div>
-              <h1 className="text-xl font-black tracking-tight text-foreground sm:text-2xl">
-                DEX Name Service
+              <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-wolf-pink">
+                WolfDex Name Service
+              </div>
+              <h1 className="mt-0.5 text-xl font-black tracking-tight text-foreground sm:text-2xl">
+                One name for all of Web3
               </h1>
-              <p className="text-xs text-muted-foreground sm:text-sm">
-                Claim your permanent Web3 identity — an NFT domain that replaces long wallet addresses.
-              </p>
             </div>
           </motion.div>
 
-          {/* Wallet status pill */}
           <div>
             {isConnected ? (
-              <div className="flex items-center gap-2 rounded-full border border-wolf-border/40 bg-wolf-surface/70 px-3 py-2 text-xs">
+              <div className="flex items-center gap-2 rounded-full border border-wolf-border/40 bg-wolf-surface/70 px-3 py-2 text-xs backdrop-blur">
                 <span className="h-2 w-2 rounded-full bg-green-500 shadow-[0_0_10px_2px_oklch(0.75_0.2_150_/_60%)]" />
                 {primaryName ? (
                   <span className="font-semibold text-wolf-pink">
@@ -406,28 +413,34 @@ export default function DomainsView() {
                 className="wolf-btn-primary flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold"
               >
                 <WalletIcon className="h-3.5 w-3.5" />
-                Hubungkan Dompet
+                Connect Wallet
               </button>
             )}
           </div>
         </header>
 
-        {/* -------- Search area ------------------------------------------- */}
+        {/* Search hero */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
           className="relative overflow-hidden rounded-3xl border border-wolf-border/40 bg-gradient-to-br from-wolf-surface/70 via-background to-wolf-surface/30 p-6 shadow-2xl sm:p-10"
         >
+          {/* animated shimmer border accent */}
+          <span
+            className="pointer-events-none absolute inset-x-0 -top-px h-px"
+            style={{ background: 'linear-gradient(90deg, transparent, oklch(0.75 0.25 330 / 80%), transparent)' }}
+          />
+
           <div className="mb-5 flex items-center justify-center gap-2 text-xs uppercase tracking-[0.24em] text-wolf-pink">
             <Sparkles className="h-3.5 w-3.5" />
-            Search & Verify
+            Search & Mint
           </div>
-          <h2 className="mx-auto max-w-2xl text-center text-2xl font-black leading-tight text-foreground sm:text-4xl">
-            One name for all of Web3
+          <h2 className="mx-auto max-w-3xl text-center text-3xl font-black leading-tight text-foreground sm:text-5xl">
+            Your identity, <span className="wolf-gradient-text">on-chain forever</span>
           </h2>
           <p className="mx-auto mt-3 max-w-lg text-center text-sm text-muted-foreground">
-            Search a domain, verify availability on-chain, then mint it as an NFT you truly own.
+            Claim a permanent <span className="font-semibold text-wolf-pink">.{DNS_TLD}</span> domain NFT that replaces your long wallet address across every WolfDex surface.
           </p>
 
           <div className="mx-auto mt-8 flex max-w-2xl flex-col gap-3 sm:flex-row">
@@ -452,25 +465,19 @@ export default function DomainsView() {
               className="wolf-btn-primary flex h-14 items-center justify-center gap-2 rounded-2xl px-6 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-60"
             >
               {availability.state === 'checking' ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Checking…
-                </>
+                <><Loader2 className="h-4 w-4 animate-spin" />Checking…</>
               ) : (
-                <>
-                  <Search className="h-4 w-4" />
-                  Cek Ketersediaan
-                </>
+                <><Search className="h-4 w-4" />Check Availability</>
               )}
             </button>
           </div>
 
           <p className="mt-3 text-center text-[11px] text-muted-foreground">
-            Only lowercase letters, digits and hyphens. Minimum 3 characters.
+            Lowercase letters, digits and hyphens only. Minimum 3 characters.
           </p>
         </motion.section>
 
-        {/* -------- Result panel ------------------------------------------ */}
+        {/* Result panels */}
         <AnimatePresence mode="wait">
           {availability.state === 'available' && (
             <motion.section
@@ -482,15 +489,24 @@ export default function DomainsView() {
             >
               <div className="flex flex-wrap items-start justify-between gap-6">
                 <div>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-green-500/40 bg-green-500/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-green-400">
-                    <Check className="h-3 w-3" /> Tersedia
-                  </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-green-500/40 bg-green-500/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-green-400">
+                      <Check className="h-3 w-3" /> Available
+                    </span>
+                    {rarityBadge && (
+                      <span
+                        className={`inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r ${rarityBadge.accent} px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-white shadow-lg`}
+                      >
+                        <rarityBadge.icon className="h-3 w-3" /> {rarityBadge.label}
+                      </span>
+                    )}
+                  </div>
                   <h3 className="mt-3 text-3xl font-black text-foreground sm:text-4xl">
                     {availability.name}
                     <span className="text-wolf-pink">.{DNS_TLD}</span>
                   </h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {availability.name.length}-character domain · ${availability.priceUsd}/year
+                    {availability.name.length}-character name · ${availability.priceUsd} / year
                   </p>
                 </div>
 
@@ -501,9 +517,7 @@ export default function DomainsView() {
                       onClick={() => setYears(y => Math.max(1, y - 1))}
                       className="grid h-9 w-9 place-items-center rounded-xl bg-background/60 text-foreground transition hover:bg-wolf-pink/20 disabled:opacity-40"
                       disabled={years <= 1}
-                    >
-                      <Minus className="h-4 w-4" />
-                    </button>
+                    ><Minus className="h-4 w-4" /></button>
                     <div className="w-14 text-center">
                       <div className="text-xl font-black text-foreground">{years}</div>
                       <div className="text-[10px] uppercase text-muted-foreground">year{years > 1 ? 's' : ''}</div>
@@ -512,22 +526,45 @@ export default function DomainsView() {
                       onClick={() => setYears(y => Math.min(5, y + 1))}
                       className="grid h-9 w-9 place-items-center rounded-xl bg-background/60 text-foreground transition hover:bg-wolf-pink/20 disabled:opacity-40"
                       disabled={years >= 5}
-                    >
-                      <Plus className="h-4 w-4" />
-                    </button>
+                    ><Plus className="h-4 w-4" /></button>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-wolf-border/30 pt-6">
+              {/* Cost summary — price + gas fee */}
+              <div className="mt-6 grid gap-3 rounded-2xl border border-wolf-border/30 bg-wolf-surface/40 p-4 sm:grid-cols-3">
                 <div>
-                  <div className="text-xs uppercase tracking-wider text-muted-foreground">Total</div>
-                  <div className="text-2xl font-black text-foreground">
-                    ${totalPrice}
-                    <span className="ml-2 text-sm font-medium text-muted-foreground">for {years}y</span>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Registration</div>
+                  <div className="mt-0.5 text-lg font-black text-foreground">${totalPrice}</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {availability.priceWei
+                      ? `${parseFloat(ethers.utils.formatEther(availability.priceWei.mul(years))).toFixed(4)} ${CHAIN_CONFIG.symbol}`
+                      : `for ${years}y`}
                   </div>
                 </div>
+                <div>
+                  <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                    <Zap className="h-3 w-3" /> Est. Gas Fee
+                  </div>
+                  <div className="mt-0.5 text-lg font-black text-foreground">
+                    {gasEstimate ? `${gasEstimate.gasNative}` : isConnected ? '—' : 'Connect wallet'}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {gasEstimate ? CHAIN_CONFIG.symbol : 'commit + register'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Total (approx.)</div>
+                  <div className="mt-0.5 text-lg font-black wolf-gradient-text">
+                    {availability.priceWei && gasEstimate
+                      ? `${parseFloat(ethers.utils.formatEther(availability.priceWei.mul(years).add(gasEstimate.gasWei))).toFixed(4)} ${CHAIN_CONFIG.symbol}`
+                      : `$${totalPrice}`}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">chain settled in one flow</div>
+                </div>
+              </div>
 
+              <div className="mt-6 flex flex-wrap items-center justify-end gap-4 border-t border-wolf-border/30 pt-6">
                 <motion.button
                   onClick={handleMint}
                   disabled={minting}
@@ -536,15 +573,9 @@ export default function DomainsView() {
                   className="wolf-btn-primary relative flex items-center gap-2 rounded-2xl px-6 py-3 text-sm font-black disabled:opacity-70"
                 >
                   {minting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Minting…
-                    </>
+                    <><Loader2 className="h-4 w-4 animate-spin" />Minting…</>
                   ) : (
-                    <>
-                      <Sparkles className="h-4 w-4" />
-                      Mint Domain
-                    </>
+                    <><Sparkles className="h-4 w-4" />Mint Domain</>
                   )}
                 </motion.button>
               </div>
@@ -560,7 +591,7 @@ export default function DomainsView() {
               className="mt-6 overflow-hidden rounded-3xl border border-red-500/30 bg-gradient-to-br from-red-500/10 via-background to-background p-6 shadow-xl sm:p-8"
             >
               <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-red-400">
-                <X className="h-3 w-3" /> Sudah Dimiliki
+                <X className="h-3 w-3" /> Already Registered
               </span>
               <h3 className="mt-3 text-3xl font-black text-foreground sm:text-4xl">
                 {availability.name}
@@ -572,22 +603,14 @@ export default function DomainsView() {
                   <div className="mt-1 flex items-center gap-2 font-mono text-sm text-foreground">
                     {short(availability.owner)}
                     <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(availability.owner);
-                        toast.success('Address copied');
-                      }}
+                      onClick={() => { navigator.clipboard.writeText(availability.owner); toast.success('Address copied'); }}
                       className="rounded-md p-1 text-muted-foreground transition hover:bg-wolf-surface hover:text-foreground"
-                    >
-                      <Copy className="h-3.5 w-3.5" />
-                    </button>
+                    ><Copy className="h-3.5 w-3.5" /></button>
                     <a
                       href={`${CHAIN_CONFIG.blockExplorer}/address/${availability.owner}`}
-                      target="_blank"
-                      rel="noreferrer"
+                      target="_blank" rel="noreferrer"
                       className="rounded-md p-1 text-muted-foreground transition hover:bg-wolf-surface hover:text-foreground"
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </a>
+                    ><ExternalLink className="h-3.5 w-3.5" /></a>
                   </div>
                 </div>
                 <div className="rounded-2xl border border-wolf-border/30 bg-wolf-surface/40 p-4">
@@ -602,13 +625,13 @@ export default function DomainsView() {
           )}
         </AnimatePresence>
 
-        {/* -------- Owned domains ----------------------------------------- */}
+        {/* Owned */}
         <section className="mt-14">
           <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h2 className="text-lg font-black text-foreground sm:text-2xl">Domain Saya</h2>
+              <h2 className="text-lg font-black text-foreground sm:text-2xl">My Domains</h2>
               <p className="text-xs text-muted-foreground">
-                NFT domains held by your wallet. Set one as primary to display it across WolfDex.
+                NFT domains held by your wallet. Pin one as primary to display it everywhere on WolfDex.
               </p>
             </div>
             <div className="inline-flex items-center gap-2 rounded-full border border-wolf-border/40 bg-wolf-surface/60 px-3 py-1.5 text-xs text-muted-foreground">
@@ -625,17 +648,12 @@ export default function DomainsView() {
               <button
                 onClick={() => setShowWalletModal(true)}
                 className="wolf-btn-primary mt-4 rounded-full px-5 py-2 text-xs font-bold"
-              >
-                Hubungkan Dompet
-              </button>
+              >Connect Wallet</button>
             </div>
           ) : loadingOwned ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 3 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="h-40 animate-pulse rounded-3xl border border-wolf-border/30 bg-wolf-surface/40"
-                />
+                <div key={i} className="h-40 animate-pulse rounded-3xl border border-wolf-border/30 bg-wolf-surface/40" />
               ))}
             </div>
           ) : owned.length === 0 ? (
@@ -662,7 +680,7 @@ export default function DomainsView() {
                 >
                   <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-wolf-pink/10 blur-3xl transition group-hover:bg-wolf-pink/20" />
                   <div className="relative flex items-start justify-between">
-                    <div>
+                    <div className="min-w-0">
                       <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Domain NFT</div>
                       <div className="mt-1 truncate text-xl font-black text-foreground">
                         {domain.name}
@@ -691,7 +709,7 @@ export default function DomainsView() {
                     }`}
                   >
                     <Star className="h-3.5 w-3.5" />
-                    {domain.primary ? 'Primary Domain' : 'Jadikan Domain Utama'}
+                    {domain.primary ? 'Primary Domain' : 'Set as Primary'}
                   </button>
                 </motion.article>
               ))}
