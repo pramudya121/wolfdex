@@ -42,8 +42,8 @@ export const CONTRACTS = {
   DNS_RESOLVER: '0x70943a7eA0D2f717030021dbc8cce8dfaCbea79A',
 };
 
-/** TLD used by the DEX Name Service (e.g. "alice.dex"). */
-export const DNS_TLD = 'dex';
+/** TLD used by the WolfDex Name Service (e.g. "alice.wolf"). */
+export const DNS_TLD = 'wolf';
 
 /**
  * Faucet token list — order MUST match the on-chain `tokens(uint256)` slots
