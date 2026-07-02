@@ -27,7 +27,6 @@ import {
   DNS_CONTROLLER_ABI,
   DNS_BASE_REGISTRAR_ABI,
   DNS_RESOLVER_ABI,
-  DNS_REGISTRY_ABI,
 } from '@/config/abis';
 import { getReadProvider } from '@/lib/rpc';
 
