@@ -20,6 +20,11 @@ import {
   Flame,
   Zap,
   Crown,
+  RefreshCw,
+  Send,
+  Activity,
+  AlertTriangle,
+  TrendingUp,
 } from 'lucide-react';
 import { useDexContext } from '@/context/DexContext';
 import { CONTRACTS, CHAIN_CONFIG, DNS_TLD } from '@/config/contracts';
