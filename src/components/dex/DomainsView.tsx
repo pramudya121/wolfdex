@@ -113,12 +113,20 @@ export default function DomainsView() {
     gasWei: ethers.BigNumber;
     gasNative: string;
   } | null>(null);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [activity, setActivity] = useState<ActivityEntry[]>([]);
+  const [stats, setStats] = useState<{ total: number; last24h: number } | null>(null);
+  const [actionModal, setActionModal] = useState<ActionModal>(null);
+  const [actionBusy, setActionBusy] = useState(false);
 
   const handleQueryChange = (raw: string) => {
-    const clean = raw.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9-]/g, '');
+    // Strip a trailing .wolf / .wolf. so pasting a full domain still works.
+    const stripped = raw.toLowerCase().replace(/\.?wolf\.?$/, '');
+    const clean = stripped.replace(/\s+/g, '').replace(/[^a-z0-9-]/g, '');
     setQuery(clean);
     if (availability.state !== 'idle') setAvailability({ state: 'idle' });
     setGasEstimate(null);
+    setSuggestions([]);
   };
 
   const nameValid = query.length >= 3 && DOMAIN_REGEX.test(query);
