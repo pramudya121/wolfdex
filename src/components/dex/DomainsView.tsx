@@ -20,6 +20,11 @@ import {
   Flame,
   Zap,
   Crown,
+  RefreshCw,
+  Send,
+  Activity,
+  AlertTriangle,
+  TrendingUp,
 } from 'lucide-react';
 import { useDexContext } from '@/context/DexContext';
 import { CONTRACTS, CHAIN_CONFIG, DNS_TLD } from '@/config/contracts';
@@ -41,6 +46,20 @@ type OwnedDomain = {
   primary: boolean;
 };
 
+type ActivityEntry = {
+  name: string;
+  owner: string;
+  expires: number;
+  priceWei: ethers.BigNumber;
+  txHash: string;
+  block: number;
+};
+
+type ActionModal =
+  | { type: 'renew'; domain: OwnedDomain; years: number }
+  | { type: 'transfer'; domain: OwnedDomain; to: string }
+  | null;
+
 type Availability =
   | { state: 'idle' }
   | { state: 'checking' }
@@ -54,10 +73,19 @@ const USD_PER_YEAR = (len: number): number => {
 };
 
 const DOMAIN_REGEX = /^[a-z0-9-]+$/;
+const SUGGESTION_SUFFIXES = ['dao', 'hq', 'wolf', 'x', 'labs', 'io', '2026', 'og'];
 
 const short = (a: string) => (a ? `${a.slice(0, 6)}…${a.slice(-4)}` : '');
 const fmtDate = (ts: number) =>
   ts ? new Date(ts * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
+
+const daysUntil = (ts: number) => Math.ceil((ts * 1000 - Date.now()) / 86_400_000);
+const expiryStatus = (ts: number): { label: string; tone: 'ok' | 'warn' | 'danger' } => {
+  const d = daysUntil(ts);
+  if (d < 0) return { label: 'Expired', tone: 'danger' };
+  if (d <= 30) return { label: `${d}d left`, tone: 'warn' };
+  return { label: `${d}d left`, tone: 'ok' };
+};
 
 const LOCAL_PRIMARY_KEY = 'wolfdex.dns.primary';
 
@@ -85,12 +113,20 @@ export default function DomainsView() {
     gasWei: ethers.BigNumber;
     gasNative: string;
   } | null>(null);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [activity, setActivity] = useState<ActivityEntry[]>([]);
+  const [stats, setStats] = useState<{ total: number; last24h: number } | null>(null);
+  const [actionModal, setActionModal] = useState<ActionModal>(null);
+  const [actionBusy, setActionBusy] = useState(false);
 
   const handleQueryChange = (raw: string) => {
-    const clean = raw.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9-]/g, '');
+    // Strip a trailing .wolf / .wolf. so pasting a full domain still works.
+    const stripped = raw.toLowerCase().replace(/\.?wolf\.?$/, '');
+    const clean = stripped.replace(/\s+/g, '').replace(/[^a-z0-9-]/g, '');
     setQuery(clean);
     if (availability.state !== 'idle') setAvailability({ state: 'idle' });
     setGasEstimate(null);
+    setSuggestions([]);
   };
 
   const nameValid = query.length >= 3 && DOMAIN_REGEX.test(query);
@@ -156,8 +192,19 @@ export default function DomainsView() {
           priceUsd: USD_PER_YEAR(query.length),
           priceWei: priceRes ? ethers.BigNumber.from(priceRes) : null,
         });
+        setSuggestions([]);
       } else {
         setAvailability({ state: 'taken', name: query, owner: ownerAddr, expires });
+        // Compute up to 4 available alternates in the background.
+        (async () => {
+          const candidates = SUGGESTION_SUFFIXES.map(s => `${query}${s}`);
+          const checks = await Promise.all(
+            candidates.map(n =>
+              controller.isAvailable(n).then((ok: boolean) => (ok ? n : null)).catch(() => null),
+            ),
+          );
+          setSuggestions(checks.filter((n): n is string => !!n).slice(0, 4));
+        })();
       }
     } catch (err: any) {
       console.error('[DNS] search', err);
@@ -304,6 +351,100 @@ export default function DomainsView() {
   }, [address]);
 
   useEffect(() => { loadOwned(); }, [loadOwned]);
+
+  /* ------------------------------------------------------------------ */
+  /*  Global stats + recent activity from DomainRegistered events        */
+  /* ------------------------------------------------------------------ */
+  const loadGlobal = useCallback(async () => {
+    try {
+      const provider = getReadProvider();
+      const controller = new ethers.Contract(CONTRACTS.DNS_CONTROLLER, DNS_CONTROLLER_ABI, provider);
+      const currentBlock = await provider.getBlockNumber();
+      const fromBlock = Math.max(0, currentBlock - 500_000);
+      const filter = controller.filters.DomainRegistered();
+      const logs = await controller.queryFilter(filter, fromBlock).catch(() => [] as ethers.Event[]);
+
+      const now = Math.floor(Date.now() / 1000);
+      let last24h = 0;
+      const entries: ActivityEntry[] = [];
+      for (const log of logs) {
+        const name = typeof log.args?.name === 'string' ? log.args.name : '';
+        const owner = String(log.args?.owner || '');
+        const expires = Number(log.args?.expires || 0);
+        const priceWei = ethers.BigNumber.from(log.args?.price || 0);
+        if (!name || !owner) continue;
+        entries.push({ name, owner, expires, priceWei, txHash: log.transactionHash, block: log.blockNumber });
+        // Duration heuristic: expires - 1y ~ registered timestamp
+        if (expires - 365 * 24 * 60 * 60 > now - 24 * 60 * 60) last24h += 1;
+      }
+      entries.sort((a, b) => b.block - a.block);
+      setActivity(entries.slice(0, 8));
+      setStats({ total: entries.length, last24h });
+    } catch (err) {
+      console.warn('[DNS] loadGlobal', err);
+    }
+  }, []);
+
+  useEffect(() => { loadGlobal(); }, [loadGlobal]);
+
+  /* ------------------------------------------------------------------ */
+  /*  Renew + Transfer flows                                             */
+  /* ------------------------------------------------------------------ */
+  const handleRenew = useCallback(async () => {
+    if (!actionModal || actionModal.type !== 'renew') return;
+    if (!wallet.signer) { setShowWalletModal(true); return; }
+    const { domain, years: y } = actionModal;
+    const duration = y * 365 * 24 * 60 * 60;
+    setActionBusy(true);
+    try {
+      const controller = new ethers.Contract(CONTRACTS.DNS_CONTROLLER, DNS_CONTROLLER_ABI, wallet.signer);
+      const priceWei: ethers.BigNumber = await controller
+        .price(domain.name, duration)
+        .catch(() => ethers.BigNumber.from(0));
+      toast.loading(`Renewing ${domain.name}.${DNS_TLD}…`, { id: 'renew' });
+      const tx = await controller.renew(domain.name, duration, { value: priceWei });
+      await tx.wait();
+      toast.success(`Renewed ${domain.name}.${DNS_TLD} for ${y} year${y > 1 ? 's' : ''}`, { id: 'renew' });
+      setActionModal(null);
+      loadOwned();
+      loadGlobal();
+    } catch (err: any) {
+      console.error('[DNS] renew', err);
+      toast.error(err?.shortMessage || err?.message || 'Renewal failed', { id: 'renew' });
+    } finally {
+      setActionBusy(false);
+    }
+  }, [actionModal, wallet.signer, setShowWalletModal, loadOwned, loadGlobal]);
+
+  const handleTransfer = useCallback(async () => {
+    if (!actionModal || actionModal.type !== 'transfer') return;
+    if (!wallet.signer || !address) { setShowWalletModal(true); return; }
+    const { domain, to } = actionModal;
+    if (!ethers.utils.isAddress(to)) {
+      toast.error('Invalid recipient address');
+      return;
+    }
+    if (to.toLowerCase() === address.toLowerCase()) {
+      toast.error('Recipient is your current address');
+      return;
+    }
+    setActionBusy(true);
+    try {
+      const registrar = new ethers.Contract(CONTRACTS.DNS_BASE_REGISTRAR, DNS_BASE_REGISTRAR_ABI, wallet.signer);
+      toast.loading(`Transferring ${domain.name}.${DNS_TLD}…`, { id: 'transfer' });
+      const tx = await registrar.transferFrom(address, to, domain.tokenId);
+      await tx.wait();
+      toast.success(`Transferred to ${short(to)}`, { id: 'transfer' });
+      setActionModal(null);
+      loadOwned();
+    } catch (err: any) {
+      console.error('[DNS] transfer', err);
+      toast.error(err?.shortMessage || err?.message || 'Transfer failed', { id: 'transfer' });
+    } finally {
+      setActionBusy(false);
+    }
+  }, [actionModal, wallet.signer, address, loadOwned]);
+
 
   /* ------------------------------------------------------------------ */
   /*  handleSetPrimary — reverse record + registry resolver             */
@@ -476,6 +617,32 @@ export default function DomainsView() {
           </p>
         </motion.section>
 
+        {/* Stats bar */}
+        <motion.section
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4"
+        >
+          {[
+            { label: 'Domains Registered', value: stats ? stats.total.toLocaleString('en-US') : '—', icon: Globe },
+            { label: 'New (24h)', value: stats ? stats.last24h.toLocaleString('en-US') : '—', icon: TrendingUp },
+            { label: 'You Own', value: owned.length.toLocaleString('en-US'), icon: ShieldCheck },
+            { label: 'TLD', value: `.${DNS_TLD}`, icon: Crown },
+          ].map(s => (
+            <div
+              key={s.label}
+              className="group relative overflow-hidden rounded-2xl border border-wolf-border/40 bg-wolf-surface/50 p-4 backdrop-blur transition hover:border-wolf-pink/40"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{s.label}</span>
+                <s.icon className="h-3.5 w-3.5 text-wolf-pink/70" />
+              </div>
+              <div className="mt-1 text-xl font-black text-foreground">{s.value}</div>
+            </div>
+          ))}
+        </motion.section>
+
         {/* Result panels */}
         <AnimatePresence mode="wait">
           {availability.state === 'available' && (
@@ -620,6 +787,26 @@ export default function DomainsView() {
                   </div>
                 </div>
               </div>
+
+              {suggestions.length > 0 && (
+                <div className="mt-6 border-t border-wolf-border/30 pt-5">
+                  <div className="mb-3 flex items-center gap-2 text-[11px] uppercase tracking-wider text-muted-foreground">
+                    <Sparkles className="h-3 w-3 text-wolf-pink" /> Try these instead
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {suggestions.map(s => (
+                      <button
+                        key={s}
+                        onClick={() => { setQuery(s); setAvailability({ state: 'idle' }); setTimeout(handleSearch, 0); }}
+                        className="group inline-flex items-center gap-1.5 rounded-xl border border-wolf-border/40 bg-wolf-surface/50 px-3 py-1.5 text-xs font-semibold text-foreground transition hover:border-wolf-pink/50 hover:bg-wolf-pink/10 hover:text-wolf-pink"
+                      >
+                        {s}<span className="text-wolf-pink">.{DNS_TLD}</span>
+                        <Check className="h-3 w-3 text-green-500 opacity-0 transition group-hover:opacity-100" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </motion.section>
           )}
         </AnimatePresence>
@@ -665,57 +852,238 @@ export default function DomainsView() {
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {owned.map(domain => (
-                <motion.article
-                  key={domain.tokenId}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  whileHover={{ y: -3 }}
-                  className={`group relative overflow-hidden rounded-3xl border p-5 shadow-lg transition ${
-                    domain.primary
-                      ? 'border-wolf-pink/50 bg-gradient-to-br from-wolf-pink/15 via-background to-background'
-                      : 'border-wolf-border/40 bg-wolf-surface/50'
-                  }`}
-                >
-                  <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-wolf-pink/10 blur-3xl transition group-hover:bg-wolf-pink/20" />
-                  <div className="relative flex items-start justify-between">
-                    <div className="min-w-0">
-                      <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Domain NFT</div>
-                      <div className="mt-1 truncate text-xl font-black text-foreground">
-                        {domain.name}
-                        <span className="text-wolf-pink">.{DNS_TLD}</span>
-                      </div>
-                    </div>
-                    {domain.primary && (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-wolf-pink/40 bg-wolf-pink/20 px-2 py-0.5 text-[10px] font-bold uppercase text-wolf-pink">
-                        <Star className="h-3 w-3" /> Primary
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="relative mt-4 flex items-center gap-2 text-xs text-muted-foreground">
-                    <Clock className="h-3.5 w-3.5 text-wolf-gold" />
-                    Expires {fmtDate(domain.expires)}
-                  </div>
-
-                  <button
-                    onClick={() => handleSetPrimary(domain.name)}
-                    disabled={domain.primary}
-                    className={`relative mt-5 flex w-full items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-bold transition ${
+              {owned.map(domain => {
+                const status = expiryStatus(domain.expires);
+                const toneClass =
+                  status.tone === 'danger'
+                    ? 'border-red-500/40 bg-red-500/15 text-red-400'
+                    : status.tone === 'warn'
+                    ? 'border-amber-500/40 bg-amber-500/15 text-amber-400'
+                    : 'border-wolf-border/40 bg-wolf-surface/60 text-muted-foreground';
+                return (
+                  <motion.article
+                    key={domain.tokenId}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    whileHover={{ y: -3 }}
+                    className={`group relative overflow-hidden rounded-3xl border p-5 shadow-lg transition ${
                       domain.primary
-                        ? 'cursor-default border-wolf-pink/30 bg-wolf-pink/10 text-wolf-pink/80'
-                        : 'border-wolf-border/40 bg-background/60 text-foreground hover:border-wolf-pink/50 hover:bg-wolf-pink/10'
+                        ? 'border-wolf-pink/50 bg-gradient-to-br from-wolf-pink/15 via-background to-background'
+                        : 'border-wolf-border/40 bg-wolf-surface/50'
                     }`}
                   >
-                    <Star className="h-3.5 w-3.5" />
-                    {domain.primary ? 'Primary Domain' : 'Set as Primary'}
-                  </button>
-                </motion.article>
-              ))}
+                    <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-wolf-pink/10 blur-3xl transition group-hover:bg-wolf-pink/20" />
+                    <div className="relative flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Domain NFT</div>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(`${domain.name}.${DNS_TLD}`);
+                            toast.success('Domain copied');
+                          }}
+                          className="mt-1 flex max-w-full items-center gap-1.5 truncate text-left text-xl font-black text-foreground transition hover:text-wolf-pink"
+                          title="Copy domain"
+                        >
+                          <span className="truncate">
+                            {domain.name}
+                            <span className="text-wolf-pink">.{DNS_TLD}</span>
+                          </span>
+                          <Copy className="h-3.5 w-3.5 opacity-0 transition group-hover:opacity-70" />
+                        </button>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        {domain.primary && (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-wolf-pink/40 bg-wolf-pink/20 px-2 py-0.5 text-[10px] font-bold uppercase text-wolf-pink">
+                            <Star className="h-3 w-3" /> Primary
+                          </span>
+                        )}
+                        <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${toneClass}`}>
+                          {status.tone === 'danger' && <AlertTriangle className="h-3 w-3" />}
+                          {status.label}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="relative mt-4 flex items-center gap-2 text-xs text-muted-foreground">
+                      <Clock className="h-3.5 w-3.5 text-wolf-gold" />
+                      Expires {fmtDate(domain.expires)}
+                    </div>
+
+                    <div className="relative mt-5 grid grid-cols-3 gap-2">
+                      <button
+                        onClick={() => handleSetPrimary(domain.name)}
+                        disabled={domain.primary}
+                        className={`flex items-center justify-center gap-1.5 rounded-xl border px-2 py-2.5 text-[11px] font-bold transition ${
+                          domain.primary
+                            ? 'cursor-default border-wolf-pink/30 bg-wolf-pink/10 text-wolf-pink/80'
+                            : 'border-wolf-border/40 bg-background/60 text-foreground hover:border-wolf-pink/50 hover:bg-wolf-pink/10'
+                        }`}
+                        title={domain.primary ? 'Already primary' : 'Set as primary'}
+                      >
+                        <Star className="h-3.5 w-3.5" />
+                        Primary
+                      </button>
+                      <button
+                        onClick={() => setActionModal({ type: 'renew', domain, years: 1 })}
+                        className="flex items-center justify-center gap-1.5 rounded-xl border border-wolf-border/40 bg-background/60 px-2 py-2.5 text-[11px] font-bold text-foreground transition hover:border-green-500/50 hover:bg-green-500/10 hover:text-green-400"
+                        title="Renew"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        Renew
+                      </button>
+                      <button
+                        onClick={() => setActionModal({ type: 'transfer', domain, to: '' })}
+                        className="flex items-center justify-center gap-1.5 rounded-xl border border-wolf-border/40 bg-background/60 px-2 py-2.5 text-[11px] font-bold text-foreground transition hover:border-wolf-gold/60 hover:bg-wolf-gold/10 hover:text-wolf-gold"
+                        title="Transfer"
+                      >
+                        <Send className="h-3.5 w-3.5" />
+                        Send
+                      </button>
+                    </div>
+                  </motion.article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* Live Activity */}
+        <section className="mt-14">
+          <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="flex items-center gap-2 text-lg font-black text-foreground sm:text-2xl">
+                <Activity className="h-5 w-5 text-wolf-pink" />
+                Live Activity
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Latest .{DNS_TLD} domains registered on-chain.
+              </p>
+            </div>
+          </div>
+
+          {activity.length === 0 ? (
+            <div className="grid place-items-center rounded-3xl border border-dashed border-wolf-border/40 bg-wolf-surface/30 py-10 text-center text-xs text-muted-foreground">
+              No recent registrations indexed yet.
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-3xl border border-wolf-border/40 bg-wolf-surface/40">
+              <ul className="divide-y divide-wolf-border/30">
+                {activity.map((a, i) => (
+                  <motion.li
+                    key={`${a.txHash}-${i}`}
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.03 }}
+                    className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm hover:bg-wolf-surface/60"
+                  >
+                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-wolf-pink/30 to-wolf-gold/20 text-[10px] font-black uppercase text-wolf-pink">
+                      {a.name.slice(0, 2)}
+                    </span>
+                    <span className="font-bold text-foreground">
+                      {a.name}<span className="text-wolf-pink">.{DNS_TLD}</span>
+                    </span>
+                    <span className="ml-auto flex items-center gap-1 font-mono text-[11px] text-muted-foreground">
+                      by {short(a.owner)}
+                      <a
+                        href={`${CHAIN_CONFIG.blockExplorer}/tx/${a.txHash}`}
+                        target="_blank" rel="noreferrer"
+                        className="rounded p-1 text-muted-foreground transition hover:bg-wolf-surface hover:text-foreground"
+                      ><ExternalLink className="h-3 w-3" /></a>
+                    </span>
+                  </motion.li>
+                ))}
+              </ul>
             </div>
           )}
         </section>
       </div>
+
+      {/* Action modal — renew / transfer */}
+      <AnimatePresence>
+        {actionModal && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm"
+            onClick={() => !actionBusy && setActionModal(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.98 }}
+              onClick={e => e.stopPropagation()}
+              className="w-full max-w-md overflow-hidden rounded-3xl border border-wolf-border/50 bg-background p-6 shadow-2xl"
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-wolf-pink">
+                  {actionModal.type === 'renew' ? <><RefreshCw className="h-3.5 w-3.5" />Renew Domain</> : <><Send className="h-3.5 w-3.5" />Transfer Domain</>}
+                </div>
+                <button onClick={() => !actionBusy && setActionModal(null)} className="rounded-lg p-1 text-muted-foreground transition hover:bg-wolf-surface hover:text-foreground">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="mb-4 rounded-2xl border border-wolf-border/40 bg-wolf-surface/60 p-4">
+                <div className="text-[11px] uppercase text-muted-foreground">Domain</div>
+                <div className="mt-1 text-xl font-black text-foreground">
+                  {actionModal.domain.name}<span className="text-wolf-pink">.{DNS_TLD}</span>
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">Expires {fmtDate(actionModal.domain.expires)}</div>
+              </div>
+
+              {actionModal.type === 'renew' ? (
+                <>
+                  <div className="mb-2 text-xs font-semibold text-foreground">Extend registration by</div>
+                  <div className="mb-5 flex items-center gap-3 rounded-2xl border border-wolf-border/40 bg-wolf-surface/60 p-2">
+                    <button
+                      onClick={() => setActionModal(m => (m && m.type === 'renew' ? { ...m, years: Math.max(1, m.years - 1) } : m))}
+                      className="grid h-9 w-9 place-items-center rounded-xl bg-background/70 text-foreground transition hover:bg-wolf-pink/20 disabled:opacity-40"
+                      disabled={actionModal.years <= 1}
+                    ><Minus className="h-4 w-4" /></button>
+                    <div className="flex-1 text-center">
+                      <div className="text-2xl font-black text-foreground">{actionModal.years}</div>
+                      <div className="text-[10px] uppercase text-muted-foreground">year{actionModal.years > 1 ? 's' : ''} · ~${USD_PER_YEAR(actionModal.domain.name.length) * actionModal.years}</div>
+                    </div>
+                    <button
+                      onClick={() => setActionModal(m => (m && m.type === 'renew' ? { ...m, years: Math.min(5, m.years + 1) } : m))}
+                      className="grid h-9 w-9 place-items-center rounded-xl bg-background/70 text-foreground transition hover:bg-wolf-pink/20 disabled:opacity-40"
+                      disabled={actionModal.years >= 5}
+                    ><Plus className="h-4 w-4" /></button>
+                  </div>
+                  <button
+                    onClick={handleRenew}
+                    disabled={actionBusy}
+                    className="wolf-btn-primary flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-black disabled:opacity-70"
+                  >
+                    {actionBusy ? <><Loader2 className="h-4 w-4 animate-spin" />Renewing…</> : <><RefreshCw className="h-4 w-4" />Confirm Renewal</>}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="mb-2 text-xs font-semibold text-foreground">Recipient address</div>
+                  <input
+                    value={actionModal.to}
+                    onChange={e => setActionModal(m => (m && m.type === 'transfer' ? { ...m, to: e.target.value.trim() } : m))}
+                    placeholder="0x…"
+                    spellCheck={false}
+                    className="mb-2 h-12 w-full rounded-2xl border border-wolf-border/40 bg-wolf-surface/60 px-4 font-mono text-sm text-foreground outline-none transition focus:border-wolf-pink/60 focus:ring-2 focus:ring-wolf-pink/30"
+                  />
+                  <p className="mb-5 flex items-start gap-1.5 text-[11px] text-amber-400">
+                    <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                    Transfers are permanent. Double-check the address — funds sent to a wrong address cannot be recovered.
+                  </p>
+                  <button
+                    onClick={handleTransfer}
+                    disabled={actionBusy || !ethers.utils.isAddress(actionModal.to)}
+                    className="wolf-btn-primary flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-black disabled:opacity-60"
+                  >
+                    {actionBusy ? <><Loader2 className="h-4 w-4 animate-spin" />Transferring…</> : <><Send className="h-4 w-4" />Confirm Transfer</>}
+                  </button>
+                </>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
