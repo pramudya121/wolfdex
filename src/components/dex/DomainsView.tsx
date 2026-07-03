@@ -353,6 +353,100 @@ export default function DomainsView() {
   useEffect(() => { loadOwned(); }, [loadOwned]);
 
   /* ------------------------------------------------------------------ */
+  /*  Global stats + recent activity from DomainRegistered events        */
+  /* ------------------------------------------------------------------ */
+  const loadGlobal = useCallback(async () => {
+    try {
+      const provider = getReadProvider();
+      const controller = new ethers.Contract(CONTRACTS.DNS_CONTROLLER, DNS_CONTROLLER_ABI, provider);
+      const currentBlock = await provider.getBlockNumber();
+      const fromBlock = Math.max(0, currentBlock - 500_000);
+      const filter = controller.filters.DomainRegistered();
+      const logs = await controller.queryFilter(filter, fromBlock).catch(() => [] as ethers.Event[]);
+
+      const now = Math.floor(Date.now() / 1000);
+      let last24h = 0;
+      const entries: ActivityEntry[] = [];
+      for (const log of logs) {
+        const name = typeof log.args?.name === 'string' ? log.args.name : '';
+        const owner = String(log.args?.owner || '');
+        const expires = Number(log.args?.expires || 0);
+        const priceWei = ethers.BigNumber.from(log.args?.price || 0);
+        if (!name || !owner) continue;
+        entries.push({ name, owner, expires, priceWei, txHash: log.transactionHash, block: log.blockNumber });
+        // Duration heuristic: expires - 1y ~ registered timestamp
+        if (expires - 365 * 24 * 60 * 60 > now - 24 * 60 * 60) last24h += 1;
+      }
+      entries.sort((a, b) => b.block - a.block);
+      setActivity(entries.slice(0, 8));
+      setStats({ total: entries.length, last24h });
+    } catch (err) {
+      console.warn('[DNS] loadGlobal', err);
+    }
+  }, []);
+
+  useEffect(() => { loadGlobal(); }, [loadGlobal]);
+
+  /* ------------------------------------------------------------------ */
+  /*  Renew + Transfer flows                                             */
+  /* ------------------------------------------------------------------ */
+  const handleRenew = useCallback(async () => {
+    if (!actionModal || actionModal.type !== 'renew') return;
+    if (!wallet.signer) { setShowWalletModal(true); return; }
+    const { domain, years: y } = actionModal;
+    const duration = y * 365 * 24 * 60 * 60;
+    setActionBusy(true);
+    try {
+      const controller = new ethers.Contract(CONTRACTS.DNS_CONTROLLER, DNS_CONTROLLER_ABI, wallet.signer);
+      const priceWei: ethers.BigNumber = await controller
+        .price(domain.name, duration)
+        .catch(() => ethers.BigNumber.from(0));
+      toast.loading(`Renewing ${domain.name}.${DNS_TLD}…`, { id: 'renew' });
+      const tx = await controller.renew(domain.name, duration, { value: priceWei });
+      await tx.wait();
+      toast.success(`Renewed ${domain.name}.${DNS_TLD} for ${y} year${y > 1 ? 's' : ''}`, { id: 'renew' });
+      setActionModal(null);
+      loadOwned();
+      loadGlobal();
+    } catch (err: any) {
+      console.error('[DNS] renew', err);
+      toast.error(err?.shortMessage || err?.message || 'Renewal failed', { id: 'renew' });
+    } finally {
+      setActionBusy(false);
+    }
+  }, [actionModal, wallet.signer, setShowWalletModal, loadOwned, loadGlobal]);
+
+  const handleTransfer = useCallback(async () => {
+    if (!actionModal || actionModal.type !== 'transfer') return;
+    if (!wallet.signer || !address) { setShowWalletModal(true); return; }
+    const { domain, to } = actionModal;
+    if (!ethers.utils.isAddress(to)) {
+      toast.error('Invalid recipient address');
+      return;
+    }
+    if (to.toLowerCase() === address.toLowerCase()) {
+      toast.error('Recipient is your current address');
+      return;
+    }
+    setActionBusy(true);
+    try {
+      const registrar = new ethers.Contract(CONTRACTS.DNS_BASE_REGISTRAR, DNS_BASE_REGISTRAR_ABI, wallet.signer);
+      toast.loading(`Transferring ${domain.name}.${DNS_TLD}…`, { id: 'transfer' });
+      const tx = await registrar.transferFrom(address, to, domain.tokenId);
+      await tx.wait();
+      toast.success(`Transferred to ${short(to)}`, { id: 'transfer' });
+      setActionModal(null);
+      loadOwned();
+    } catch (err: any) {
+      console.error('[DNS] transfer', err);
+      toast.error(err?.shortMessage || err?.message || 'Transfer failed', { id: 'transfer' });
+    } finally {
+      setActionBusy(false);
+    }
+  }, [actionModal, wallet.signer, address, loadOwned]);
+
+
+  /* ------------------------------------------------------------------ */
   /*  handleSetPrimary — reverse record + registry resolver             */
   /* ------------------------------------------------------------------ */
   const handleSetPrimary = useCallback(
