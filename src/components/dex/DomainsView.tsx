@@ -46,6 +46,20 @@ type OwnedDomain = {
   primary: boolean;
 };
 
+type ActivityEntry = {
+  name: string;
+  owner: string;
+  expires: number;
+  priceWei: ethers.BigNumber;
+  txHash: string;
+  block: number;
+};
+
+type ActionModal =
+  | { type: 'renew'; domain: OwnedDomain; years: number }
+  | { type: 'transfer'; domain: OwnedDomain; to: string }
+  | null;
+
 type Availability =
   | { state: 'idle' }
   | { state: 'checking' }
@@ -59,10 +73,19 @@ const USD_PER_YEAR = (len: number): number => {
 };
 
 const DOMAIN_REGEX = /^[a-z0-9-]+$/;
+const SUGGESTION_SUFFIXES = ['dao', 'hq', 'wolf', 'x', 'labs', 'io', '2026', 'og'];
 
 const short = (a: string) => (a ? `${a.slice(0, 6)}…${a.slice(-4)}` : '');
 const fmtDate = (ts: number) =>
   ts ? new Date(ts * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
+
+const daysUntil = (ts: number) => Math.ceil((ts * 1000 - Date.now()) / 86_400_000);
+const expiryStatus = (ts: number): { label: string; tone: 'ok' | 'warn' | 'danger' } => {
+  const d = daysUntil(ts);
+  if (d < 0) return { label: 'Expired', tone: 'danger' };
+  if (d <= 30) return { label: `${d}d left`, tone: 'warn' };
+  return { label: `${d}d left`, tone: 'ok' };
+};
 
 const LOCAL_PRIMARY_KEY = 'wolfdex.dns.primary';
 
