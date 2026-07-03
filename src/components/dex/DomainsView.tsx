@@ -761,6 +761,26 @@ export default function DomainsView() {
                   </div>
                 </div>
               </div>
+
+              {suggestions.length > 0 && (
+                <div className="mt-6 border-t border-wolf-border/30 pt-5">
+                  <div className="mb-3 flex items-center gap-2 text-[11px] uppercase tracking-wider text-muted-foreground">
+                    <Sparkles className="h-3 w-3 text-wolf-pink" /> Try these instead
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {suggestions.map(s => (
+                      <button
+                        key={s}
+                        onClick={() => { setQuery(s); setAvailability({ state: 'idle' }); setTimeout(handleSearch, 0); }}
+                        className="group inline-flex items-center gap-1.5 rounded-xl border border-wolf-border/40 bg-wolf-surface/50 px-3 py-1.5 text-xs font-semibold text-foreground transition hover:border-wolf-pink/50 hover:bg-wolf-pink/10 hover:text-wolf-pink"
+                      >
+                        {s}<span className="text-wolf-pink">.{DNS_TLD}</span>
+                        <Check className="h-3 w-3 text-green-500 opacity-0 transition group-hover:opacity-100" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </motion.section>
           )}
         </AnimatePresence>
