@@ -617,6 +617,32 @@ export default function DomainsView() {
           </p>
         </motion.section>
 
+        {/* Stats bar */}
+        <motion.section
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4"
+        >
+          {[
+            { label: 'Domains Registered', value: stats ? stats.total.toLocaleString('en-US') : '—', icon: Globe },
+            { label: 'New (24h)', value: stats ? stats.last24h.toLocaleString('en-US') : '—', icon: TrendingUp },
+            { label: 'You Own', value: owned.length.toLocaleString('en-US'), icon: ShieldCheck },
+            { label: 'TLD', value: `.${DNS_TLD}`, icon: Crown },
+          ].map(s => (
+            <div
+              key={s.label}
+              className="group relative overflow-hidden rounded-2xl border border-wolf-border/40 bg-wolf-surface/50 p-4 backdrop-blur transition hover:border-wolf-pink/40"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{s.label}</span>
+                <s.icon className="h-3.5 w-3.5 text-wolf-pink/70" />
+              </div>
+              <div className="mt-1 text-xl font-black text-foreground">{s.value}</div>
+            </div>
+          ))}
+        </motion.section>
+
         {/* Result panels */}
         <AnimatePresence mode="wait">
           {availability.state === 'available' && (
