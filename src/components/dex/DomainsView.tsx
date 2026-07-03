@@ -192,8 +192,19 @@ export default function DomainsView() {
           priceUsd: USD_PER_YEAR(query.length),
           priceWei: priceRes ? ethers.BigNumber.from(priceRes) : null,
         });
+        setSuggestions([]);
       } else {
         setAvailability({ state: 'taken', name: query, owner: ownerAddr, expires });
+        // Compute up to 4 available alternates in the background.
+        (async () => {
+          const candidates = SUGGESTION_SUFFIXES.map(s => `${query}${s}`);
+          const checks = await Promise.all(
+            candidates.map(n =>
+              controller.isAvailable(n).then((ok: boolean) => (ok ? n : null)).catch(() => null),
+            ),
+          );
+          setSuggestions(checks.filter((n): n is string => !!n).slice(0, 4));
+        })();
       }
     } catch (err: any) {
       console.error('[DNS] search', err);
