@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from '@tanstack/react-router';
-import { CONTRACTS, TOKENS, CHAIN_CONFIG } from '@/config/contracts';
+import { CONTRACTS, TOKENS, CHAIN_CONFIG, DNS_TLD } from '@/config/contracts';
 
 type Section = 
   | 'introduction' | 'connect-wallet' | 'get-testnet-tokens'
@@ -730,6 +730,13 @@ function SmartContractsSection() {
           { name: 'Multicall', addr: CONTRACTS.MULTICALL, desc: 'Batch multiple read calls in one transaction', tag: 'Core' },
           { name: 'Farming', addr: CONTRACTS.FARMING, desc: 'Stake LP tokens to earn WDEX emissions across multiple pools', tag: 'Yield' },
           { name: 'Casino', addr: CONTRACTS.CASINO, desc: 'On-chain provably-fair casino: Coinflip, Slot, Plinko, RPS, VideoPoker, Roulette, Lucky Wheel, Spin to Win', tag: 'GameFi' },
+          { name: 'Limit Order Book', addr: CONTRACTS.LIMIT_ORDER, desc: 'Signed on-chain limit orders settled by makers and takers', tag: 'Core' },
+          { name: 'Faucet', addr: CONTRACTS.FAUCET, desc: 'Multi-token testnet faucet with cooldown and max-claims', tag: 'Core' },
+          { name: 'Launchpad', addr: CONTRACTS.LAUNCHPAD, desc: 'Deploy your own ERC20 token via createToken()', tag: 'Core' },
+          { name: 'DNS Registry', addr: CONTRACTS.DNS_REGISTRY, desc: `Root ownership + resolver mapping for the .${DNS_TLD} namespace`, tag: 'DNS' },
+          { name: 'DNS Base Registrar', addr: CONTRACTS.DNS_BASE_REGISTRAR, desc: `ERC-721 NFT contract that mints .${DNS_TLD} domain tokens`, tag: 'DNS' },
+          { name: 'DNS Controller', addr: CONTRACTS.DNS_CONTROLLER, desc: 'Commit/reveal registration, renewals, pricing and availability', tag: 'DNS' },
+          { name: 'DNS Resolver', addr: CONTRACTS.DNS_RESOLVER, desc: 'Forward + reverse resolution — pin a primary domain per wallet', tag: 'DNS' },
         ].map(c => (
           <DocCard key={c.name}>
             <div className="flex justify-between items-start mb-1 gap-2">
@@ -738,6 +745,7 @@ function SmartContractsSection() {
                 <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
                   c.tag === 'GameFi' ? 'bg-wolf-pink/15 text-wolf-pink border-wolf-pink/30'
                   : c.tag === 'Yield' ? 'bg-wolf-green/15 text-wolf-green border-wolf-green/30'
+                  : c.tag === 'DNS' ? 'bg-wolf-gold/15 text-wolf-gold border-wolf-gold/30'
                   : 'bg-wolf-cyan/15 text-wolf-cyan border-wolf-cyan/30'
                 }`}>{c.tag}</span>
               </div>

@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import wolfLogo from '@/assets/wolf-logo.png';
 import type { WalletType } from '@/hooks/useWallet';
+import { usePrimaryDomain } from '@/hooks/usePrimaryDomain';
+import { DNS_TLD } from '@/config/contracts';
 
 import { WolfSkeleton, WolfSkeletonOrb, WolfSpinner } from './ui/WolfSkeleton';
 
@@ -45,6 +47,9 @@ export default function Header({ address, balance, isConnected, isConnecting = f
   const [mobileNav, setMobileNav] = useState(false);
 
   const shortAddr = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : '';
+  const primaryLabel = usePrimaryDomain(address);
+  const primaryDomain = primaryLabel ? `${primaryLabel}.${DNS_TLD}` : '';
+  const walletLabel = primaryDomain || shortAddr;
   const installedWallets = WALLETS.filter(wallet => wallet.badge === 'Installed');
   const popularWallets = WALLETS.filter(wallet => wallet.badge === 'Popular');
 
@@ -160,10 +165,15 @@ export default function Header({ address, balance, isConnected, isConnecting = f
                 </div>
                 <button
                   onClick={onDisconnect}
-                  className="flex items-center gap-1.5 rounded-lg border border-wolf-border/40 bg-wolf-surface px-2.5 py-1.5 text-xs font-medium transition-all hover:border-wolf-red/50 whitespace-nowrap"
+                  className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all hover:border-wolf-red/50 whitespace-nowrap ${
+                    primaryDomain
+                      ? 'border-wolf-pink/40 bg-gradient-to-r from-wolf-pink/15 via-wolf-red/10 to-wolf-gold/10 text-wolf-pink shadow-[0_0_20px_-8px_oklch(0.7_0.25_330_/_70%)]'
+                      : 'border-wolf-border/40 bg-wolf-surface'
+                  }`}
+                  title={primaryDomain ? `${primaryDomain} · ${shortAddr}` : shortAddr}
                 >
                   <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
-                  {shortAddr}
+                  {walletLabel}
                 </button>
               </div>
             ) : (
@@ -199,7 +209,7 @@ export default function Header({ address, balance, isConnected, isConnecting = f
                   <div className="flex items-center justify-between rounded-xl border border-wolf-border/40 bg-wolf-surface/60 px-3 py-2 text-xs">
                     <span className="flex items-center gap-1.5 text-muted-foreground">
                       <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
-                      {shortAddr}
+                      {primaryDomain ? <span className="font-semibold text-wolf-pink">{primaryDomain}</span> : walletLabel}
                     </span>
                     <span className="font-semibold text-wolf-gold">{parseFloat(balance).toFixed(3)} zkLTC</span>
                   </div>
