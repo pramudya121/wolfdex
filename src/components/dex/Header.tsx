@@ -165,10 +165,15 @@ export default function Header({ address, balance, isConnected, isConnecting = f
                 </div>
                 <button
                   onClick={onDisconnect}
-                  className="flex items-center gap-1.5 rounded-lg border border-wolf-border/40 bg-wolf-surface px-2.5 py-1.5 text-xs font-medium transition-all hover:border-wolf-red/50 whitespace-nowrap"
+                  className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all hover:border-wolf-red/50 whitespace-nowrap ${
+                    primaryDomain
+                      ? 'border-wolf-pink/40 bg-gradient-to-r from-wolf-pink/15 via-wolf-red/10 to-wolf-gold/10 text-wolf-pink shadow-[0_0_20px_-8px_oklch(0.7_0.25_330_/_70%)]'
+                      : 'border-wolf-border/40 bg-wolf-surface'
+                  }`}
+                  title={primaryDomain ? `${primaryDomain} · ${shortAddr}` : shortAddr}
                 >
                   <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
-                  {shortAddr}
+                  {walletLabel}
                 </button>
               </div>
             ) : (
