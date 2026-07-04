@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from '@tanstack/react-router';
-import { CONTRACTS, TOKENS, CHAIN_CONFIG } from '@/config/contracts';
+import { CONTRACTS, TOKENS, CHAIN_CONFIG, DNS_TLD } from '@/config/contracts';
 
 type Section = 
   | 'introduction' | 'connect-wallet' | 'get-testnet-tokens'
