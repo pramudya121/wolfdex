@@ -209,7 +209,7 @@ export default function Header({ address, balance, isConnected, isConnecting = f
                   <div className="flex items-center justify-between rounded-xl border border-wolf-border/40 bg-wolf-surface/60 px-3 py-2 text-xs">
                     <span className="flex items-center gap-1.5 text-muted-foreground">
                       <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
-                      {shortAddr}
+                      {primaryDomain ? <span className="font-semibold text-wolf-pink">{primaryDomain}</span> : walletLabel}
                     </span>
                     <span className="font-semibold text-wolf-gold">{parseFloat(balance).toFixed(3)} zkLTC</span>
                   </div>
