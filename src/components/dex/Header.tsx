@@ -47,6 +47,9 @@ export default function Header({ address, balance, isConnected, isConnecting = f
   const [mobileNav, setMobileNav] = useState(false);
 
   const shortAddr = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : '';
+  const primaryLabel = usePrimaryDomain(address);
+  const primaryDomain = primaryLabel ? `${primaryLabel}.${DNS_TLD}` : '';
+  const walletLabel = primaryDomain || shortAddr;
   const installedWallets = WALLETS.filter(wallet => wallet.badge === 'Installed');
   const popularWallets = WALLETS.filter(wallet => wallet.badge === 'Popular');
 
