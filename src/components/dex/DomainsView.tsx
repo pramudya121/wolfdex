@@ -277,7 +277,11 @@ export default function DomainsView() {
       const regTx = await controller.register(name, address, duration, secret, { value: priceWei });
       await regTx.wait();
 
-      toast.success(`🎉 ${name}.${DNS_TLD} is yours!`, { id: 'mint' });
+      // First-ever mint for this address → auto-pin as primary so the header
+      // instantly shows "name.wolf" in place of the raw wallet address.
+      if (!primaryName) setPrimaryDomainLocal(address, name);
+
+      toast.success(`🎉 ${name}.${DNS_TLD} is yours!${!primaryName ? ' Set as primary.' : ''}`, { id: 'mint' });
       setAvailability({ state: 'idle' });
       setQuery('');
       loadOwned();
