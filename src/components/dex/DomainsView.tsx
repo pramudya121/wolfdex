@@ -577,6 +577,88 @@ export default function DomainsView() {
             Claim a permanent <span className="font-semibold text-wolf-pink">.{DNS_TLD}</span> domain NFT that replaces your long wallet address across every WolfDex surface.
           </p>
 
+          {/* 3D floating domain preview — rotates + parallax layers */}
+          <div className="mx-auto mt-8 flex justify-center [perspective:1200px]">
+            <motion.div
+              initial={{ opacity: 0, y: 20, rotateX: -20 }}
+              animate={{ opacity: 1, y: [0, -8, 0], rotateX: 0 }}
+              transition={{
+                opacity: { duration: 0.5 },
+                rotateX: { duration: 0.6 },
+                y: { duration: 5, repeat: Infinity, ease: 'easeInOut' },
+              }}
+              whileHover={{ rotateY: 12, rotateX: -6, scale: 1.03 }}
+              style={{ transformStyle: 'preserve-3d' }}
+              className="group relative w-full max-w-sm cursor-default rounded-[28px] border border-wolf-border/40 bg-gradient-to-br from-wolf-surface/90 via-background to-wolf-surface/40 p-5 shadow-[0_30px_80px_-30px_oklch(0.6_0.28_330_/_70%)]"
+            >
+              {/* rotating conic glow layer */}
+              <motion.div
+                aria-hidden
+                className="pointer-events-none absolute -inset-px rounded-[28px] opacity-70"
+                style={{
+                  background:
+                    'conic-gradient(from 0deg, oklch(0.7 0.25 330 / 45%), oklch(0.75 0.22 55 / 35%), oklch(0.7 0.22 280 / 45%), oklch(0.7 0.25 330 / 45%))',
+                  WebkitMask:
+                    'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)',
+                  WebkitMaskComposite: 'xor',
+                  padding: 1,
+                }}
+                animate={{ rotate: 360 }}
+                transition={{ duration: 12, repeat: Infinity, ease: 'linear' }}
+              />
+              <div className="relative flex items-center justify-between" style={{ transform: 'translateZ(30px)' }}>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-wolf-pink/40 bg-wolf-pink/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-wolf-pink">
+                  <Sparkles className="h-3 w-3" /> NFT Domain
+                </span>
+                <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                  #{(query || 'yourname').slice(0, 6)}
+                </span>
+              </div>
+              <motion.div
+                className="relative mt-6 text-center"
+                style={{ transform: 'translateZ(60px)' }}
+                animate={{ rotateY: [0, 6, 0, -6, 0] }}
+                transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
+              >
+                <div className="text-[10px] uppercase tracking-[0.28em] text-muted-foreground">preview</div>
+                <div className="mt-1 truncate text-3xl font-black text-foreground sm:text-4xl">
+                  {(query || 'yourname')}
+                  <span className="wolf-gradient-text">.{DNS_TLD}</span>
+                </div>
+              </motion.div>
+              <div
+                className="relative mt-6 grid grid-cols-3 gap-2 text-center"
+                style={{ transform: 'translateZ(20px)' }}
+              >
+                {[
+                  { l: 'Chain', v: CHAIN_CONFIG.symbol },
+                  { l: 'TLD', v: `.${DNS_TLD}` },
+                  { l: 'Standard', v: 'ERC-721' },
+                ].map(x => (
+                  <div key={x.l} className="rounded-xl border border-wolf-border/30 bg-background/40 py-2">
+                    <div className="text-[9px] uppercase tracking-wider text-muted-foreground">{x.l}</div>
+                    <div className="mt-0.5 text-xs font-bold text-foreground">{x.v}</div>
+                  </div>
+                ))}
+              </div>
+              {/* floating orbs (3D depth) */}
+              <motion.span
+                aria-hidden
+                className="absolute -right-4 -top-4 h-16 w-16 rounded-full bg-gradient-to-br from-wolf-pink to-wolf-gold blur-2xl opacity-70"
+                style={{ transform: 'translateZ(80px)' }}
+                animate={{ y: [0, -6, 0] }}
+                transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+              />
+              <motion.span
+                aria-hidden
+                className="absolute -bottom-6 -left-6 h-20 w-20 rounded-full bg-wolf-pink/40 blur-3xl"
+                style={{ transform: 'translateZ(40px)' }}
+                animate={{ y: [0, 8, 0] }}
+                transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+              />
+            </motion.div>
+          </div>
+
           <div className="mx-auto mt-8 flex max-w-2xl flex-col gap-3 sm:flex-row">
             <div className="group relative flex-1">
               <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
