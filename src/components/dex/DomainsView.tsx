@@ -458,13 +458,7 @@ export default function DomainsView() {
         const tx = await resolver.setReverse(address, full);
         await tx.wait();
 
-        try {
-          const map = JSON.parse(localStorage.getItem(LOCAL_PRIMARY_KEY) || '{}');
-          map[address.toLowerCase()] = name;
-          localStorage.setItem(LOCAL_PRIMARY_KEY, JSON.stringify(map));
-        } catch { /* ignore */ }
-
-        setPrimaryName(name);
+        setPrimaryDomainLocal(address, name);
         setOwned(o => o.map(d => ({ ...d, primary: d.name === name })));
         toast.success(`${full} is now your primary domain`, { id: 'primary' });
       } catch (err: any) {
