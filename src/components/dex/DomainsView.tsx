@@ -132,13 +132,8 @@ export default function DomainsView() {
 
   const nameValid = query.length >= 3 && DOMAIN_REGEX.test(query);
 
-  useEffect(() => {
-    if (!address) return;
-    try {
-      const map = JSON.parse(localStorage.getItem(LOCAL_PRIMARY_KEY) || '{}');
-      setPrimaryName(map[address.toLowerCase()] || '');
-    } catch { /* ignore */ }
-  }, [address]);
+  // primaryName is derived reactively via usePrimaryDomain(address) above.
+
 
   /* ------------------------------------------------------------------ */
   /*  handleSearch — on-chain availability via Controller + Registry    */
