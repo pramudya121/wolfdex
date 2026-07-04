@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import wolfLogo from '@/assets/wolf-logo.png';
 import type { WalletType } from '@/hooks/useWallet';
+import { usePrimaryDomain } from '@/hooks/usePrimaryDomain';
+import { DNS_TLD } from '@/config/contracts';
 
 import { WolfSkeleton, WolfSkeletonOrb, WolfSpinner } from './ui/WolfSkeleton';
 
