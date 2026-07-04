@@ -88,7 +88,7 @@ const expiryStatus = (ts: number): { label: string; tone: 'ok' | 'warn' | 'dange
   return { label: `${d}d left`, tone: 'ok' };
 };
 
-const LOCAL_PRIMARY_KEY = 'wolfdex.dns.primary';
+// Local primary key handled inside hooks/usePrimaryDomain.ts
 
 // Namehash for reverse lookups / tokenId (label hash)
 const labelHash = (name: string) =>
