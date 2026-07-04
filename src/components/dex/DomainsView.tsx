@@ -34,6 +34,7 @@ import {
   DNS_RESOLVER_ABI,
 } from '@/config/abis';
 import { getReadProvider } from '@/lib/rpc';
+import { setPrimaryDomainLocal, usePrimaryDomain } from '@/hooks/usePrimaryDomain';
 
 /* -------------------------------------------------------------------------- */
 /*  Types & helpers                                                            */
