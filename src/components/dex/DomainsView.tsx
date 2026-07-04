@@ -109,7 +109,7 @@ export default function DomainsView() {
   const [minting, setMinting] = useState(false);
   const [owned, setOwned] = useState<OwnedDomain[]>([]);
   const [loadingOwned, setLoadingOwned] = useState(false);
-  const [primaryName, setPrimaryName] = useState<string>('');
+  const primaryName = usePrimaryDomain(address);
   const [gasEstimate, setGasEstimate] = useState<{
     gasWei: ethers.BigNumber;
     gasNative: string;
