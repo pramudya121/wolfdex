@@ -745,6 +745,7 @@ function SmartContractsSection() {
                 <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
                   c.tag === 'GameFi' ? 'bg-wolf-pink/15 text-wolf-pink border-wolf-pink/30'
                   : c.tag === 'Yield' ? 'bg-wolf-green/15 text-wolf-green border-wolf-green/30'
+                  : c.tag === 'DNS' ? 'bg-wolf-gold/15 text-wolf-gold border-wolf-gold/30'
                   : 'bg-wolf-cyan/15 text-wolf-cyan border-wolf-cyan/30'
                 }`}>{c.tag}</span>
               </div>
