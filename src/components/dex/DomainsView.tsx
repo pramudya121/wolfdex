@@ -64,10 +64,24 @@ type ActivityEntry = {
   block: number;
 };
 
+type RecordsDraft = {
+  address: string;
+  twitter: string;
+  email: string;
+  url: string;
+  avatar: string;
+  description: string;
+};
+
 type ActionModal =
   | { type: 'renew'; domain: OwnedDomain; years: number }
   | { type: 'transfer'; domain: OwnedDomain; to: string }
+  | { type: 'records'; domain: OwnedDomain; draft: RecordsDraft; loaded: boolean; initial: RecordsDraft | null }
   | null;
+
+type SortMode = 'expiry-asc' | 'expiry-desc' | 'name-asc';
+
+const TEXT_KEYS: (keyof RecordsDraft)[] = ['twitter', 'email', 'url', 'avatar', 'description'];
 
 type Availability =
   | { state: 'idle' }
