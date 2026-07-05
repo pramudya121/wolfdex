@@ -25,6 +25,14 @@ import {
   Activity,
   AlertTriangle,
   TrendingUp,
+  Settings2,
+  ArrowUpDown,
+  Twitter,
+  Mail,
+  Link as LinkIcon,
+  Image as ImageIcon,
+  FileText,
+  Save,
 } from 'lucide-react';
 import { useDexContext } from '@/context/DexContext';
 import { CONTRACTS, CHAIN_CONFIG, DNS_TLD } from '@/config/contracts';
@@ -56,10 +64,24 @@ type ActivityEntry = {
   block: number;
 };
 
+type RecordsDraft = {
+  address: string;
+  twitter: string;
+  email: string;
+  url: string;
+  avatar: string;
+  description: string;
+};
+
 type ActionModal =
   | { type: 'renew'; domain: OwnedDomain; years: number }
   | { type: 'transfer'; domain: OwnedDomain; to: string }
+  | { type: 'records'; domain: OwnedDomain; draft: RecordsDraft; loaded: boolean; initial: RecordsDraft | null }
   | null;
+
+type SortMode = 'expiry-asc' | 'expiry-desc' | 'name-asc';
+
+const TEXT_KEYS: (keyof RecordsDraft)[] = ['twitter', 'email', 'url', 'avatar', 'description'];
 
 type Availability =
   | { state: 'idle' }
@@ -119,6 +141,9 @@ export default function DomainsView() {
   const [stats, setStats] = useState<{ total: number; last24h: number } | null>(null);
   const [actionModal, setActionModal] = useState<ActionModal>(null);
   const [actionBusy, setActionBusy] = useState(false);
+  const [sortMode, setSortMode] = useState<SortMode>('expiry-asc');
+  const [ownedFilter, setOwnedFilter] = useState('');
+  const [refreshingActivity, setRefreshingActivity] = useState(false);
 
   const handleQueryChange = (raw: string) => {
     // Strip a trailing .wolf / .wolf. so pasting a full domain still works.
@@ -444,6 +469,88 @@ export default function DomainsView() {
       setActionBusy(false);
     }
   }, [actionModal, wallet.signer, address, loadOwned]);
+
+  /* ------------------------------------------------------------------ */
+  /*  Records — load + save (address + text records via Resolver)        */
+  /* ------------------------------------------------------------------ */
+  const openRecords = useCallback(async (domain: OwnedDomain) => {
+    const empty: RecordsDraft = { address: '', twitter: '', email: '', url: '', avatar: '', description: '' };
+    setActionModal({ type: 'records', domain, draft: empty, loaded: false, initial: null });
+    try {
+      const provider = getReadProvider();
+      const resolver = new ethers.Contract(CONTRACTS.DNS_RESOLVER, DNS_RESOLVER_ABI, provider);
+      const full = `${domain.name}.${DNS_TLD}`;
+      const [addr, twitter, email, url, avatar, description] = await Promise.all([
+        resolver.getAddress(full, 'evm').catch(() => ''),
+        resolver.getText(full, 'twitter').catch(() => ''),
+        resolver.getText(full, 'email').catch(() => ''),
+        resolver.getText(full, 'url').catch(() => ''),
+        resolver.getText(full, 'avatar').catch(() => ''),
+        resolver.getText(full, 'description').catch(() => ''),
+      ]);
+      const draft: RecordsDraft = {
+        address: String(addr || ''),
+        twitter: String(twitter || ''),
+        email: String(email || ''),
+        url: String(url || ''),
+        avatar: String(avatar || ''),
+        description: String(description || ''),
+      };
+      setActionModal(m => (m && m.type === 'records' && m.domain.tokenId === domain.tokenId
+        ? { ...m, draft, loaded: true, initial: draft }
+        : m));
+    } catch (err) {
+      console.warn('[DNS] loadRecords', err);
+      setActionModal(m => (m && m.type === 'records' ? { ...m, loaded: true } : m));
+    }
+  }, []);
+
+  const handleSaveRecords = useCallback(async () => {
+    if (!actionModal || actionModal.type !== 'records') return;
+    if (!wallet.signer) { setShowWalletModal(true); return; }
+    const { domain, draft, initial } = actionModal;
+    const full = `${domain.name}.${DNS_TLD}`;
+    setActionBusy(true);
+    try {
+      const resolver = new ethers.Contract(CONTRACTS.DNS_RESOLVER, DNS_RESOLVER_ABI, wallet.signer);
+      const ops: (() => Promise<ethers.ContractTransaction>)[] = [];
+
+      const trimAddr = draft.address.trim();
+      if (trimAddr && !ethers.utils.isAddress(trimAddr)) {
+        toast.error('Invalid resolved address');
+        setActionBusy(false);
+        return;
+      }
+      if ((initial?.address || '') !== trimAddr) {
+        ops.push(() => resolver.setAddress(full, 'evm', trimAddr));
+      }
+      for (const k of TEXT_KEYS) {
+        const next = draft[k].trim();
+        const prev = (initial?.[k] || '').trim();
+        if (prev !== next) ops.push(() => resolver.setText(full, k, next));
+      }
+      if (ops.length === 0) {
+        toast.info('No changes to save');
+        setActionBusy(false);
+        return;
+      }
+      toast.loading(`Saving ${ops.length} record${ops.length > 1 ? 's' : ''}…`, { id: 'records' });
+      for (let i = 0; i < ops.length; i++) {
+        toast.loading(`Saving record ${i + 1}/${ops.length}…`, { id: 'records' });
+        const tx = await ops[i]();
+        await tx.wait();
+      }
+      toast.success(`Records saved for ${full}`, { id: 'records' });
+      setActionModal(null);
+    } catch (err: any) {
+      console.error('[DNS] saveRecords', err);
+      toast.error(err?.shortMessage || err?.message || 'Save failed', { id: 'records' });
+    } finally {
+      setActionBusy(false);
+    }
+  }, [actionModal, wallet.signer, setShowWalletModal]);
+
+
 
 
   /* ------------------------------------------------------------------ */
@@ -893,14 +1000,47 @@ export default function DomainsView() {
             <div>
               <h2 className="text-lg font-black text-foreground sm:text-2xl">My Domains</h2>
               <p className="text-xs text-muted-foreground">
-                NFT domains held by your wallet. Pin one as primary to display it everywhere on WolfDex.
+                NFT domains held by your wallet. Pin one as primary, manage records, renew, or transfer.
               </p>
             </div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-wolf-border/40 bg-wolf-surface/60 px-3 py-1.5 text-xs text-muted-foreground">
-              <ShieldCheck className="h-3.5 w-3.5 text-wolf-pink" />
-              {owned.length} owned
+            <div className="flex flex-wrap items-center gap-2">
+              {isConnected && owned.length > 0 && (
+                <>
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                      value={ownedFilter}
+                      onChange={e => setOwnedFilter(e.target.value.toLowerCase())}
+                      placeholder="Filter…"
+                      className="h-9 w-36 rounded-full border border-wolf-border/40 bg-wolf-surface/60 pl-8 pr-3 text-xs text-foreground outline-none transition focus:border-wolf-pink/60 focus:ring-1 focus:ring-wolf-pink/30"
+                    />
+                  </div>
+                  <button
+                    onClick={() => setSortMode(m => m === 'expiry-asc' ? 'expiry-desc' : m === 'expiry-desc' ? 'name-asc' : 'expiry-asc')}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-full border border-wolf-border/40 bg-wolf-surface/60 px-3 text-xs font-semibold text-foreground transition hover:border-wolf-pink/50 hover:text-wolf-pink"
+                    title="Change sort"
+                  >
+                    <ArrowUpDown className="h-3.5 w-3.5" />
+                    {sortMode === 'expiry-asc' ? 'Soonest' : sortMode === 'expiry-desc' ? 'Latest' : 'A–Z'}
+                  </button>
+                </>
+              )}
+              <button
+                onClick={loadOwned}
+                disabled={loadingOwned || !isConnected}
+                className="inline-flex h-9 items-center gap-1.5 rounded-full border border-wolf-border/40 bg-wolf-surface/60 px-3 text-xs font-semibold text-foreground transition hover:border-wolf-pink/50 hover:text-wolf-pink disabled:opacity-50"
+                title="Refresh"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${loadingOwned ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+              <div className="inline-flex items-center gap-2 rounded-full border border-wolf-border/40 bg-wolf-surface/60 px-3 py-1.5 text-xs text-muted-foreground">
+                <ShieldCheck className="h-3.5 w-3.5 text-wolf-pink" />
+                {owned.length} owned
+              </div>
             </div>
           </div>
+
 
           {!isConnected ? (
             <div className="grid place-items-center rounded-3xl border border-dashed border-wolf-border/40 bg-wolf-surface/30 py-14 text-center">
@@ -927,101 +1067,127 @@ export default function DomainsView() {
               </div>
             </div>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {owned.map(domain => {
-                const status = expiryStatus(domain.expires);
-                const toneClass =
-                  status.tone === 'danger'
-                    ? 'border-red-500/40 bg-red-500/15 text-red-400'
-                    : status.tone === 'warn'
-                    ? 'border-amber-500/40 bg-amber-500/15 text-amber-400'
-                    : 'border-wolf-border/40 bg-wolf-surface/60 text-muted-foreground';
+            (() => {
+              const filtered = owned.filter(d => !ownedFilter || d.name.includes(ownedFilter));
+              const sorted = [...filtered].sort((a, b) => {
+                if (sortMode === 'name-asc') return a.name.localeCompare(b.name);
+                if (sortMode === 'expiry-desc') return b.expires - a.expires;
+                return a.expires - b.expires; // soonest first
+              });
+              if (sorted.length === 0) {
                 return (
-                  <motion.article
-                    key={domain.tokenId}
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    whileHover={{ y: -3 }}
-                    className={`group relative overflow-hidden rounded-3xl border p-5 shadow-lg transition ${
-                      domain.primary
-                        ? 'border-wolf-pink/50 bg-gradient-to-br from-wolf-pink/15 via-background to-background'
-                        : 'border-wolf-border/40 bg-wolf-surface/50'
-                    }`}
-                  >
-                    <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-wolf-pink/10 blur-3xl transition group-hover:bg-wolf-pink/20" />
-                    <div className="relative flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Domain NFT</div>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(`${domain.name}.${DNS_TLD}`);
-                            toast.success('Domain copied');
-                          }}
-                          className="mt-1 flex max-w-full items-center gap-1.5 truncate text-left text-xl font-black text-foreground transition hover:text-wolf-pink"
-                          title="Copy domain"
-                        >
-                          <span className="truncate">
-                            {domain.name}
-                            <span className="text-wolf-pink">.{DNS_TLD}</span>
-                          </span>
-                          <Copy className="h-3.5 w-3.5 opacity-0 transition group-hover:opacity-70" />
-                        </button>
-                      </div>
-                      <div className="flex flex-col items-end gap-1">
-                        {domain.primary && (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-wolf-pink/40 bg-wolf-pink/20 px-2 py-0.5 text-[10px] font-bold uppercase text-wolf-pink">
-                            <Star className="h-3 w-3" /> Primary
-                          </span>
-                        )}
-                        <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${toneClass}`}>
-                          {status.tone === 'danger' && <AlertTriangle className="h-3 w-3" />}
-                          {status.label}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="relative mt-4 flex items-center gap-2 text-xs text-muted-foreground">
-                      <Clock className="h-3.5 w-3.5 text-wolf-gold" />
-                      Expires {fmtDate(domain.expires)}
-                    </div>
-
-                    <div className="relative mt-5 grid grid-cols-3 gap-2">
-                      <button
-                        onClick={() => handleSetPrimary(domain.name)}
-                        disabled={domain.primary}
-                        className={`flex items-center justify-center gap-1.5 rounded-xl border px-2 py-2.5 text-[11px] font-bold transition ${
-                          domain.primary
-                            ? 'cursor-default border-wolf-pink/30 bg-wolf-pink/10 text-wolf-pink/80'
-                            : 'border-wolf-border/40 bg-background/60 text-foreground hover:border-wolf-pink/50 hover:bg-wolf-pink/10'
-                        }`}
-                        title={domain.primary ? 'Already primary' : 'Set as primary'}
-                      >
-                        <Star className="h-3.5 w-3.5" />
-                        Primary
-                      </button>
-                      <button
-                        onClick={() => setActionModal({ type: 'renew', domain, years: 1 })}
-                        className="flex items-center justify-center gap-1.5 rounded-xl border border-wolf-border/40 bg-background/60 px-2 py-2.5 text-[11px] font-bold text-foreground transition hover:border-green-500/50 hover:bg-green-500/10 hover:text-green-400"
-                        title="Renew"
-                      >
-                        <RefreshCw className="h-3.5 w-3.5" />
-                        Renew
-                      </button>
-                      <button
-                        onClick={() => setActionModal({ type: 'transfer', domain, to: '' })}
-                        className="flex items-center justify-center gap-1.5 rounded-xl border border-wolf-border/40 bg-background/60 px-2 py-2.5 text-[11px] font-bold text-foreground transition hover:border-wolf-gold/60 hover:bg-wolf-gold/10 hover:text-wolf-gold"
-                        title="Transfer"
-                      >
-                        <Send className="h-3.5 w-3.5" />
-                        Send
-                      </button>
-                    </div>
-                  </motion.article>
+                  <div className="grid place-items-center rounded-3xl border border-dashed border-wolf-border/40 bg-wolf-surface/30 py-10 text-center text-xs text-muted-foreground">
+                    No domains match "{ownedFilter}".
+                  </div>
                 );
-              })}
-            </div>
+              }
+              return (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {sorted.map(domain => {
+                    const status = expiryStatus(domain.expires);
+                    const toneClass =
+                      status.tone === 'danger'
+                        ? 'border-red-500/40 bg-red-500/15 text-red-400'
+                        : status.tone === 'warn'
+                        ? 'border-amber-500/40 bg-amber-500/15 text-amber-400'
+                        : 'border-wolf-border/40 bg-wolf-surface/60 text-muted-foreground';
+                    return (
+                      <motion.article
+                        key={domain.tokenId}
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        whileHover={{ y: -3 }}
+                        className={`group relative overflow-hidden rounded-3xl border p-5 shadow-lg transition ${
+                          domain.primary
+                            ? 'border-wolf-pink/50 bg-gradient-to-br from-wolf-pink/15 via-background to-background'
+                            : 'border-wolf-border/40 bg-wolf-surface/50'
+                        }`}
+                      >
+                        <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-wolf-pink/10 blur-3xl transition group-hover:bg-wolf-pink/20" />
+                        <div className="relative flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Domain NFT</div>
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(`${domain.name}.${DNS_TLD}`);
+                                toast.success('Domain copied');
+                              }}
+                              className="mt-1 flex max-w-full items-center gap-1.5 truncate text-left text-xl font-black text-foreground transition hover:text-wolf-pink"
+                              title="Copy domain"
+                            >
+                              <span className="truncate">
+                                {domain.name}
+                                <span className="text-wolf-pink">.{DNS_TLD}</span>
+                              </span>
+                              <Copy className="h-3.5 w-3.5 opacity-0 transition group-hover:opacity-70" />
+                            </button>
+                          </div>
+                          <div className="flex flex-col items-end gap-1">
+                            {domain.primary && (
+                              <span className="inline-flex items-center gap-1 rounded-full border border-wolf-pink/40 bg-wolf-pink/20 px-2 py-0.5 text-[10px] font-bold uppercase text-wolf-pink">
+                                <Star className="h-3 w-3" /> Primary
+                              </span>
+                            )}
+                            <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${toneClass}`}>
+                              {status.tone === 'danger' && <AlertTriangle className="h-3 w-3" />}
+                              {status.label}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="relative mt-4 flex items-center gap-2 text-xs text-muted-foreground">
+                          <Clock className="h-3.5 w-3.5 text-wolf-gold" />
+                          Expires {fmtDate(domain.expires)}
+                        </div>
+
+                        <div className="relative mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                          <button
+                            onClick={() => handleSetPrimary(domain.name)}
+                            disabled={domain.primary}
+                            className={`flex items-center justify-center gap-1.5 rounded-xl border px-2 py-2.5 text-[11px] font-bold transition ${
+                              domain.primary
+                                ? 'cursor-default border-wolf-pink/30 bg-wolf-pink/10 text-wolf-pink/80'
+                                : 'border-wolf-border/40 bg-background/60 text-foreground hover:border-wolf-pink/50 hover:bg-wolf-pink/10'
+                            }`}
+                            title={domain.primary ? 'Already primary' : 'Set as primary'}
+                          >
+                            <Star className="h-3.5 w-3.5" />
+                            Primary
+                          </button>
+                          <button
+                            onClick={() => openRecords(domain)}
+                            className="flex items-center justify-center gap-1.5 rounded-xl border border-wolf-border/40 bg-background/60 px-2 py-2.5 text-[11px] font-bold text-foreground transition hover:border-fuchsia-500/50 hover:bg-fuchsia-500/10 hover:text-fuchsia-300"
+                            title="Manage records"
+                          >
+                            <Settings2 className="h-3.5 w-3.5" />
+                            Records
+                          </button>
+                          <button
+                            onClick={() => setActionModal({ type: 'renew', domain, years: 1 })}
+                            className="flex items-center justify-center gap-1.5 rounded-xl border border-wolf-border/40 bg-background/60 px-2 py-2.5 text-[11px] font-bold text-foreground transition hover:border-green-500/50 hover:bg-green-500/10 hover:text-green-400"
+                            title="Renew"
+                          >
+                            <RefreshCw className="h-3.5 w-3.5" />
+                            Renew
+                          </button>
+                          <button
+                            onClick={() => setActionModal({ type: 'transfer', domain, to: '' })}
+                            className="flex items-center justify-center gap-1.5 rounded-xl border border-wolf-border/40 bg-background/60 px-2 py-2.5 text-[11px] font-bold text-foreground transition hover:border-wolf-gold/60 hover:bg-wolf-gold/10 hover:text-wolf-gold"
+                            title="Transfer"
+                          >
+                            <Send className="h-3.5 w-3.5" />
+                            Send
+                          </button>
+                        </div>
+                      </motion.article>
+                    );
+                  })}
+                </div>
+              );
+            })()
           )}
         </section>
+
 
         {/* Live Activity */}
         <section className="mt-14">
@@ -1035,7 +1201,16 @@ export default function DomainsView() {
                 Latest .{DNS_TLD} domains registered on-chain.
               </p>
             </div>
+            <button
+              onClick={async () => { setRefreshingActivity(true); await loadGlobal(); setRefreshingActivity(false); }}
+              disabled={refreshingActivity}
+              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-wolf-border/40 bg-wolf-surface/60 px-3 text-xs font-semibold text-foreground transition hover:border-wolf-pink/50 hover:text-wolf-pink disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${refreshingActivity ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
           </div>
+
 
           {activity.length === 0 ? (
             <div className="grid place-items-center rounded-3xl border border-dashed border-wolf-border/40 bg-wolf-surface/30 py-10 text-center text-xs text-muted-foreground">
@@ -1087,11 +1262,15 @@ export default function DomainsView() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.98 }}
               onClick={e => e.stopPropagation()}
-              className="w-full max-w-md overflow-hidden rounded-3xl border border-wolf-border/50 bg-background p-6 shadow-2xl"
+              className={`w-full overflow-hidden rounded-3xl border border-wolf-border/50 bg-background p-6 shadow-2xl ${
+                actionModal.type === 'records' ? 'max-w-lg' : 'max-w-md'
+              }`}
             >
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-wolf-pink">
-                  {actionModal.type === 'renew' ? <><RefreshCw className="h-3.5 w-3.5" />Renew Domain</> : <><Send className="h-3.5 w-3.5" />Transfer Domain</>}
+                  {actionModal.type === 'renew' && <><RefreshCw className="h-3.5 w-3.5" />Renew Domain</>}
+                  {actionModal.type === 'transfer' && <><Send className="h-3.5 w-3.5" />Transfer Domain</>}
+                  {actionModal.type === 'records' && <><Settings2 className="h-3.5 w-3.5" />Manage Records</>}
                 </div>
                 <button onClick={() => !actionBusy && setActionModal(null)} className="rounded-lg p-1 text-muted-foreground transition hover:bg-wolf-surface hover:text-foreground">
                   <X className="h-4 w-4" />
@@ -1106,7 +1285,7 @@ export default function DomainsView() {
                 <div className="mt-1 text-xs text-muted-foreground">Expires {fmtDate(actionModal.domain.expires)}</div>
               </div>
 
-              {actionModal.type === 'renew' ? (
+              {actionModal.type === 'renew' && (
                 <>
                   <div className="mb-2 text-xs font-semibold text-foreground">Extend registration by</div>
                   <div className="mb-5 flex items-center gap-3 rounded-2xl border border-wolf-border/40 bg-wolf-surface/60 p-2">
@@ -1133,7 +1312,9 @@ export default function DomainsView() {
                     {actionBusy ? <><Loader2 className="h-4 w-4 animate-spin" />Renewing…</> : <><RefreshCw className="h-4 w-4" />Confirm Renewal</>}
                   </button>
                 </>
-              ) : (
+              )}
+
+              {actionModal.type === 'transfer' && (
                 <>
                   <div className="mb-2 text-xs font-semibold text-foreground">Recipient address</div>
                   <input
@@ -1156,7 +1337,60 @@ export default function DomainsView() {
                   </button>
                 </>
               )}
+
+              {actionModal.type === 'records' && (
+                <>
+                  {!actionModal.loaded ? (
+                    <div className="grid place-items-center py-10 text-xs text-muted-foreground">
+                      <Loader2 className="mb-2 h-5 w-5 animate-spin text-wolf-pink" />
+                      Loading on-chain records…
+                    </div>
+                  ) : (
+                    <>
+                      <p className="mb-4 text-[11px] text-muted-foreground">
+                        Publish public metadata for your domain. Each changed field triggers one on-chain transaction.
+                      </p>
+                      <div className="mb-5 grid gap-3 max-h-[60vh] overflow-y-auto pr-1">
+                        {[
+                          { key: 'address' as const, label: 'Resolved Address', icon: WalletIcon, placeholder: '0x… (EVM address)', mono: true },
+                          { key: 'twitter' as const, label: 'Twitter / X', icon: Twitter, placeholder: '@handle', mono: false },
+                          { key: 'email' as const, label: 'Email', icon: Mail, placeholder: 'you@wolf.xyz', mono: false },
+                          { key: 'url' as const, label: 'Website', icon: LinkIcon, placeholder: 'https://…', mono: false },
+                          { key: 'avatar' as const, label: 'Avatar URL', icon: ImageIcon, placeholder: 'https://…/avatar.png', mono: false },
+                          { key: 'description' as const, label: 'Description', icon: FileText, placeholder: 'A short bio', mono: false },
+                        ].map(f => (
+                          <label key={f.key} className="block">
+                            <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                              <f.icon className="h-3 w-3" />
+                              {f.label}
+                            </div>
+                            <input
+                              value={actionModal.draft[f.key]}
+                              onChange={e => setActionModal(m => (m && m.type === 'records'
+                                ? { ...m, draft: { ...m.draft, [f.key]: e.target.value } }
+                                : m))}
+                              placeholder={f.placeholder}
+                              spellCheck={false}
+                              className={`h-11 w-full rounded-xl border border-wolf-border/40 bg-wolf-surface/60 px-3 text-sm text-foreground outline-none transition focus:border-wolf-pink/60 focus:ring-1 focus:ring-wolf-pink/30 ${
+                                f.mono ? 'font-mono text-xs' : ''
+                              }`}
+                            />
+                          </label>
+                        ))}
+                      </div>
+                      <button
+                        onClick={handleSaveRecords}
+                        disabled={actionBusy}
+                        className="wolf-btn-primary flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-black disabled:opacity-70"
+                      >
+                        {actionBusy ? <><Loader2 className="h-4 w-4 animate-spin" />Saving…</> : <><Save className="h-4 w-4" />Save Records</>}
+                      </button>
+                    </>
+                  )}
+                </>
+              )}
             </motion.div>
+
           </motion.div>
         )}
       </AnimatePresence>
