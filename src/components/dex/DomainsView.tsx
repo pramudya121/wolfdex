@@ -470,6 +470,88 @@ export default function DomainsView() {
     }
   }, [actionModal, wallet.signer, address, loadOwned]);
 
+  /* ------------------------------------------------------------------ */
+  /*  Records — load + save (address + text records via Resolver)        */
+  /* ------------------------------------------------------------------ */
+  const openRecords = useCallback(async (domain: OwnedDomain) => {
+    const empty: RecordsDraft = { address: '', twitter: '', email: '', url: '', avatar: '', description: '' };
+    setActionModal({ type: 'records', domain, draft: empty, loaded: false, initial: null });
+    try {
+      const provider = getReadProvider();
+      const resolver = new ethers.Contract(CONTRACTS.DNS_RESOLVER, DNS_RESOLVER_ABI, provider);
+      const full = `${domain.name}.${DNS_TLD}`;
+      const [addr, twitter, email, url, avatar, description] = await Promise.all([
+        resolver.getAddress(full, 'evm').catch(() => ''),
+        resolver.getText(full, 'twitter').catch(() => ''),
+        resolver.getText(full, 'email').catch(() => ''),
+        resolver.getText(full, 'url').catch(() => ''),
+        resolver.getText(full, 'avatar').catch(() => ''),
+        resolver.getText(full, 'description').catch(() => ''),
+      ]);
+      const draft: RecordsDraft = {
+        address: String(addr || ''),
+        twitter: String(twitter || ''),
+        email: String(email || ''),
+        url: String(url || ''),
+        avatar: String(avatar || ''),
+        description: String(description || ''),
+      };
+      setActionModal(m => (m && m.type === 'records' && m.domain.tokenId === domain.tokenId
+        ? { ...m, draft, loaded: true, initial: draft }
+        : m));
+    } catch (err) {
+      console.warn('[DNS] loadRecords', err);
+      setActionModal(m => (m && m.type === 'records' ? { ...m, loaded: true } : m));
+    }
+  }, []);
+
+  const handleSaveRecords = useCallback(async () => {
+    if (!actionModal || actionModal.type !== 'records') return;
+    if (!wallet.signer) { setShowWalletModal(true); return; }
+    const { domain, draft, initial } = actionModal;
+    const full = `${domain.name}.${DNS_TLD}`;
+    setActionBusy(true);
+    try {
+      const resolver = new ethers.Contract(CONTRACTS.DNS_RESOLVER, DNS_RESOLVER_ABI, wallet.signer);
+      const ops: (() => Promise<ethers.ContractTransaction>)[] = [];
+
+      const trimAddr = draft.address.trim();
+      if (trimAddr && !ethers.utils.isAddress(trimAddr)) {
+        toast.error('Invalid resolved address');
+        setActionBusy(false);
+        return;
+      }
+      if ((initial?.address || '') !== trimAddr) {
+        ops.push(() => resolver.setAddress(full, 'evm', trimAddr));
+      }
+      for (const k of TEXT_KEYS) {
+        const next = draft[k].trim();
+        const prev = (initial?.[k] || '').trim();
+        if (prev !== next) ops.push(() => resolver.setText(full, k, next));
+      }
+      if (ops.length === 0) {
+        toast.info('No changes to save');
+        setActionBusy(false);
+        return;
+      }
+      toast.loading(`Saving ${ops.length} record${ops.length > 1 ? 's' : ''}…`, { id: 'records' });
+      for (let i = 0; i < ops.length; i++) {
+        toast.loading(`Saving record ${i + 1}/${ops.length}…`, { id: 'records' });
+        const tx = await ops[i]();
+        await tx.wait();
+      }
+      toast.success(`Records saved for ${full}`, { id: 'records' });
+      setActionModal(null);
+    } catch (err: any) {
+      console.error('[DNS] saveRecords', err);
+      toast.error(err?.shortMessage || err?.message || 'Save failed', { id: 'records' });
+    } finally {
+      setActionBusy(false);
+    }
+  }, [actionModal, wallet.signer, setShowWalletModal]);
+
+
+
 
   /* ------------------------------------------------------------------ */
   /*  handleSetPrimary — reverse record + registry resolver             */
