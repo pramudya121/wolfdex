@@ -1000,14 +1000,47 @@ export default function DomainsView() {
             <div>
               <h2 className="text-lg font-black text-foreground sm:text-2xl">My Domains</h2>
               <p className="text-xs text-muted-foreground">
-                NFT domains held by your wallet. Pin one as primary to display it everywhere on WolfDex.
+                NFT domains held by your wallet. Pin one as primary, manage records, renew, or transfer.
               </p>
             </div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-wolf-border/40 bg-wolf-surface/60 px-3 py-1.5 text-xs text-muted-foreground">
-              <ShieldCheck className="h-3.5 w-3.5 text-wolf-pink" />
-              {owned.length} owned
+            <div className="flex flex-wrap items-center gap-2">
+              {isConnected && owned.length > 0 && (
+                <>
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                      value={ownedFilter}
+                      onChange={e => setOwnedFilter(e.target.value.toLowerCase())}
+                      placeholder="Filter…"
+                      className="h-9 w-36 rounded-full border border-wolf-border/40 bg-wolf-surface/60 pl-8 pr-3 text-xs text-foreground outline-none transition focus:border-wolf-pink/60 focus:ring-1 focus:ring-wolf-pink/30"
+                    />
+                  </div>
+                  <button
+                    onClick={() => setSortMode(m => m === 'expiry-asc' ? 'expiry-desc' : m === 'expiry-desc' ? 'name-asc' : 'expiry-asc')}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-full border border-wolf-border/40 bg-wolf-surface/60 px-3 text-xs font-semibold text-foreground transition hover:border-wolf-pink/50 hover:text-wolf-pink"
+                    title="Change sort"
+                  >
+                    <ArrowUpDown className="h-3.5 w-3.5" />
+                    {sortMode === 'expiry-asc' ? 'Soonest' : sortMode === 'expiry-desc' ? 'Latest' : 'A–Z'}
+                  </button>
+                </>
+              )}
+              <button
+                onClick={loadOwned}
+                disabled={loadingOwned || !isConnected}
+                className="inline-flex h-9 items-center gap-1.5 rounded-full border border-wolf-border/40 bg-wolf-surface/60 px-3 text-xs font-semibold text-foreground transition hover:border-wolf-pink/50 hover:text-wolf-pink disabled:opacity-50"
+                title="Refresh"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${loadingOwned ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+              <div className="inline-flex items-center gap-2 rounded-full border border-wolf-border/40 bg-wolf-surface/60 px-3 py-1.5 text-xs text-muted-foreground">
+                <ShieldCheck className="h-3.5 w-3.5 text-wolf-pink" />
+                {owned.length} owned
+              </div>
             </div>
           </div>
+
 
           {!isConnected ? (
             <div className="grid place-items-center rounded-3xl border border-dashed border-wolf-border/40 bg-wolf-surface/30 py-14 text-center">
