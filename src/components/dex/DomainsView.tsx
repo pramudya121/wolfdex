@@ -141,6 +141,9 @@ export default function DomainsView() {
   const [stats, setStats] = useState<{ total: number; last24h: number } | null>(null);
   const [actionModal, setActionModal] = useState<ActionModal>(null);
   const [actionBusy, setActionBusy] = useState(false);
+  const [sortMode, setSortMode] = useState<SortMode>('expiry-asc');
+  const [ownedFilter, setOwnedFilter] = useState('');
+  const [refreshingActivity, setRefreshingActivity] = useState(false);
 
   const handleQueryChange = (raw: string) => {
     // Strip a trailing .wolf / .wolf. so pasting a full domain still works.
