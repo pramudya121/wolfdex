@@ -1201,7 +1201,16 @@ export default function DomainsView() {
                 Latest .{DNS_TLD} domains registered on-chain.
               </p>
             </div>
+            <button
+              onClick={async () => { setRefreshingActivity(true); await loadGlobal(); setRefreshingActivity(false); }}
+              disabled={refreshingActivity}
+              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-wolf-border/40 bg-wolf-surface/60 px-3 text-xs font-semibold text-foreground transition hover:border-wolf-pink/50 hover:text-wolf-pink disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${refreshingActivity ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
           </div>
+
 
           {activity.length === 0 ? (
             <div className="grid place-items-center rounded-3xl border border-dashed border-wolf-border/40 bg-wolf-surface/30 py-10 text-center text-xs text-muted-foreground">
