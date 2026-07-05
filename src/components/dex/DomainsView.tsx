@@ -25,6 +25,14 @@ import {
   Activity,
   AlertTriangle,
   TrendingUp,
+  Settings2,
+  ArrowUpDown,
+  Twitter,
+  Mail,
+  Link as LinkIcon,
+  Image as ImageIcon,
+  FileText,
+  Save,
 } from 'lucide-react';
 import { useDexContext } from '@/context/DexContext';
 import { CONTRACTS, CHAIN_CONFIG, DNS_TLD } from '@/config/contracts';
