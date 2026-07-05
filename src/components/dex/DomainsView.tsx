@@ -1262,11 +1262,15 @@ export default function DomainsView() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.98 }}
               onClick={e => e.stopPropagation()}
-              className="w-full max-w-md overflow-hidden rounded-3xl border border-wolf-border/50 bg-background p-6 shadow-2xl"
+              className={`w-full overflow-hidden rounded-3xl border border-wolf-border/50 bg-background p-6 shadow-2xl ${
+                actionModal.type === 'records' ? 'max-w-lg' : 'max-w-md'
+              }`}
             >
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-wolf-pink">
-                  {actionModal.type === 'renew' ? <><RefreshCw className="h-3.5 w-3.5" />Renew Domain</> : <><Send className="h-3.5 w-3.5" />Transfer Domain</>}
+                  {actionModal.type === 'renew' && <><RefreshCw className="h-3.5 w-3.5" />Renew Domain</>}
+                  {actionModal.type === 'transfer' && <><Send className="h-3.5 w-3.5" />Transfer Domain</>}
+                  {actionModal.type === 'records' && <><Settings2 className="h-3.5 w-3.5" />Manage Records</>}
                 </div>
                 <button onClick={() => !actionBusy && setActionModal(null)} className="rounded-lg p-1 text-muted-foreground transition hover:bg-wolf-surface hover:text-foreground">
                   <X className="h-4 w-4" />
@@ -1281,7 +1285,7 @@ export default function DomainsView() {
                 <div className="mt-1 text-xs text-muted-foreground">Expires {fmtDate(actionModal.domain.expires)}</div>
               </div>
 
-              {actionModal.type === 'renew' ? (
+              {actionModal.type === 'renew' && (
                 <>
                   <div className="mb-2 text-xs font-semibold text-foreground">Extend registration by</div>
                   <div className="mb-5 flex items-center gap-3 rounded-2xl border border-wolf-border/40 bg-wolf-surface/60 p-2">
@@ -1308,7 +1312,9 @@ export default function DomainsView() {
                     {actionBusy ? <><Loader2 className="h-4 w-4 animate-spin" />Renewing…</> : <><RefreshCw className="h-4 w-4" />Confirm Renewal</>}
                   </button>
                 </>
-              ) : (
+              )}
+
+              {actionModal.type === 'transfer' && (
                 <>
                   <div className="mb-2 text-xs font-semibold text-foreground">Recipient address</div>
                   <input
@@ -1331,7 +1337,60 @@ export default function DomainsView() {
                   </button>
                 </>
               )}
+
+              {actionModal.type === 'records' && (
+                <>
+                  {!actionModal.loaded ? (
+                    <div className="grid place-items-center py-10 text-xs text-muted-foreground">
+                      <Loader2 className="mb-2 h-5 w-5 animate-spin text-wolf-pink" />
+                      Loading on-chain records…
+                    </div>
+                  ) : (
+                    <>
+                      <p className="mb-4 text-[11px] text-muted-foreground">
+                        Publish public metadata for your domain. Each changed field triggers one on-chain transaction.
+                      </p>
+                      <div className="mb-5 grid gap-3 max-h-[60vh] overflow-y-auto pr-1">
+                        {[
+                          { key: 'address' as const, label: 'Resolved Address', icon: WalletIcon, placeholder: '0x… (EVM address)', mono: true },
+                          { key: 'twitter' as const, label: 'Twitter / X', icon: Twitter, placeholder: '@handle', mono: false },
+                          { key: 'email' as const, label: 'Email', icon: Mail, placeholder: 'you@wolf.xyz', mono: false },
+                          { key: 'url' as const, label: 'Website', icon: LinkIcon, placeholder: 'https://…', mono: false },
+                          { key: 'avatar' as const, label: 'Avatar URL', icon: ImageIcon, placeholder: 'https://…/avatar.png', mono: false },
+                          { key: 'description' as const, label: 'Description', icon: FileText, placeholder: 'A short bio', mono: false },
+                        ].map(f => (
+                          <label key={f.key} className="block">
+                            <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                              <f.icon className="h-3 w-3" />
+                              {f.label}
+                            </div>
+                            <input
+                              value={actionModal.draft[f.key]}
+                              onChange={e => setActionModal(m => (m && m.type === 'records'
+                                ? { ...m, draft: { ...m.draft, [f.key]: e.target.value } }
+                                : m))}
+                              placeholder={f.placeholder}
+                              spellCheck={false}
+                              className={`h-11 w-full rounded-xl border border-wolf-border/40 bg-wolf-surface/60 px-3 text-sm text-foreground outline-none transition focus:border-wolf-pink/60 focus:ring-1 focus:ring-wolf-pink/30 ${
+                                f.mono ? 'font-mono text-xs' : ''
+                              }`}
+                            />
+                          </label>
+                        ))}
+                      </div>
+                      <button
+                        onClick={handleSaveRecords}
+                        disabled={actionBusy}
+                        className="wolf-btn-primary flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-black disabled:opacity-70"
+                      >
+                        {actionBusy ? <><Loader2 className="h-4 w-4 animate-spin" />Saving…</> : <><Save className="h-4 w-4" />Save Records</>}
+                      </button>
+                    </>
+                  )}
+                </>
+              )}
             </motion.div>
+
           </motion.div>
         )}
       </AnimatePresence>
