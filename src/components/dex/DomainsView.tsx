@@ -117,6 +117,32 @@ const labelHash = (name: string) =>
   ethers.utils.solidityKeccak256(['string'], [name.toLowerCase()]);
 
 /* -------------------------------------------------------------------------- */
+/*  Local index of owned domains — survives across events/RPC lag             */
+/* -------------------------------------------------------------------------- */
+const OWNED_KEY = 'wolfdex.dns.owned';
+const readOwnedIndex = (addr: string): string[] => {
+  if (!addr || typeof window === 'undefined') return [];
+  try {
+    const map = JSON.parse(window.localStorage.getItem(OWNED_KEY) || '{}');
+    const arr = map[addr.toLowerCase()];
+    return Array.isArray(arr) ? arr.filter((n: unknown) => typeof n === 'string') : [];
+  } catch { return []; }
+};
+const writeOwnedIndex = (addr: string, names: string[]) => {
+  if (!addr || typeof window === 'undefined') return;
+  try {
+    const map = JSON.parse(window.localStorage.getItem(OWNED_KEY) || '{}');
+    map[addr.toLowerCase()] = Array.from(new Set(names.map(n => n.toLowerCase())));
+    window.localStorage.setItem(OWNED_KEY, JSON.stringify(map));
+  } catch { /* ignore */ }
+};
+const addOwnedIndex = (addr: string, name: string) => {
+  const cur = readOwnedIndex(addr);
+  if (!cur.includes(name.toLowerCase())) writeOwnedIndex(addr, [...cur, name]);
+};
+
+
+/* -------------------------------------------------------------------------- */
 /*  Component                                                                  */
 /* -------------------------------------------------------------------------- */
 
@@ -306,6 +332,24 @@ export default function DomainsView() {
       // instantly shows "name.wolf" in place of the raw wallet address.
       if (!primaryName) setPrimaryDomainLocal(address, name);
 
+      // Persist locally + optimistically insert so the card appears in
+      // "My Domains" right away without waiting for event indexing.
+      addOwnedIndex(address, name);
+      const nowSec = Math.floor(Date.now() / 1000);
+      const optimistic: OwnedDomain = {
+        name,
+        tokenId: labelHash(name),
+        expires: nowSec + duration,
+        primary: !primaryName,
+      };
+      setOwned(prev => {
+        const filtered = prev.filter(d => d.name !== name);
+        return [
+          optimistic,
+          ...filtered.map(d => ({ ...d, primary: !primaryName ? false : d.primary })),
+        ];
+      });
+
       toast.success(`🎉 ${name}.${DNS_TLD} is yours!${!primaryName ? ' Set as primary.' : ''}`, { id: 'mint' });
       setAvailability({ state: 'idle' });
       setQuery('');
@@ -317,11 +361,12 @@ export default function DomainsView() {
       setMinting(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [availability, address, wallet.signer, years, setShowWalletModal]);
+  }, [availability, address, wallet.signer, years, setShowWalletModal, primaryName]);
 
   /* ------------------------------------------------------------------ */
-  /*  loadOwned — index via DomainRegistered event + verify ownership   */
+  /*  loadOwned — merge local index + on-chain discovery, verify owner  */
   /* ------------------------------------------------------------------ */
+
   const loadOwned = useCallback(async () => {
     if (!address) { setOwned([]); return; }
     setLoadingOwned(true);
@@ -330,49 +375,54 @@ export default function DomainsView() {
       const controller = new ethers.Contract(CONTRACTS.DNS_CONTROLLER, DNS_CONTROLLER_ABI, provider);
       const registrar = new ethers.Contract(CONTRACTS.DNS_BASE_REGISTRAR, DNS_BASE_REGISTRAR_ABI, provider);
       const resolver = new ethers.Contract(CONTRACTS.DNS_RESOLVER, DNS_RESOLVER_ABI, provider);
+      const iface = controller.interface;
 
       const currentBlock = await provider.getBlockNumber();
       const fromBlock = Math.max(0, currentBlock - 500_000);
 
-      // Query DomainRegistered(name indexed, owner indexed, ...) — gives us the
-      // human-readable name (via topic) plus the owner filter.
+      // Query DomainRegistered filtered by owner. The `name` param is an
+      // indexed string, so the topic only stores its keccak — the human
+      // readable label is NOT recoverable from event args. Decode the
+      // originating tx calldata (register(name, ...)) to recover it.
       const filter = controller.filters.DomainRegistered(null, address);
       const logs = await controller.queryFilter(filter, fromBlock).catch(() => [] as ethers.Event[]);
+
+      const discovered = new Set<string>(readOwnedIndex(address));
+      await Promise.all(logs.map(async log => {
+        try {
+          const tx = await provider.getTransaction(log.transactionHash);
+          if (!tx?.data) return;
+          const parsed = iface.parseTransaction({ data: tx.data, value: tx.value });
+          if (parsed.name === 'register' && typeof parsed.args?.[0] === 'string') {
+            discovered.add(String(parsed.args[0]).toLowerCase());
+          }
+        } catch { /* skip */ }
+      }));
 
       const reverse: string = await resolver.getReverse(address).catch(() => '');
       const primaryLabel = reverse ? reverse.split('.')[0] : '';
 
-      // Names come from event args (unindexed string). If a projector only
-      // exposes the keccak, fall back to a hex snippet.
-      const seen = new Map<string, OwnedDomain>();
-      for (const log of logs) {
+      const results = await Promise.all(Array.from(discovered).map(async (name): Promise<OwnedDomain | null> => {
         try {
-          const name: string =
-            typeof log.args?.name === 'string' && log.args.name.length > 0
-              ? log.args.name
-              : '';
-          if (!name) continue;
           const tokenId = labelHash(name);
           const [owner, expires] = await Promise.all([
             registrar.ownerOf(tokenId).catch(() => ethers.constants.AddressZero),
             registrar.expiries(tokenId).catch(() => ethers.BigNumber.from(0)),
           ]);
-          if (owner.toLowerCase() !== address.toLowerCase()) continue;
-          seen.set(tokenId, {
-            name,
-            tokenId,
-            expires: Number(expires),
-            primary: name === primaryLabel,
-          });
-        } catch { /* skip */ }
-      }
+          if (owner.toLowerCase() !== address.toLowerCase()) return null;
+          return { name, tokenId, expires: Number(expires), primary: name === primaryLabel };
+        } catch { return null; }
+      }));
 
-      setOwned(Array.from(seen.values()).sort((a, b) => b.expires - a.expires));
+      const valid = results.filter((d): d is OwnedDomain => !!d);
+      writeOwnedIndex(address, valid.map(d => d.name));
+      setOwned(valid.sort((a, b) => a.expires - b.expires));
     } catch (err) {
       console.error('[DNS] loadOwned', err);
     } finally {
       setLoadingOwned(false);
     }
+
   }, [address]);
 
   useEffect(() => { loadOwned(); }, [loadOwned]);
@@ -1091,36 +1141,64 @@ export default function DomainsView() {
                         : status.tone === 'warn'
                         ? 'border-amber-500/40 bg-amber-500/15 text-amber-400'
                         : 'border-wolf-border/40 bg-wolf-surface/60 text-muted-foreground';
+                    const initial = domain.name.charAt(0).toUpperCase();
+                    const tokenChip = `${domain.tokenId.slice(2, 6)}…${domain.tokenId.slice(-4)}`;
                     return (
                       <motion.article
                         key={domain.tokenId}
                         initial={{ opacity: 0, y: 12 }}
                         animate={{ opacity: 1, y: 0 }}
-                        whileHover={{ y: -3 }}
-                        className={`group relative overflow-hidden rounded-3xl border p-5 shadow-lg transition ${
+                        whileHover={{ y: -6, rotateX: 2, rotateY: -2, scale: 1.015 }}
+                        transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+                        style={{ transformStyle: 'preserve-3d' }}
+                        className={`group relative overflow-hidden rounded-3xl border p-5 shadow-xl transition [perspective:1000px] ${
                           domain.primary
-                            ? 'border-wolf-pink/50 bg-gradient-to-br from-wolf-pink/15 via-background to-background'
-                            : 'border-wolf-border/40 bg-wolf-surface/50'
+                            ? 'border-wolf-pink/60 bg-gradient-to-br from-wolf-pink/20 via-background to-wolf-gold/10 shadow-[0_20px_60px_-20px_oklch(0.7_0.28_330_/_60%)]'
+                            : 'border-wolf-border/40 bg-gradient-to-br from-wolf-surface/60 via-background to-wolf-surface/30'
                         }`}
                       >
-                        <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-wolf-pink/10 blur-3xl transition group-hover:bg-wolf-pink/20" />
-                        <div className="relative flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Domain NFT</div>
-                            <button
-                              onClick={() => {
-                                navigator.clipboard.writeText(`${domain.name}.${DNS_TLD}`);
-                                toast.success('Domain copied');
-                              }}
-                              className="mt-1 flex max-w-full items-center gap-1.5 truncate text-left text-xl font-black text-foreground transition hover:text-wolf-pink"
-                              title="Copy domain"
+                        {/* Ambient glow orbs */}
+                        <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-wolf-pink/15 blur-3xl transition group-hover:bg-wolf-pink/30" />
+                        <div className="pointer-events-none absolute -bottom-12 -left-12 h-32 w-32 rounded-full bg-wolf-gold/10 blur-3xl transition group-hover:bg-wolf-gold/20" />
+                        {/* Shimmer sweep on hover */}
+                        <span
+                          aria-hidden
+                          className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/5 to-transparent transition-transform duration-1000 group-hover:translate-x-full"
+                        />
+
+                        <div className="relative flex items-start justify-between gap-3">
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div
+                              className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl border text-lg font-black shadow-lg ${
+                                domain.primary
+                                  ? 'border-wolf-pink/50 bg-gradient-to-br from-wolf-pink to-wolf-gold text-white'
+                                  : 'border-wolf-border/40 bg-gradient-to-br from-wolf-surface to-background text-wolf-pink'
+                              }`}
                             >
-                              <span className="truncate">
-                                {domain.name}
-                                <span className="text-wolf-pink">.{DNS_TLD}</span>
-                              </span>
-                              <Copy className="h-3.5 w-3.5 opacity-0 transition group-hover:opacity-70" />
-                            </button>
+                              {initial}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                                Domain NFT
+                                <span className="rounded-md border border-wolf-border/40 bg-wolf-surface/60 px-1.5 py-px font-mono text-[9px] text-muted-foreground">
+                                  #{tokenChip}
+                                </span>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(`${domain.name}.${DNS_TLD}`);
+                                  toast.success('Domain copied');
+                                }}
+                                className="mt-0.5 flex max-w-full items-center gap-1.5 truncate text-left text-xl font-black text-foreground transition hover:text-wolf-pink"
+                                title="Copy domain"
+                              >
+                                <span className="truncate">
+                                  {domain.name}
+                                  <span className="wolf-gradient-text">.{DNS_TLD}</span>
+                                </span>
+                                <Copy className="h-3.5 w-3.5 opacity-0 transition group-hover:opacity-70" />
+                              </button>
+                            </div>
                           </div>
                           <div className="flex flex-col items-end gap-1">
                             {domain.primary && (
@@ -1135,9 +1213,20 @@ export default function DomainsView() {
                           </div>
                         </div>
 
-                        <div className="relative mt-4 flex items-center gap-2 text-xs text-muted-foreground">
-                          <Clock className="h-3.5 w-3.5 text-wolf-gold" />
-                          Expires {fmtDate(domain.expires)}
+                        <div className="relative mt-4 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1.5">
+                            <Clock className="h-3.5 w-3.5 text-wolf-gold" />
+                            Expires {fmtDate(domain.expires)}
+                          </span>
+                          <a
+                            href={`${CHAIN_CONFIG.blockExplorer}/token/${CONTRACTS.DNS_BASE_REGISTRAR}?a=${domain.tokenId}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground transition hover:bg-wolf-surface hover:text-wolf-pink"
+                            title="View on explorer"
+                          >
+                            <ExternalLink className="h-3 w-3" /> Explorer
+                          </a>
                         </div>
 
                         <div className="relative mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -1147,7 +1236,7 @@ export default function DomainsView() {
                             className={`flex items-center justify-center gap-1.5 rounded-xl border px-2 py-2.5 text-[11px] font-bold transition ${
                               domain.primary
                                 ? 'cursor-default border-wolf-pink/30 bg-wolf-pink/10 text-wolf-pink/80'
-                                : 'border-wolf-border/40 bg-background/60 text-foreground hover:border-wolf-pink/50 hover:bg-wolf-pink/10'
+                                : 'border-wolf-border/40 bg-background/60 text-foreground hover:border-wolf-pink/50 hover:bg-wolf-pink/10 hover:text-wolf-pink'
                             }`}
                             title={domain.primary ? 'Already primary' : 'Set as primary'}
                           >
@@ -1181,6 +1270,7 @@ export default function DomainsView() {
                         </div>
                       </motion.article>
                     );
+
                   })}
                 </div>
               );
