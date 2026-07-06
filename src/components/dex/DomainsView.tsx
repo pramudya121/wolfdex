@@ -435,33 +435,6 @@ export default function DomainsView() {
       setOwned(valid.sort((a, b) => a.expires - b.expires));
 
 
-      // Names come from event args (unindexed string). If a projector only
-      // exposes the keccak, fall back to a hex snippet.
-      const seen = new Map<string, OwnedDomain>();
-      for (const log of logs) {
-        try {
-          const name: string =
-            typeof log.args?.name === 'string' && log.args.name.length > 0
-              ? log.args.name
-              : '';
-          if (!name) continue;
-          const tokenId = labelHash(name);
-          const [owner, expires] = await Promise.all([
-            registrar.ownerOf(tokenId).catch(() => ethers.constants.AddressZero),
-            registrar.expiries(tokenId).catch(() => ethers.BigNumber.from(0)),
-          ]);
-          if (owner.toLowerCase() !== address.toLowerCase()) continue;
-          seen.set(tokenId, {
-            name,
-            tokenId,
-            expires: Number(expires),
-            primary: name === primaryLabel,
-          });
-        } catch { /* skip */ }
-      }
-
-      setOwned(Array.from(seen.values()).sort((a, b) => b.expires - a.expires));
-    } catch (err) {
       console.error('[DNS] loadOwned', err);
     } finally {
       setLoadingOwned(false);
