@@ -417,12 +417,12 @@ export default function DomainsView() {
       const valid = results.filter((d): d is OwnedDomain => !!d);
       writeOwnedIndex(address, valid.map(d => d.name));
       setOwned(valid.sort((a, b) => a.expires - b.expires));
-
-
+    } catch (err) {
       console.error('[DNS] loadOwned', err);
     } finally {
       setLoadingOwned(false);
     }
+
   }, [address]);
 
   useEffect(() => { loadOwned(); }, [loadOwned]);
