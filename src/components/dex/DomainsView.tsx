@@ -348,6 +348,41 @@ export default function DomainsView() {
   /* ------------------------------------------------------------------ */
   /*  loadOwned — index via DomainRegistered event + verify ownership   */
   /* ------------------------------------------------------------------ */
+      // First-ever mint for this address → auto-pin as primary so the header
+      // instantly shows "name.wolf" in place of the raw wallet address.
+      if (!primaryName) setPrimaryDomainLocal(address, name);
+
+      // Persist locally + optimistically insert so the card appears in
+      // "My Domains" right away without waiting for event indexing.
+      addOwnedIndex(address, name);
+      const nowSec = Math.floor(Date.now() / 1000);
+      const optimistic: OwnedDomain = {
+        name,
+        tokenId: labelHash(name),
+        expires: nowSec + duration,
+        primary: !primaryName,
+      };
+      setOwned(prev => {
+        const filtered = prev.filter(d => d.name !== name);
+        return [optimistic, ...filtered.map(d => ({ ...d, primary: !primaryName ? false : d.primary }))];
+      });
+
+      toast.success(`🎉 ${name}.${DNS_TLD} is yours!${!primaryName ? ' Set as primary.' : ''}`, { id: 'mint' });
+      setAvailability({ state: 'idle' });
+      setQuery('');
+      loadOwned();
+    } catch (err: any) {
+      console.error('[DNS] mint', err);
+      toast.error(err?.shortMessage || err?.message || 'Mint failed', { id: 'mint' });
+    } finally {
+      setMinting(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availability, address, wallet.signer, years, setShowWalletModal, primaryName]);
+
+  /* ------------------------------------------------------------------ */
+  /*  loadOwned — merge local index + on-chain discovery, verify owner  */
+  /* ------------------------------------------------------------------ */
   const loadOwned = useCallback(async () => {
     if (!address) { setOwned([]); return; }
     setLoadingOwned(true);
@@ -356,17 +391,49 @@ export default function DomainsView() {
       const controller = new ethers.Contract(CONTRACTS.DNS_CONTROLLER, DNS_CONTROLLER_ABI, provider);
       const registrar = new ethers.Contract(CONTRACTS.DNS_BASE_REGISTRAR, DNS_BASE_REGISTRAR_ABI, provider);
       const resolver = new ethers.Contract(CONTRACTS.DNS_RESOLVER, DNS_RESOLVER_ABI, provider);
+      const iface = controller.interface;
 
       const currentBlock = await provider.getBlockNumber();
       const fromBlock = Math.max(0, currentBlock - 500_000);
 
-      // Query DomainRegistered(name indexed, owner indexed, ...) — gives us the
-      // human-readable name (via topic) plus the owner filter.
+      // Query DomainRegistered filtered by owner. The `name` param is an
+      // indexed string, so the topic only stores its keccak — the human
+      // readable label is NOT recoverable from event args. Decode the
+      // originating tx calldata (register(name, ...)) to recover it.
       const filter = controller.filters.DomainRegistered(null, address);
       const logs = await controller.queryFilter(filter, fromBlock).catch(() => [] as ethers.Event[]);
 
+      const discovered = new Set<string>(readOwnedIndex(address));
+      await Promise.all(logs.map(async log => {
+        try {
+          const tx = await provider.getTransaction(log.transactionHash);
+          if (!tx?.data) return;
+          const parsed = iface.parseTransaction({ data: tx.data, value: tx.value });
+          if (parsed.name === 'register' && typeof parsed.args?.[0] === 'string') {
+            discovered.add(String(parsed.args[0]).toLowerCase());
+          }
+        } catch { /* skip */ }
+      }));
+
       const reverse: string = await resolver.getReverse(address).catch(() => '');
       const primaryLabel = reverse ? reverse.split('.')[0] : '';
+
+      const results = await Promise.all(Array.from(discovered).map(async (name): Promise<OwnedDomain | null> => {
+        try {
+          const tokenId = labelHash(name);
+          const [owner, expires] = await Promise.all([
+            registrar.ownerOf(tokenId).catch(() => ethers.constants.AddressZero),
+            registrar.expiries(tokenId).catch(() => ethers.BigNumber.from(0)),
+          ]);
+          if (owner.toLowerCase() !== address.toLowerCase()) return null;
+          return { name, tokenId, expires: Number(expires), primary: name === primaryLabel };
+        } catch { return null; }
+      }));
+
+      const valid = results.filter((d): d is OwnedDomain => !!d);
+      writeOwnedIndex(address, valid.map(d => d.name));
+      setOwned(valid.sort((a, b) => a.expires - b.expires));
+
 
       // Names come from event args (unindexed string). If a projector only
       // exposes the keccak, fall back to a hex snippet.
