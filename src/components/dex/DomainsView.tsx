@@ -117,6 +117,32 @@ const labelHash = (name: string) =>
   ethers.utils.solidityKeccak256(['string'], [name.toLowerCase()]);
 
 /* -------------------------------------------------------------------------- */
+/*  Local index of owned domains — survives across events/RPC lag             */
+/* -------------------------------------------------------------------------- */
+const OWNED_KEY = 'wolfdex.dns.owned';
+const readOwnedIndex = (addr: string): string[] => {
+  if (!addr || typeof window === 'undefined') return [];
+  try {
+    const map = JSON.parse(window.localStorage.getItem(OWNED_KEY) || '{}');
+    const arr = map[addr.toLowerCase()];
+    return Array.isArray(arr) ? arr.filter((n: unknown) => typeof n === 'string') : [];
+  } catch { return []; }
+};
+const writeOwnedIndex = (addr: string, names: string[]) => {
+  if (!addr || typeof window === 'undefined') return;
+  try {
+    const map = JSON.parse(window.localStorage.getItem(OWNED_KEY) || '{}');
+    map[addr.toLowerCase()] = Array.from(new Set(names.map(n => n.toLowerCase())));
+    window.localStorage.setItem(OWNED_KEY, JSON.stringify(map));
+  } catch { /* ignore */ }
+};
+const addOwnedIndex = (addr: string, name: string) => {
+  const cur = readOwnedIndex(addr);
+  if (!cur.includes(name.toLowerCase())) writeOwnedIndex(addr, [...cur, name]);
+};
+
+
+/* -------------------------------------------------------------------------- */
 /*  Component                                                                  */
 /* -------------------------------------------------------------------------- */
 
