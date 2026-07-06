@@ -332,26 +332,6 @@ export default function DomainsView() {
       // instantly shows "name.wolf" in place of the raw wallet address.
       if (!primaryName) setPrimaryDomainLocal(address, name);
 
-      toast.success(`🎉 ${name}.${DNS_TLD} is yours!${!primaryName ? ' Set as primary.' : ''}`, { id: 'mint' });
-      setAvailability({ state: 'idle' });
-      setQuery('');
-      loadOwned();
-    } catch (err: any) {
-      console.error('[DNS] mint', err);
-      toast.error(err?.shortMessage || err?.message || 'Mint failed', { id: 'mint' });
-    } finally {
-      setMinting(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [availability, address, wallet.signer, years, setShowWalletModal]);
-
-  /* ------------------------------------------------------------------ */
-  /*  loadOwned — index via DomainRegistered event + verify ownership   */
-  /* ------------------------------------------------------------------ */
-      // First-ever mint for this address → auto-pin as primary so the header
-      // instantly shows "name.wolf" in place of the raw wallet address.
-      if (!primaryName) setPrimaryDomainLocal(address, name);
-
       // Persist locally + optimistically insert so the card appears in
       // "My Domains" right away without waiting for event indexing.
       addOwnedIndex(address, name);
@@ -364,7 +344,10 @@ export default function DomainsView() {
       };
       setOwned(prev => {
         const filtered = prev.filter(d => d.name !== name);
-        return [optimistic, ...filtered.map(d => ({ ...d, primary: !primaryName ? false : d.primary }))];
+        return [
+          optimistic,
+          ...filtered.map(d => ({ ...d, primary: !primaryName ? false : d.primary })),
+        ];
       });
 
       toast.success(`🎉 ${name}.${DNS_TLD} is yours!${!primaryName ? ' Set as primary.' : ''}`, { id: 'mint' });
@@ -383,6 +366,7 @@ export default function DomainsView() {
   /* ------------------------------------------------------------------ */
   /*  loadOwned — merge local index + on-chain discovery, verify owner  */
   /* ------------------------------------------------------------------ */
+
   const loadOwned = useCallback(async () => {
     if (!address) { setOwned([]); return; }
     setLoadingOwned(true);
