@@ -1141,36 +1141,64 @@ export default function DomainsView() {
                         : status.tone === 'warn'
                         ? 'border-amber-500/40 bg-amber-500/15 text-amber-400'
                         : 'border-wolf-border/40 bg-wolf-surface/60 text-muted-foreground';
+                    const initial = domain.name.charAt(0).toUpperCase();
+                    const tokenChip = `${domain.tokenId.slice(2, 6)}…${domain.tokenId.slice(-4)}`;
                     return (
                       <motion.article
                         key={domain.tokenId}
                         initial={{ opacity: 0, y: 12 }}
                         animate={{ opacity: 1, y: 0 }}
-                        whileHover={{ y: -3 }}
-                        className={`group relative overflow-hidden rounded-3xl border p-5 shadow-lg transition ${
+                        whileHover={{ y: -6, rotateX: 2, rotateY: -2, scale: 1.015 }}
+                        transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+                        style={{ transformStyle: 'preserve-3d' }}
+                        className={`group relative overflow-hidden rounded-3xl border p-5 shadow-xl transition [perspective:1000px] ${
                           domain.primary
-                            ? 'border-wolf-pink/50 bg-gradient-to-br from-wolf-pink/15 via-background to-background'
-                            : 'border-wolf-border/40 bg-wolf-surface/50'
+                            ? 'border-wolf-pink/60 bg-gradient-to-br from-wolf-pink/20 via-background to-wolf-gold/10 shadow-[0_20px_60px_-20px_oklch(0.7_0.28_330_/_60%)]'
+                            : 'border-wolf-border/40 bg-gradient-to-br from-wolf-surface/60 via-background to-wolf-surface/30'
                         }`}
                       >
-                        <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-wolf-pink/10 blur-3xl transition group-hover:bg-wolf-pink/20" />
-                        <div className="relative flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Domain NFT</div>
-                            <button
-                              onClick={() => {
-                                navigator.clipboard.writeText(`${domain.name}.${DNS_TLD}`);
-                                toast.success('Domain copied');
-                              }}
-                              className="mt-1 flex max-w-full items-center gap-1.5 truncate text-left text-xl font-black text-foreground transition hover:text-wolf-pink"
-                              title="Copy domain"
+                        {/* Ambient glow orbs */}
+                        <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-wolf-pink/15 blur-3xl transition group-hover:bg-wolf-pink/30" />
+                        <div className="pointer-events-none absolute -bottom-12 -left-12 h-32 w-32 rounded-full bg-wolf-gold/10 blur-3xl transition group-hover:bg-wolf-gold/20" />
+                        {/* Shimmer sweep on hover */}
+                        <span
+                          aria-hidden
+                          className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/5 to-transparent transition-transform duration-1000 group-hover:translate-x-full"
+                        />
+
+                        <div className="relative flex items-start justify-between gap-3">
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div
+                              className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl border text-lg font-black shadow-lg ${
+                                domain.primary
+                                  ? 'border-wolf-pink/50 bg-gradient-to-br from-wolf-pink to-wolf-gold text-white'
+                                  : 'border-wolf-border/40 bg-gradient-to-br from-wolf-surface to-background text-wolf-pink'
+                              }`}
                             >
-                              <span className="truncate">
-                                {domain.name}
-                                <span className="text-wolf-pink">.{DNS_TLD}</span>
-                              </span>
-                              <Copy className="h-3.5 w-3.5 opacity-0 transition group-hover:opacity-70" />
-                            </button>
+                              {initial}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                                Domain NFT
+                                <span className="rounded-md border border-wolf-border/40 bg-wolf-surface/60 px-1.5 py-px font-mono text-[9px] text-muted-foreground">
+                                  #{tokenChip}
+                                </span>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(`${domain.name}.${DNS_TLD}`);
+                                  toast.success('Domain copied');
+                                }}
+                                className="mt-0.5 flex max-w-full items-center gap-1.5 truncate text-left text-xl font-black text-foreground transition hover:text-wolf-pink"
+                                title="Copy domain"
+                              >
+                                <span className="truncate">
+                                  {domain.name}
+                                  <span className="wolf-gradient-text">.{DNS_TLD}</span>
+                                </span>
+                                <Copy className="h-3.5 w-3.5 opacity-0 transition group-hover:opacity-70" />
+                              </button>
+                            </div>
                           </div>
                           <div className="flex flex-col items-end gap-1">
                             {domain.primary && (
@@ -1185,9 +1213,20 @@ export default function DomainsView() {
                           </div>
                         </div>
 
-                        <div className="relative mt-4 flex items-center gap-2 text-xs text-muted-foreground">
-                          <Clock className="h-3.5 w-3.5 text-wolf-gold" />
-                          Expires {fmtDate(domain.expires)}
+                        <div className="relative mt-4 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1.5">
+                            <Clock className="h-3.5 w-3.5 text-wolf-gold" />
+                            Expires {fmtDate(domain.expires)}
+                          </span>
+                          <a
+                            href={`${CHAIN_CONFIG.blockExplorer}/token/${CONTRACTS.DNS_BASE_REGISTRAR}?a=${domain.tokenId}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground transition hover:bg-wolf-surface hover:text-wolf-pink"
+                            title="View on explorer"
+                          >
+                            <ExternalLink className="h-3 w-3" /> Explorer
+                          </a>
                         </div>
 
                         <div className="relative mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -1197,7 +1236,7 @@ export default function DomainsView() {
                             className={`flex items-center justify-center gap-1.5 rounded-xl border px-2 py-2.5 text-[11px] font-bold transition ${
                               domain.primary
                                 ? 'cursor-default border-wolf-pink/30 bg-wolf-pink/10 text-wolf-pink/80'
-                                : 'border-wolf-border/40 bg-background/60 text-foreground hover:border-wolf-pink/50 hover:bg-wolf-pink/10'
+                                : 'border-wolf-border/40 bg-background/60 text-foreground hover:border-wolf-pink/50 hover:bg-wolf-pink/10 hover:text-wolf-pink'
                             }`}
                             title={domain.primary ? 'Already primary' : 'Set as primary'}
                           >
@@ -1231,6 +1270,7 @@ export default function DomainsView() {
                         </div>
                       </motion.article>
                     );
+
                   })}
                 </div>
               );
