@@ -19,12 +19,17 @@ interface SwapCardProps {
   error: string | null;
   isConnected: boolean;
   onConnectClick: () => void;
+  /** Pre-select the "pay with" token (defaults to native zkLTC). */
+  initialFrom?: TokenInfo;
+  /** Pre-select the "receive" token (defaults to wrapped native). */
+  initialTo?: TokenInfo;
 }
 
-export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwap, getTokenBalance, loading, txHash, error, isConnected, onConnectClick }: SwapCardProps) {
+export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwap, getTokenBalance, loading, txHash, error, isConnected, onConnectClick, initialFrom, initialTo }: SwapCardProps) {
   const { slippage, deadline } = useTxSettings();
-  const [fromToken, setFromToken] = useState<TokenInfo>(NATIVE_TOKEN);
-  const [toToken, setToToken] = useState<TokenInfo>(TOKENS[1]);
+  const [fromToken, setFromToken] = useState<TokenInfo>(initialFrom ?? NATIVE_TOKEN);
+  const [toToken, setToToken] = useState<TokenInfo>(initialTo ?? TOKENS[1]);
+
   const [fromAmount, setFromAmount] = useState('');
   const [toAmount, setToAmount] = useState('');
   const [fromBalance, setFromBalance] = useState('0');
