@@ -141,10 +141,11 @@ export const TOKENS: TokenInfo[] = [
   {
     address: '0x7EBfD15BDC2f222649100AC59727B5AADee03f5c',
     symbol: 'USDC',
-    name: 'USD Coin',
+    name: 'USDC',
     decimals: 18,
     logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/3408.png',
   },
+
 ];
 
 
