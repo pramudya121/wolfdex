@@ -58,7 +58,9 @@ export const FAUCET_TOKENS: { index: number; symbol: string }[] = [
   { index: 4, symbol: 'ETH' },
   { index: 5, symbol: 'LITVM' },
   { index: 6, symbol: 'WDEX' },
+  { index: 7, symbol: 'USDC' },
 ];
+
 
 export interface TokenInfo {
   address: string;
