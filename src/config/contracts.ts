@@ -58,7 +58,9 @@ export const FAUCET_TOKENS: { index: number; symbol: string }[] = [
   { index: 4, symbol: 'ETH' },
   { index: 5, symbol: 'LITVM' },
   { index: 6, symbol: 'WDEX' },
+  { index: 7, symbol: 'USDC' },
 ];
+
 
 export interface TokenInfo {
   address: string;
@@ -136,7 +138,16 @@ export const TOKENS: TokenInfo[] = [
     decimals: 18,
     logo: '/images/multy-logo.jpg',
   },
+  {
+    address: '0x7EBfD15BDC2f222649100AC59727B5AADee03f5c',
+    symbol: 'USDC',
+    name: 'USDC',
+    decimals: 18,
+    logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/3408.png',
+  },
+
 ];
+
 
 /**
  * Address-level blocklist for tokens identified as scams / impostors.
