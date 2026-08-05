@@ -20,6 +20,8 @@ const NAV_ITEMS = [
   { path: '/portfolio', label: 'Portfolio' },
   { path: '/faucet', label: 'Faucet' },
   { path: '/launchpad', label: 'Launchpad' },
+  { path: '/market', label: 'Market' },
+
   { path: '/domains', label: 'Domains' },
   { path: '/docs', label: 'Docs' },
 ] as const;
