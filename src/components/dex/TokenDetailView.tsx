@@ -19,6 +19,7 @@ import { fmt, age } from './market/MarketTokenCard';
 import Sparkline from './market/Sparkline';
 import PairChart from './PairChart';
 import RecentTrades from './market/RecentTrades';
+import TokenPools from './market/TokenPools';
 import SwapCard from './SwapCard';
 
 interface OnChain {
