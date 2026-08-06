@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ethers } from 'ethers';
-import { CONTRACTS, CHAIN_CONFIG } from '@/config/contracts';
 import { PAIR_ABI } from '@/config/abis';
+import { getReadProvider } from '@/lib/rpc';
 
 /**
  * Per-pair OHLC candles built from the pair's `Swap` events.
@@ -80,7 +80,7 @@ export function usePairOHLC(
     }
     setLoading(true); setError(null);
     try {
-      const provider = new ethers.providers.JsonRpcProvider(CHAIN_CONFIG.rpcUrl);
+      const provider = getReadProvider();
       const pair = new ethers.Contract(pairAddress, PAIR_ABI, provider);
       const head = await provider.getBlockNumber();
       const from = Math.max(0, head - lookback);
