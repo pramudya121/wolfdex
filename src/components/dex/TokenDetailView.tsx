@@ -19,6 +19,7 @@ import { fmt, age } from './market/MarketTokenCard';
 import Sparkline from './market/Sparkline';
 import PairChart from './PairChart';
 import RecentTrades from './market/RecentTrades';
+import TokenPools from './market/TokenPools';
 import SwapCard from './SwapCard';
 
 interface OnChain {
@@ -270,15 +271,19 @@ export default function TokenDetailView({ address: rawAddress }: { address: stri
         </div>
       </div>
 
-      {/* Trades */}
-      <div className="mt-5">
-        <RecentTrades
-          pair={market?.pair ?? null}
-          tokenAddress={address}
-          symbol={symbol}
-          decimals={decimals}
-        />
+      {/* Trades + pools */}
+      <div className="mt-5 grid lg:grid-cols-3 gap-5 items-start">
+        <div className="lg:col-span-2">
+          <RecentTrades
+            pair={market?.pair ?? null}
+            tokenAddress={address}
+            symbol={symbol}
+            decimals={decimals}
+          />
+        </div>
+        <TokenPools tokenAddress={address} symbol={symbol} decimals={decimals} />
       </div>
+
 
       <div className="mt-6 text-[11px] text-center text-muted-foreground">
         Network: {CHAIN_CONFIG.chainName} (Chain ID {CHAIN_CONFIG.chainId}) · Router {CONTRACTS.ROUTER.slice(0, 8)}…
