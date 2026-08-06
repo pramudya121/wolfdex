@@ -270,6 +270,16 @@ export default function TokenDetailView({ address: rawAddress }: { address: stri
         </div>
       </div>
 
+      {/* Trades */}
+      <div className="mt-5">
+        <RecentTrades
+          pair={market?.pair ?? null}
+          tokenAddress={address}
+          symbol={symbol}
+          decimals={decimals}
+        />
+      </div>
+
       <div className="mt-6 text-[11px] text-center text-muted-foreground">
         Network: {CHAIN_CONFIG.chainName} (Chain ID {CHAIN_CONFIG.chainId}) · Router {CONTRACTS.ROUTER.slice(0, 8)}…
       </div>
