@@ -18,6 +18,7 @@ import { useDexContext } from '@/context/DexContext';
 import { fmt, age } from './market/MarketTokenCard';
 import Sparkline from './market/Sparkline';
 import PairChart from './PairChart';
+import RecentTrades from './market/RecentTrades';
 import SwapCard from './SwapCard';
 
 interface OnChain {
@@ -267,6 +268,16 @@ export default function TokenDetailView({ address: rawAddress }: { address: stri
             </Link>
           </div>
         </div>
+      </div>
+
+      {/* Trades */}
+      <div className="mt-5">
+        <RecentTrades
+          pair={market?.pair ?? null}
+          tokenAddress={address}
+          symbol={symbol}
+          decimals={decimals}
+        />
       </div>
 
       <div className="mt-6 text-[11px] text-center text-muted-foreground">
