@@ -18,6 +18,7 @@ import { useDexContext } from '@/context/DexContext';
 import { fmt, age } from './market/MarketTokenCard';
 import Sparkline from './market/Sparkline';
 import PairChart from './PairChart';
+import RecentTrades from './market/RecentTrades';
 import SwapCard from './SwapCard';
 
 interface OnChain {
