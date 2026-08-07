@@ -17,20 +17,39 @@ const INTERVALS: { label: string; value: number }[] = [
   { label: '1d',  value: 86400 },
 ];
 
+/** Visible time window (seconds) applied on top of the indexed candles. */
+const RANGES: { label: string; seconds: number }[] = [
+  { label: '1D',  seconds: 86_400 },
+  { label: '7D',  seconds: 604_800 },
+  { label: '30D', seconds: 2_592_000 },
+  { label: 'All', seconds: 0 },
+];
+
 export default function PairChart({
   pairAddress,
   baseSymbol,
   quoteSymbol,
   height = 320,
+  defaultInterval = 3600,
 }: {
   pairAddress: string;
   baseSymbol?: string;
   quoteSymbol?: string;
   height?: number;
+  defaultInterval?: number;
 }) {
-  const [interval, setInterval] = useState(3600);
+  const [interval, setInterval] = useState(defaultInterval);
+  const [range, setRange] = useState(0);
   const [invert, setInvert] = useState(false);
-  const { candles, loading, error, refresh } = usePairOHLC(pairAddress, { interval, invert });
+  const { candles: allCandles, loading, error, refresh } = usePairOHLC(pairAddress, { interval, invert });
+
+  const candles = useMemo(() => {
+    if (range === 0 || allCandles.length === 0) return allCandles;
+    const cutoff = allCandles[allCandles.length - 1].t - range;
+    const win = allCandles.filter(c => c.t >= cutoff);
+    return win.length > 0 ? win : allCandles;
+  }, [allCandles, range]);
+
 
   const data = useMemo(() =>
     candles.map((c: Candle) => ({
@@ -74,7 +93,22 @@ export default function PairChart({
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1 rounded-lg bg-wolf-surface/60 p-0.5">
+            {RANGES.map(opt => (
+              <button
+                key={opt.label}
+                onClick={() => setRange(opt.seconds)}
+                className={`px-2 py-1 rounded-md text-[10px] font-bold transition-colors ${
+                  range === opt.seconds
+                    ? 'bg-wolf-pink text-white'
+                    : 'text-muted-foreground hover:text-wolf-pink'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
           {INTERVALS.map(opt => (
             <button
               key={opt.value}
@@ -88,6 +122,7 @@ export default function PairChart({
               {opt.label}
             </button>
           ))}
+
           <button
             onClick={() => setInvert(v => !v)}
             className="px-2 py-1 rounded text-[10px] font-bold bg-wolf-surface text-muted-foreground hover:text-wolf-pink transition-colors"

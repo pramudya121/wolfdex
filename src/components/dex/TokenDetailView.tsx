@@ -14,7 +14,10 @@ import { getReadProvider } from '@/lib/rpc';
 import { getRegistryToken } from '@/hooks/useLaunchpadRegistry';
 import { useMarketToken } from '@/hooks/useMarketData';
 import { useMarketSocial } from '@/hooks/useMarketSocial';
+import { usePairStats } from '@/hooks/usePairStats';
+import { useTokenHolders } from '@/hooks/useTokenHolders';
 import { useDexContext } from '@/context/DexContext';
+
 import { fmt, age } from './market/MarketTokenCard';
 import Sparkline from './market/Sparkline';
 import PairChart from './PairChart';
@@ -37,6 +40,9 @@ export default function TokenDetailView({ address: rawAddress }: { address: stri
   const { wallet, dex, txHistory } = useDexContext();
   const { token: market, loading: marketLoading, refresh } = useMarketToken(address);
   const social = useMarketSocial();
+  const stats = usePairStats(market?.pair ?? null);
+  const { holders, loading: holdersLoading } = useTokenHolders(address);
+
   const [chain, setChain] = useState<OnChain | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -207,12 +213,25 @@ export default function TokenDetailView({ address: rawAddress }: { address: stri
       </motion.div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
         <Stat label="Liquidity" value={market && market.liquidity > 0 ? `${fmt(market.liquidity, 2)} ${CHAIN_CONFIG.symbol}` : 'No pool yet'} />
+        <Stat
+          label={`24h volume`}
+          value={stats.volume > 0 ? `${fmt(stats.volume, 3)} ${CHAIN_CONFIG.symbol}` : stats.loading ? '…' : '—'}
+        />
+        <Stat label="24h high" value={stats.high > 0 ? fmt(stats.high, 8) : '—'} />
+        <Stat label="24h low" value={stats.low > 0 ? fmt(stats.low, 8) : '—'} />
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         <Stat label="Total supply" value={chain ? fmt(parseFloat(chain.totalSupply), 0) : marketLoading ? '…' : '—'} />
+        <Stat
+          label="Holders (est.)"
+          value={holders !== null ? fmt(holders, 0) : holdersLoading ? '…' : '—'}
+        />
         <Stat label="Your balance" value={chain?.balance ? `${fmt(parseFloat(chain.balance), 4)} ${symbol}` : '— connect wallet'} />
         <Stat label="Creator" value={market?.creator ? `${market.creator.slice(0, 6)}…${market.creator.slice(-4)}` : 'Unknown'} mono />
       </div>
+
 
       {/* Chart + swap */}
       <div className="grid lg:grid-cols-3 gap-5 items-start">
