@@ -3,6 +3,7 @@ import { lazy, Suspense } from "react";
 import RouteSkeleton from "@/components/dex/ui/RouteSkeleton";
 import TextGenerateEffect from "@/components/dex/ui/TextGenerateEffect";
 import { useDexContext } from "@/context/DexContext";
+import { useTokenResolver } from "@/hooks/useTokenResolver";
 
 const LiquidityPanel = lazy(() => import("@/components/dex/LiquidityPanel"));
 
