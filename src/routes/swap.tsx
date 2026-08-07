@@ -6,12 +6,17 @@ import TextGenerateEffect from "@/components/dex/ui/TextGenerateEffect";
 import RouteSkeleton from "@/components/dex/ui/RouteSkeleton";
 import { useDexContext } from "@/context/DexContext";
 import { useLimitOrders } from "@/hooks/useLimitOrders";
+import { useTokenResolver } from "@/hooks/useTokenResolver";
 
 const SwapCard = lazy(() => import("@/components/dex/SwapCard"));
 const LimitOrderCard = lazy(() => import("@/components/dex/LimitOrderCard"));
 const OpenOrdersList = lazy(() => import("@/components/dex/OpenOrdersList"));
 
 export const Route = createFileRoute("/swap")({
+  validateSearch: (search: Record<string, unknown>): { to?: string; from?: string } => ({
+    to: typeof search.to === 'string' ? search.to : undefined,
+    from: typeof search.from === 'string' ? search.from : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Swap & Limit Orders — WolfDex" },
@@ -27,8 +32,13 @@ type Tab = 'swap' | 'limit';
 
 function SwapPage() {
   const { wallet, dex, txHistory } = useDexContext();
+  const { to: toParam, from: fromParam } = Route.useSearch();
+  const { resolve } = useTokenResolver();
   const limitOrders = useLimitOrders(wallet.address, wallet.signer);
   const [tab, setTab] = useState<Tab>('swap');
+
+  const initialTo = toParam ? resolve(toParam) : undefined;
+  const initialFrom = fromParam ? resolve(fromParam) : undefined;
 
   // Wrap swap to record into the global TX history.
   const swap: typeof dex.swap = async (from, to, amountIn, amountOut, slippagePct, deadlineMinutes, routePath) => {
@@ -118,6 +128,8 @@ function SwapPage() {
                     error={dex.error}
                     isConnected={wallet.isConnected}
                     onConnectClick={() => {}}
+                    initialFrom={initialFrom}
+                    initialTo={initialTo}
                   />
               </motion.div>
             ) : (

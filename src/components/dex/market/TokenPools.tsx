@@ -100,7 +100,7 @@ export default function TokenPools({
       {!loading && rows.length === 0 && (
         <div className="text-center py-6">
           <p className="text-xs text-muted-foreground">No pools contain {symbol} yet.</p>
-          <Link to="/liquidity" className="inline-block mt-3 text-xs font-bold px-4 py-2 rounded-xl bg-gradient-to-r from-wolf-pink to-wolf-gold text-white">
+          <Link to="/liquidity" search={{ token: tokenAddress }} className="inline-block mt-3 text-xs font-bold px-4 py-2 rounded-xl bg-gradient-to-r from-wolf-pink to-wolf-gold text-white">
             Create the first pool
           </Link>
         </div>

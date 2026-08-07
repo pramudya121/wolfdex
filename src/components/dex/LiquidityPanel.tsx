@@ -17,15 +17,17 @@ interface LiquidityPanelProps {
   error: string | null;
   isConnected: boolean;
   onConnectClick: () => void;
+  /** Pre-select the paired token (e.g. deep link from Market / token detail). */
+  initialTokenB?: TokenInfo;
 }
 
 const ZERO_ADDR = '0x0000000000000000000000000000000000000000';
 
-export default function LiquidityPanel({ addLiquidity, removeLiquidity, getTokenBalance, getPairAddress, getPairInfo, loading, txHash, error, isConnected, onConnectClick }: LiquidityPanelProps) {
+export default function LiquidityPanel({ addLiquidity, removeLiquidity, getTokenBalance, getPairAddress, getPairInfo, loading, txHash, error, isConnected, onConnectClick, initialTokenB }: LiquidityPanelProps) {
   const { slippage, deadline, expertMode } = useTxSettings();
   const [tab, setTab] = useState<'add' | 'remove'>('add');
   const [tokenA, setTokenA] = useState<TokenInfo>(NATIVE_TOKEN);
-  const [tokenB, setTokenB] = useState<TokenInfo>(TOKENS[2]);
+  const [tokenB, setTokenB] = useState<TokenInfo>(initialTokenB ?? TOKENS[2]);
   const [amountA, setAmountA] = useState('');
   const [amountB, setAmountB] = useState('');
   const [liquidity, setLiquidity] = useState('');
