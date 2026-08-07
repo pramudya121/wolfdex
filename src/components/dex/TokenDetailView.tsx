@@ -14,7 +14,10 @@ import { getReadProvider } from '@/lib/rpc';
 import { getRegistryToken } from '@/hooks/useLaunchpadRegistry';
 import { useMarketToken } from '@/hooks/useMarketData';
 import { useMarketSocial } from '@/hooks/useMarketSocial';
+import { usePairStats } from '@/hooks/usePairStats';
+import { useTokenHolders } from '@/hooks/useTokenHolders';
 import { useDexContext } from '@/context/DexContext';
+
 import { fmt, age } from './market/MarketTokenCard';
 import Sparkline from './market/Sparkline';
 import PairChart from './PairChart';
