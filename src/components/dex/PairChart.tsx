@@ -17,20 +17,39 @@ const INTERVALS: { label: string; value: number }[] = [
   { label: '1d',  value: 86400 },
 ];
 
+/** Visible time window (seconds) applied on top of the indexed candles. */
+const RANGES: { label: string; seconds: number }[] = [
+  { label: '1D',  seconds: 86_400 },
+  { label: '7D',  seconds: 604_800 },
+  { label: '30D', seconds: 2_592_000 },
+  { label: 'All', seconds: 0 },
+];
+
 export default function PairChart({
   pairAddress,
   baseSymbol,
   quoteSymbol,
   height = 320,
+  defaultInterval = 3600,
 }: {
   pairAddress: string;
   baseSymbol?: string;
   quoteSymbol?: string;
   height?: number;
+  defaultInterval?: number;
 }) {
-  const [interval, setInterval] = useState(3600);
+  const [interval, setInterval] = useState(defaultInterval);
+  const [range, setRange] = useState(0);
   const [invert, setInvert] = useState(false);
-  const { candles, loading, error, refresh } = usePairOHLC(pairAddress, { interval, invert });
+  const { candles: allCandles, loading, error, refresh } = usePairOHLC(pairAddress, { interval, invert });
+
+  const candles = useMemo(() => {
+    if (range === 0 || allCandles.length === 0) return allCandles;
+    const cutoff = allCandles[allCandles.length - 1].t - range;
+    const win = allCandles.filter(c => c.t >= cutoff);
+    return win.length > 0 ? win : allCandles;
+  }, [allCandles, range]);
+
 
   const data = useMemo(() =>
     candles.map((c: Candle) => ({
