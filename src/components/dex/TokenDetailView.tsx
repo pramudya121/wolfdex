@@ -40,6 +40,9 @@ export default function TokenDetailView({ address: rawAddress }: { address: stri
   const { wallet, dex, txHistory } = useDexContext();
   const { token: market, loading: marketLoading, refresh } = useMarketToken(address);
   const social = useMarketSocial();
+  const stats = usePairStats(market?.pair ?? null);
+  const { holders, loading: holdersLoading } = useTokenHolders(address);
+
   const [chain, setChain] = useState<OnChain | null>(null);
   const [error, setError] = useState<string | null>(null);
 
