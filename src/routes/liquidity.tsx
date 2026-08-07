@@ -7,6 +7,9 @@ import { useDexContext } from "@/context/DexContext";
 const LiquidityPanel = lazy(() => import("@/components/dex/LiquidityPanel"));
 
 export const Route = createFileRoute("/liquidity")({
+  validateSearch: (search: Record<string, unknown>): { token?: string } => ({
+    token: typeof search.token === 'string' ? search.token : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Provide Liquidity & Earn Fees — WolfDex" },
@@ -22,6 +25,9 @@ export const Route = createFileRoute("/liquidity")({
 
 function LiquidityPage() {
   const { wallet, dex, invalidatePairsCache, txHistory } = useDexContext();
+  const { token: tokenParam } = Route.useSearch();
+  const { resolve } = useTokenResolver();
+  const initialTokenB = tokenParam ? resolve(tokenParam) : undefined;
 
   // Wrap mutating actions to (a) bust the home stats cache and
   // (b) record into the global TX history for the header popover.

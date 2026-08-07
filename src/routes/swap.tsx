@@ -6,6 +6,7 @@ import TextGenerateEffect from "@/components/dex/ui/TextGenerateEffect";
 import RouteSkeleton from "@/components/dex/ui/RouteSkeleton";
 import { useDexContext } from "@/context/DexContext";
 import { useLimitOrders } from "@/hooks/useLimitOrders";
+import { useTokenResolver } from "@/hooks/useTokenResolver";
 
 const SwapCard = lazy(() => import("@/components/dex/SwapCard"));
 const LimitOrderCard = lazy(() => import("@/components/dex/LimitOrderCard"));
@@ -127,6 +128,8 @@ function SwapPage() {
                     error={dex.error}
                     isConnected={wallet.isConnected}
                     onConnectClick={() => {}}
+                    initialFrom={initialFrom}
+                    initialTo={initialTo}
                   />
               </motion.div>
             ) : (
