@@ -109,20 +109,28 @@ export default function MarketTokenCard({
         <Sparkline data={token.history} positive={up} className="text-muted-foreground" />
       </div>
 
-      <div className="grid grid-cols-2 gap-2 text-[11px] relative">
+      <div className="grid grid-cols-3 gap-2 text-[11px] relative">
         <Metric label="Liquidity" value={token.liquidity > 0 ? `${fmt(token.liquidity, 2)} ${CHAIN_CONFIG.symbol}` : 'No pool'} />
         <Metric label="Supply" value={fmt(token.totalSupply, 0)} />
+        <Metric
+          label="Mkt cap"
+          value={token.price > 0 && token.totalSupply > 0
+            ? `${fmt(token.price * token.totalSupply, 2)} ${CHAIN_CONFIG.symbol}`
+            : '—'}
+        />
       </div>
 
       <div className="flex items-center gap-1.5 relative">
         <Link
           to="/swap"
+          search={{ to: token.address }}
           className="flex-1 text-center text-xs font-bold py-2 rounded-xl bg-gradient-to-r from-wolf-pink to-wolf-gold text-white hover:opacity-90 transition-opacity"
         >
           Trade
         </Link>
         <Link
           to="/liquidity"
+          search={{ token: token.address }}
           className="flex-1 text-center text-xs font-semibold py-2 rounded-xl bg-wolf-surface hover:bg-wolf-surface-hover border border-wolf-border/40 transition-colors"
         >
           Liquidity
