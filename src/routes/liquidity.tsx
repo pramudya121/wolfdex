@@ -86,6 +86,7 @@ function LiquidityPage() {
           error={dex.error}
           isConnected={wallet.isConnected}
           onConnectClick={() => {}}
+          initialTokenB={initialTokenB}
         />
       </Suspense>
     </div>

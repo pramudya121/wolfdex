@@ -9,8 +9,9 @@
  */
 import { useEffect, useState, useCallback } from 'react';
 import { ethers } from 'ethers';
-import { CHAIN_CONFIG, TOKENS, getTokenByAddress, type TokenInfo } from '@/config/contracts';
+import { TOKENS, getTokenByAddress, type TokenInfo } from '@/config/contracts';
 import { ERC20_ABI } from '@/config/abis';
+import { getReadProvider } from '@/lib/rpc';
 import { useCustomTokens } from './useCustomTokens';
 import { getRegistryToken, registryToTokenInfo } from './useLaunchpadRegistry';
 
@@ -75,7 +76,7 @@ export function useTokenResolver() {
     // fire-and-forget on-chain resolution
     (async () => {
       try {
-        const provider = new ethers.providers.JsonRpcProvider(CHAIN_CONFIG.rpcUrl);
+        const provider = getReadProvider();
         const c = new ethers.Contract(address, ERC20_ABI, provider);
         const [sym, nm, dec] = await Promise.all([
           c.symbol().catch(() => null),
