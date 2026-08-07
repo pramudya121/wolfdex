@@ -254,7 +254,7 @@ export default function TokenDetailView({ address: rawAddress }: { address: stri
                   <div className="text-3xl mb-2">🌊</div>
                   <p className="font-semibold">No {symbol}/{CHAIN_CONFIG.symbol} pool yet</p>
                   <p className="text-xs mt-1">Add liquidity to start price discovery for this token.</p>
-                  <Link to="/liquidity" className="inline-block mt-3 text-xs font-bold px-4 py-2 rounded-xl bg-gradient-to-r from-wolf-pink to-wolf-gold text-white">
+                  <Link to="/liquidity" search={{ token: address }} className="inline-block mt-3 text-xs font-bold px-4 py-2 rounded-xl bg-gradient-to-r from-wolf-pink to-wolf-gold text-white">
                     Add liquidity
                   </Link>
                 </>
@@ -280,7 +280,7 @@ export default function TokenDetailView({ address: rawAddress }: { address: stri
             initialTo={tokenInfo}
           />
           <div className="grid grid-cols-2 gap-2">
-            <Link to="/liquidity" className="wolf-pool-card rounded-2xl p-3 text-center text-xs font-semibold hover:scale-[1.02] transition-transform">
+            <Link to="/liquidity" search={{ token: address }} className="wolf-pool-card rounded-2xl p-3 text-center text-xs font-semibold hover:scale-[1.02] transition-transform">
               🌊 Add liquidity
             </Link>
             <Link to="/pools" className="wolf-pool-card rounded-2xl p-3 text-center text-xs font-semibold hover:scale-[1.02] transition-transform">
