@@ -9,82 +9,27 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SwapRouteImport } from './routes/swap'
-import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
-import { Route as PortfolioRouteImport } from './routes/portfolio'
-import { Route as PoolsRouteImport } from './routes/pools'
-import { Route as MarketRouteImport } from './routes/market'
-import { Route as LiquidityRouteImport } from './routes/liquidity'
-import { Route as LaunchpadRouteImport } from './routes/launchpad'
-import { Route as FaucetRouteImport } from './routes/faucet'
-import { Route as FarmingRouteImport } from './routes/farming'
-import { Route as DomainsRouteImport } from './routes/domains'
-import { Route as DocsRouteImport } from './routes/docs'
-import { Route as CasinoRouteImport } from './routes/casino'
-import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as TokenAddressRouteImport } from './routes/token.$address'
-import { Route as CasinoAdminRouteImport } from './routes/casino.admin'
+import { Route as AnalyticsRouteImport } from './routes/analytics'
+import { Route as CasinoRouteImport } from './routes/casino'
+import { Route as DocsRouteImport } from './routes/docs'
+import { Route as DomainsRouteImport } from './routes/domains'
+import { Route as FarmingRouteImport } from './routes/farming'
+import { Route as FaucetRouteImport } from './routes/faucet'
+import { Route as LaunchpadRouteImport } from './routes/launchpad'
+import { Route as LiquidityRouteImport } from './routes/liquidity'
+import { Route as MarketRouteImport } from './routes/market'
+import { Route as PoolsRouteImport } from './routes/pools'
+import { Route as PortfolioRouteImport } from './routes/portfolio'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as SwapRouteImport } from './routes/swap'
 import { Route as ApiAiAgentRouteImport } from './routes/api/ai-agent'
+import { Route as CasinoAdminRouteImport } from './routes/casino.admin'
+import { Route as TokenAddressRouteImport } from './routes/token.$address'
 
-const SwapRoute = SwapRouteImport.update({
-  id: '/swap',
-  path: '/swap',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
-  id: '/sitemap.xml',
-  path: '/sitemap.xml',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PortfolioRoute = PortfolioRouteImport.update({
-  id: '/portfolio',
-  path: '/portfolio',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PoolsRoute = PoolsRouteImport.update({
-  id: '/pools',
-  path: '/pools',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MarketRoute = MarketRouteImport.update({
-  id: '/market',
-  path: '/market',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LiquidityRoute = LiquidityRouteImport.update({
-  id: '/liquidity',
-  path: '/liquidity',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LaunchpadRoute = LaunchpadRouteImport.update({
-  id: '/launchpad',
-  path: '/launchpad',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const FaucetRoute = FaucetRouteImport.update({
-  id: '/faucet',
-  path: '/faucet',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const FarmingRoute = FarmingRouteImport.update({
-  id: '/farming',
-  path: '/farming',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DomainsRoute = DomainsRouteImport.update({
-  id: '/domains',
-  path: '/domains',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DocsRoute = DocsRouteImport.update({
-  id: '/docs',
-  path: '/docs',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CasinoRoute = CasinoRouteImport.update({
-  id: '/casino',
-  path: '/casino',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AnalyticsRoute = AnalyticsRouteImport.update({
@@ -92,14 +37,69 @@ const AnalyticsRoute = AnalyticsRouteImport.update({
   path: '/analytics',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const CasinoRoute = CasinoRouteImport.update({
+  id: '/casino',
+  path: '/casino',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TokenAddressRoute = TokenAddressRouteImport.update({
-  id: '/token/$address',
-  path: '/token/$address',
+const DocsRoute = DocsRouteImport.update({
+  id: '/docs',
+  path: '/docs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DomainsRoute = DomainsRouteImport.update({
+  id: '/domains',
+  path: '/domains',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FarmingRoute = FarmingRouteImport.update({
+  id: '/farming',
+  path: '/farming',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FaucetRoute = FaucetRouteImport.update({
+  id: '/faucet',
+  path: '/faucet',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LaunchpadRoute = LaunchpadRouteImport.update({
+  id: '/launchpad',
+  path: '/launchpad',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LiquidityRoute = LiquidityRouteImport.update({
+  id: '/liquidity',
+  path: '/liquidity',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MarketRoute = MarketRouteImport.update({
+  id: '/market',
+  path: '/market',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PoolsRoute = PoolsRouteImport.update({
+  id: '/pools',
+  path: '/pools',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PortfolioRoute = PortfolioRouteImport.update({
+  id: '/portfolio',
+  path: '/portfolio',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SwapRoute = SwapRouteImport.update({
+  id: '/swap',
+  path: '/swap',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAiAgentRoute = ApiAiAgentRouteImport.update({
+  id: '/api/ai-agent',
+  path: '/api/ai-agent',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CasinoAdminRoute = CasinoAdminRouteImport.update({
@@ -107,9 +107,9 @@ const CasinoAdminRoute = CasinoAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => CasinoRoute,
 } as any)
-const ApiAiAgentRoute = ApiAiAgentRouteImport.update({
-  id: '/api/ai-agent',
-  path: '/api/ai-agent',
+const TokenAddressRoute = TokenAddressRouteImport.update({
+  id: '/token/$address',
+  path: '/token/$address',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -252,88 +252,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/swap': {
-      id: '/swap'
-      path: '/swap'
-      fullPath: '/swap'
-      preLoaderRoute: typeof SwapRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sitemap.xml': {
-      id: '/sitemap.xml'
-      path: '/sitemap.xml'
-      fullPath: '/sitemap.xml'
-      preLoaderRoute: typeof SitemapDotxmlRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/portfolio': {
-      id: '/portfolio'
-      path: '/portfolio'
-      fullPath: '/portfolio'
-      preLoaderRoute: typeof PortfolioRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/pools': {
-      id: '/pools'
-      path: '/pools'
-      fullPath: '/pools'
-      preLoaderRoute: typeof PoolsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/market': {
-      id: '/market'
-      path: '/market'
-      fullPath: '/market'
-      preLoaderRoute: typeof MarketRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/liquidity': {
-      id: '/liquidity'
-      path: '/liquidity'
-      fullPath: '/liquidity'
-      preLoaderRoute: typeof LiquidityRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/launchpad': {
-      id: '/launchpad'
-      path: '/launchpad'
-      fullPath: '/launchpad'
-      preLoaderRoute: typeof LaunchpadRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/faucet': {
-      id: '/faucet'
-      path: '/faucet'
-      fullPath: '/faucet'
-      preLoaderRoute: typeof FaucetRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/farming': {
-      id: '/farming'
-      path: '/farming'
-      fullPath: '/farming'
-      preLoaderRoute: typeof FarmingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/domains': {
-      id: '/domains'
-      path: '/domains'
-      fullPath: '/domains'
-      preLoaderRoute: typeof DomainsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/docs': {
-      id: '/docs'
-      path: '/docs'
-      fullPath: '/docs'
-      preLoaderRoute: typeof DocsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/casino': {
-      id: '/casino'
-      path: '/casino'
-      fullPath: '/casino'
-      preLoaderRoute: typeof CasinoRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/analytics': {
@@ -343,18 +266,95 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AnalyticsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/casino': {
+      id: '/casino'
+      path: '/casino'
+      fullPath: '/casino'
+      preLoaderRoute: typeof CasinoRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/token/$address': {
-      id: '/token/$address'
-      path: '/token/$address'
-      fullPath: '/token/$address'
-      preLoaderRoute: typeof TokenAddressRouteImport
+    '/docs': {
+      id: '/docs'
+      path: '/docs'
+      fullPath: '/docs'
+      preLoaderRoute: typeof DocsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/domains': {
+      id: '/domains'
+      path: '/domains'
+      fullPath: '/domains'
+      preLoaderRoute: typeof DomainsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/farming': {
+      id: '/farming'
+      path: '/farming'
+      fullPath: '/farming'
+      preLoaderRoute: typeof FarmingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/faucet': {
+      id: '/faucet'
+      path: '/faucet'
+      fullPath: '/faucet'
+      preLoaderRoute: typeof FaucetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/launchpad': {
+      id: '/launchpad'
+      path: '/launchpad'
+      fullPath: '/launchpad'
+      preLoaderRoute: typeof LaunchpadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/liquidity': {
+      id: '/liquidity'
+      path: '/liquidity'
+      fullPath: '/liquidity'
+      preLoaderRoute: typeof LiquidityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/market': {
+      id: '/market'
+      path: '/market'
+      fullPath: '/market'
+      preLoaderRoute: typeof MarketRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pools': {
+      id: '/pools'
+      path: '/pools'
+      fullPath: '/pools'
+      preLoaderRoute: typeof PoolsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/portfolio': {
+      id: '/portfolio'
+      path: '/portfolio'
+      fullPath: '/portfolio'
+      preLoaderRoute: typeof PortfolioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/swap': {
+      id: '/swap'
+      path: '/swap'
+      fullPath: '/swap'
+      preLoaderRoute: typeof SwapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ai-agent': {
+      id: '/api/ai-agent'
+      path: '/api/ai-agent'
+      fullPath: '/api/ai-agent'
+      preLoaderRoute: typeof ApiAiAgentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/casino/admin': {
@@ -364,11 +364,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CasinoAdminRouteImport
       parentRoute: typeof CasinoRoute
     }
-    '/api/ai-agent': {
-      id: '/api/ai-agent'
-      path: '/api/ai-agent'
-      fullPath: '/api/ai-agent'
-      preLoaderRoute: typeof ApiAiAgentRouteImport
+    '/token/$address': {
+      id: '/token/$address'
+      path: '/token/$address'
+      fullPath: '/token/$address'
+      preLoaderRoute: typeof TokenAddressRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
