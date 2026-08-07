@@ -93,7 +93,22 @@ export default function PairChart({
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1 rounded-lg bg-wolf-surface/60 p-0.5">
+            {RANGES.map(opt => (
+              <button
+                key={opt.label}
+                onClick={() => setRange(opt.seconds)}
+                className={`px-2 py-1 rounded-md text-[10px] font-bold transition-colors ${
+                  range === opt.seconds
+                    ? 'bg-wolf-pink text-white'
+                    : 'text-muted-foreground hover:text-wolf-pink'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
           {INTERVALS.map(opt => (
             <button
               key={opt.value}
@@ -107,6 +122,7 @@ export default function PairChart({
               {opt.label}
             </button>
           ))}
+
           <button
             onClick={() => setInvert(v => !v)}
             className="px-2 py-1 rounded text-[10px] font-bold bg-wolf-surface text-muted-foreground hover:text-wolf-pink transition-colors"
