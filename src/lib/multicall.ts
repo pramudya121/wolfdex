@@ -69,22 +69,8 @@ export async function multicall<T = any>(
       callData: ifaces[i].encodeFunctionData(c.functionName, c.args ?? []),
     }));
 
-    let raw: { success: boolean; returnData: string }[];
-    try {
-      raw = await mc.callStatic.aggregate3(encoded);
-    } catch (err) {
-      // Fall back to one-by-one — keeps the app working if multicall reverts.
-      raw = await Promise.all(
-        slice.map(async (c, i) => {
-          try {
-            const data = await provider.call({ to: c.target, data: encoded[i].callData });
-            return { success: true, returnData: data };
-          } catch {
-            return { success: false, returnData: '0x' };
-          }
-        }),
-      );
-    }
+    const raw = await execBatch(mc, provider, encoded);
+
 
     raw.forEach((r, i) => {
       if (!r.success || !r.returnData || r.returnData === '0x') {
