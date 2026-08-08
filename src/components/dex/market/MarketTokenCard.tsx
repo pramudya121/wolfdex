@@ -107,29 +107,41 @@ export default function MarketTokenCard({
       </div>
 
       <div className="flex items-end justify-between gap-2 relative">
-        <div>
+        <div className="min-w-0">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Price</div>
-          <div className="text-lg font-bold font-mono">
-            {token.price > 0 ? fmt(token.price, 8) : '—'}
-            <span className="text-[10px] text-muted-foreground ml-1">{CHAIN_CONFIG.symbol}</span>
+          <div className="text-lg font-bold font-mono truncate">
+            {token.priceUsd > 0 ? fmtUsd(token.priceUsd) : token.price > 0 ? fmt(token.price, 8) : '—'}
+            {token.priceUsd > 0 && <span className="text-[10px] text-muted-foreground ml-1">USDC</span>}
+            {token.priceUsd <= 0 && token.price > 0 && (
+              <span className="text-[10px] text-muted-foreground ml-1">{CHAIN_CONFIG.symbol}</span>
+            )}
+          </div>
+          <div className="text-[10px] font-mono text-muted-foreground truncate">
+            {token.price > 0 ? `${fmt(token.price, 8)} ${CHAIN_CONFIG.symbol}` : 'awaiting first pool'}
           </div>
           <div className={`text-[11px] font-semibold ${up ? 'text-wolf-green' : 'text-wolf-red'}`}>
             {token.history.length > 1 ? `${up ? '▲' : '▼'} ${Math.abs(token.change).toFixed(2)}%` : 'no trend yet'}
           </div>
         </div>
-        <Sparkline data={token.history} positive={up} className="text-muted-foreground" />
+        <MiniDailyChart pair={token.pair} tokenAddress={token.address} fallback={token.history} />
       </div>
 
       <div className="grid grid-cols-3 gap-2 text-[11px] relative">
-        <Metric label="Liquidity" value={token.liquidity > 0 ? `${fmt(token.liquidity, 2)} ${CHAIN_CONFIG.symbol}` : 'No pool'} />
+        <Metric
+          label="Liquidity"
+          value={token.liquidity > 0 ? `${fmt(token.liquidity, 2)} ${CHAIN_CONFIG.symbol}` : 'No pool'}
+          sub={token.liquidityUsd > 0 ? fmtUsd(token.liquidityUsd) : undefined}
+        />
         <Metric label="Supply" value={fmt(token.totalSupply, 0)} />
         <Metric
           label="Mkt cap"
           value={token.price > 0 && token.totalSupply > 0
             ? `${fmt(token.price * token.totalSupply, 2)} ${CHAIN_CONFIG.symbol}`
             : '—'}
+          sub={token.priceUsd > 0 && token.totalSupply > 0 ? fmtUsd(token.priceUsd * token.totalSupply) : undefined}
         />
       </div>
+
 
       <div className="flex items-center gap-1.5 relative">
         <Link
