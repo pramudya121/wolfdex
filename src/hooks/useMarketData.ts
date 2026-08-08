@@ -107,115 +107,135 @@ export function useMarketData() {
     return Array.from(map.values());
   }, [registry]);
 
+  /** Reads pool + supply metrics for one slice of tokens. */
+  const loadBatch = useCallback(async (addresses: IdentityFields[]) => {
+    // 1) resolve each token's pool against wrapped native
+    const pairRes = await multicall<string>(
+      addresses.map(t => ({
+        target: CONTRACTS.FACTORY,
+        abi: FACTORY_ABI,
+        functionName: 'getPair',
+        args: [t.address, CONTRACTS.WETH],
+      })),
+    );
+    const pairs = pairRes.map(r => {
+      const v = (r.result as unknown as string[] | string) ?? null;
+      const addr = Array.isArray(v) ? v[0] : v;
+      return addr && addr !== ZERO ? (addr as string) : null;
+    });
+
+    // 2) batch reserves + token0 + totalSupply
+    type Slot = { kind: 'reserves' | 'token0' | 'supply'; i: number };
+    const calls: Parameters<typeof multicall>[0] = [];
+    const slots: Slot[] = [];
+    addresses.forEach((t, i) => {
+      calls.push({ target: t.address, abi: ERC20_ABI, functionName: 'totalSupply' });
+      slots.push({ kind: 'supply', i });
+      const p = pairs[i];
+      if (!p) return;
+      calls.push({ target: p, abi: PAIR_ABI, functionName: 'getReserves' });
+      slots.push({ kind: 'reserves', i });
+      calls.push({ target: p, abi: PAIR_ABI, functionName: 'token0' });
+      slots.push({ kind: 'token0', i });
+    });
+    const res = await multicall(calls);
+
+    const reserves: Record<number, [ethers.BigNumber, ethers.BigNumber]> = {};
+    const token0s: Record<number, string> = {};
+    const supplies: Record<number, ethers.BigNumber> = {};
+    res.forEach((r, idx) => {
+      const slot = slots[idx];
+      if (!r.success || r.result === null) return;
+      const v = r.result as unknown as any;
+      if (slot.kind === 'reserves') reserves[slot.i] = [v[0], v[1]];
+      else if (slot.kind === 'token0') token0s[slot.i] = String(Array.isArray(v) ? v[0] : v);
+      else supplies[slot.i] = Array.isArray(v) ? v[0] : v;
+    });
+
+    const history = readHistory();
+    const now = Date.now();
+    const next: Record<string, any> = {};
+
+    addresses.forEach((t, i) => {
+      const key = t.address.toLowerCase();
+      let price = 0;
+      let liquidity = 0;
+      const rv = reserves[i];
+      const t0 = token0s[i];
+      if (rv && t0) {
+        const tokenIsToken0 = t0.toLowerCase() === key;
+        const tokenReserve = tokenIsToken0 ? rv[0] : rv[1];
+        const nativeReserve = tokenIsToken0 ? rv[1] : rv[0];
+        const tokenAmt = parseFloat(ethers.utils.formatUnits(tokenReserve, t.decimals));
+        const nativeAmt = parseFloat(ethers.utils.formatUnits(nativeReserve, 18));
+        if (tokenAmt > 0) price = nativeAmt / tokenAmt;
+        liquidity = nativeAmt * 2;
+      }
+      const supply = supplies[i]
+        ? parseFloat(ethers.utils.formatUnits(supplies[i], t.decimals))
+        : 0;
+
+      // rolling history for the sparkline
+      const points = history[key] ?? [];
+      if (price > 0 && (points.length === 0 || now - points[points.length - 1].t > 60_000)) {
+        points.push({ t: now, p: price });
+      }
+      history[key] = points.slice(-MAX_POINTS);
+      const series = history[key].map(pt => pt.p);
+      const first = series.length > 1 ? series[0] : price;
+      const change = first > 0 && price > 0 ? ((price - first) / first) * 100 : 0;
+
+      next[key] = {
+        price,
+        liquidity,
+        totalSupply: supply,
+        change,
+        history: series,
+        pair: pairs[i],
+      };
+    });
+
+    writeHistory(history);
+    return next;
+  }, []);
+
+  /**
+   * Progressive load: curated tokens first, then the registry in slices, so the
+   * grid fills in immediately instead of waiting on hundreds of reads.
+   */
   const load = useCallback(async (addresses: IdentityFields[]) => {
     if (addresses.length === 0) { setLoading(false); return; }
     setLoading(true);
+    // curated / verified assets first — they carry the reference USD pool
+    const ordered = [...addresses].sort((a, b) => Number(b.curated) - Number(a.curated));
+    const usdcAddr = getTokenBySymbol('USDC')?.address.toLowerCase();
     try {
-      // 1) resolve each token's pool against wrapped native
-      const pairRes = await multicall<string>(
-        addresses.map(t => ({
-          target: CONTRACTS.FACTORY,
-          abi: FACTORY_ABI,
-          functionName: 'getPair',
-          args: [t.address, CONTRACTS.WETH],
-        })),
-      );
-      const pairs = pairRes.map(r => {
-        const v = (r.result as unknown as string[] | string) ?? null;
-        const addr = Array.isArray(v) ? v[0] : v;
-        return addr && addr !== ZERO ? (addr as string) : null;
-      });
-
-      // 2) batch reserves + token0 + totalSupply
-      type Slot = { kind: 'reserves' | 'token0' | 'supply'; i: number };
-      const calls: Parameters<typeof multicall>[0] = [];
-      const slots: Slot[] = [];
-      addresses.forEach((t, i) => {
-        calls.push({ target: t.address, abi: ERC20_ABI, functionName: 'totalSupply' });
-        slots.push({ kind: 'supply', i });
-        const p = pairs[i];
-        if (!p) return;
-        calls.push({ target: p, abi: PAIR_ABI, functionName: 'getReserves' });
-        slots.push({ kind: 'reserves', i });
-        calls.push({ target: p, abi: PAIR_ABI, functionName: 'token0' });
-        slots.push({ kind: 'token0', i });
-      });
-      const res = await multicall(calls);
-
-      const reserves: Record<number, [ethers.BigNumber, ethers.BigNumber]> = {};
-      const token0s: Record<number, string> = {};
-      const supplies: Record<number, ethers.BigNumber> = {};
-      res.forEach((r, idx) => {
-        const slot = slots[idx];
-        if (!r.success || r.result === null) return;
-        const v = r.result as unknown as any;
-        if (slot.kind === 'reserves') reserves[slot.i] = [v[0], v[1]];
-        else if (slot.kind === 'token0') token0s[slot.i] = String(Array.isArray(v) ? v[0] : v);
-        else supplies[slot.i] = Array.isArray(v) ? v[0] : v;
-      });
-
-      const history = readHistory();
-      const now = Date.now();
-      const next: Record<string, any> = {};
-
-      addresses.forEach((t, i) => {
-        const key = t.address.toLowerCase();
-        let price = 0;
-        let liquidity = 0;
-        const rv = reserves[i];
-        const t0 = token0s[i];
-        if (rv && t0) {
-          const tokenIsToken0 = t0.toLowerCase() === key;
-          const tokenReserve = tokenIsToken0 ? rv[0] : rv[1];
-          const nativeReserve = tokenIsToken0 ? rv[1] : rv[0];
-          const tokenAmt = parseFloat(ethers.utils.formatUnits(tokenReserve, t.decimals));
-          const nativeAmt = parseFloat(ethers.utils.formatUnits(nativeReserve, 18));
-          if (tokenAmt > 0) price = nativeAmt / tokenAmt;
-          liquidity = nativeAmt * 2;
+      for (let i = 0; i < ordered.length; i += BATCH_SIZE) {
+        const slice = ordered.slice(i, i + BATCH_SIZE);
+        let batch: Record<string, any> = {};
+        try {
+          batch = await loadBatch(slice);
+        } catch { /* a bad slice must not stop the rest */ }
+        setMetrics(prev => ({ ...prev, ...batch }));
+        setLastUpdated(Date.now());
+        if (usdcAddr && batch[usdcAddr]) {
+          // USD reference: the USDC/WzkLTC pool gives "native per USDC",
+          // so 1 zkLTC ≈ 1 / thatPrice dollars.
+          const usdcInNative = batch[usdcAddr].price ?? 0;
+          if (usdcInNative > 0) setNativeUsd(1 / usdcInNative);
         }
-        const supply = supplies[i]
-          ? parseFloat(ethers.utils.formatUnits(supplies[i], t.decimals))
-          : 0;
-
-        // rolling history for the sparkline
-        const points = history[key] ?? [];
-        if (price > 0 && (points.length === 0 || now - points[points.length - 1].t > 60_000)) {
-          points.push({ t: now, p: price });
-        }
-        history[key] = points.slice(-MAX_POINTS);
-        const series = history[key].map(pt => pt.p);
-        const first = series.length > 1 ? series[0] : price;
-        const change = first > 0 && price > 0 ? ((price - first) / first) * 100 : 0;
-
-        next[key] = {
-          price,
-          liquidity,
-          totalSupply: supply,
-          change,
-          history: series,
-          pair: pairs[i],
-        };
-      });
-
-      // USD reference: the USDC/WzkLTC pool gives "native per USDC",
-      // so 1 zkLTC ≈ 1 / thatPrice dollars.
-      const usdcAddr = getTokenBySymbol('USDC')?.address.toLowerCase();
-      const usdcInNative = usdcAddr ? (next[usdcAddr]?.price ?? 0) : 0;
-      const usdPerNative = usdcInNative > 0 ? 1 / usdcInNative : 0;
-
-      writeHistory(history);
-      setNativeUsd(usdPerNative);
-      setMetrics(next);
-      setLastUpdated(Date.now());
+        if (i === 0) setLoading(false);
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadBatch]);
 
   useEffect(() => {
     if (registryLoading) return;
     load(identities);
   }, [identities, registryLoading, load]);
+
 
   const tokens = useMemo<MarketToken[]>(() =>
     identities.map(id => {
