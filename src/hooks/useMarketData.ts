@@ -58,9 +58,9 @@ function writeHistory(h: HistoryMap) {
 
 const ZERO = '0x0000000000000000000000000000000000000000';
 /** Tokens per progressive read slice — keeps each multicall well under gas limits. */
-const BATCH_SIZE = 40;
+const BATCH_SIZE = 30;
 /** Slices fetched in parallel after the first one. */
-const CONCURRENCY = 4;
+const CONCURRENCY = 2;
 
 
 export function useMarketData() {
@@ -239,6 +239,8 @@ export function useMarketData() {
       setLoading(false);
       for (let i = 1; i < slices.length; i += CONCURRENCY) {
         await Promise.all(slices.slice(i, i + CONCURRENCY).map(runSlice));
+        // breathe between groups so the public RPC never rate-limits (429)
+        await new Promise(r => setTimeout(r, 250));
       }
     } finally {
       setLoading(false);
