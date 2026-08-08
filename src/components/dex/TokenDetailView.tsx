@@ -345,11 +345,12 @@ export default function TokenDetailView({ address: rawAddress }: { address: stri
   );
 }
 
-function Stat({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+function Stat({ label, value, sub, mono }: { label: string; value: string; sub?: string; mono?: boolean }) {
   return (
     <div className="wolf-card rounded-2xl p-4">
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{label}</div>
       <div className={`text-lg font-bold truncate ${mono ? 'font-mono' : ''}`}>{value}</div>
+      {sub && <div className="text-[10px] text-muted-foreground truncate">{sub}</div>}
     </div>
   );
 }
