@@ -134,10 +134,13 @@ export function useMarketData() {
     const calls: Parameters<typeof multicall>[0] = [];
     const slots: Slot[] = [];
     addresses.forEach((t, i) => {
+      const p = pairs[i];
+      // Only tokens with a live pool get the deeper reads: registry entries that
+      // are not real ERC20 contracts revert, and reverts are expensive on a
+      // Multicall1-style aggregator (all-or-nothing ⇒ batch splitting).
+      if (!p) return;
       calls.push({ target: t.address, abi: ERC20_ABI, functionName: 'totalSupply' });
       slots.push({ kind: 'supply', i });
-      const p = pairs[i];
-      if (!p) return;
       calls.push({ target: p, abi: PAIR_ABI, functionName: 'getReserves' });
       slots.push({ kind: 'reserves', i });
       calls.push({ target: p, abi: PAIR_ABI, functionName: 'token0' });
