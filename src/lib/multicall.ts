@@ -125,9 +125,9 @@ async function execBatch(
 function stripFlag(e: Encoded) {
   return { target: e.target, callData: e.callData };
 }
+/**
+ * Execute many read calls in one RPC round-trip via the chain's multicall.
 
-
- * Execute many read calls in one RPC round-trip via Multicall3.
  * @param calls list of {target, abi, functionName, args}
  * @param chunkSize split into batches of this many to stay under gas limit (default 200)
  */
