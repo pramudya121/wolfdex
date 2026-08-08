@@ -194,7 +194,14 @@ export function useMarketData() {
         };
       });
 
+      // USD reference: the USDC/WzkLTC pool gives "native per USDC",
+      // so 1 zkLTC ≈ 1 / thatPrice dollars.
+      const usdcAddr = getTokenBySymbol('USDC')?.address.toLowerCase();
+      const usdcInNative = usdcAddr ? (next[usdcAddr]?.price ?? 0) : 0;
+      const usdPerNative = usdcInNative > 0 ? 1 / usdcInNative : 0;
+
       writeHistory(history);
+      setNativeUsd(usdPerNative);
       setMetrics(next);
       setLastUpdated(Date.now());
     } finally {
@@ -210,24 +217,29 @@ export function useMarketData() {
   const tokens = useMemo<MarketToken[]>(() =>
     identities.map(id => {
       const m = metrics[id.address.toLowerCase()];
+      const price = m?.price ?? 0;
+      const liquidity = m?.liquidity ?? 0;
       return {
         ...id,
-        price: m?.price ?? 0,
-        liquidity: m?.liquidity ?? 0,
+        price,
+        priceUsd: nativeUsd > 0 ? price * nativeUsd : 0,
+        liquidity,
+        liquidityUsd: nativeUsd > 0 ? liquidity * nativeUsd : 0,
         totalSupply: m?.totalSupply ?? 0,
         change: m?.change ?? 0,
         history: m?.history ?? [],
         pair: m?.pair ?? null,
       } as MarketToken;
     }),
-  [identities, metrics]);
+  [identities, metrics, nativeUsd]);
 
   const refresh = useCallback(async () => {
     await refreshRegistry();
     await load(identities);
   }, [refreshRegistry, load, identities]);
 
-  return { tokens, loading: loading || registryLoading, lastUpdated, refresh };
+  return { tokens, loading: loading || registryLoading, lastUpdated, nativeUsd, refresh };
+
 }
 
 interface IdentityFields {
