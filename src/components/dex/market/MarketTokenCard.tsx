@@ -136,7 +136,6 @@ export default function MarketTokenCard({
         <Metric
           label="Mkt cap"
           value={token.price > 0 && token.totalSupply > 0 ? fmt(token.price * token.totalSupply, 2) : '—'}
-          mono
           sub={token.priceUsd > 0 && token.totalSupply > 0 ? fmtUsd(token.priceUsd * token.totalSupply) : undefined}
         />
       </div>
