@@ -13,7 +13,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ethers } from 'ethers';
 import { multicall } from '@/lib/multicall';
 import { FACTORY_ABI, PAIR_ABI, ERC20_ABI } from '@/config/abis';
-import { CONTRACTS, TOKENS, isBlockedToken } from '@/config/contracts';
+import { CONTRACTS, TOKENS, isBlockedToken, getTokenBySymbol } from '@/config/contracts';
 import { useLaunchpadRegistry } from '@/hooks/useLaunchpadRegistry';
 
 export interface MarketToken {
@@ -63,6 +63,9 @@ export function useMarketData() {
   const [metrics, setMetrics] = useState<Record<string, Omit<MarketToken, keyof IdentityFields> | undefined>>({});
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+  /** USD value of 1 zkLTC, derived from the USDC pool (0 = unknown). */
+  const [nativeUsd, setNativeUsd] = useState(0);
+
 
   /** Union of curated + registry tokens, de-duplicated by address. */
   const identities = useMemo<IdentityFields[]>(() => {
