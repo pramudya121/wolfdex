@@ -161,7 +161,12 @@ export default function MarketView() {
         <Stat label="Listed tokens" value={stats.count.toLocaleString('en-US')} />
         <Stat label="With live pool" value={stats.withPool.toLocaleString('en-US')} />
         <Stat label="New (24h)" value={stats.newToday.toLocaleString('en-US')} />
-        <Stat label="Total liquidity" value={`${fmt(stats.totalLiq, 2)} ${CHAIN_CONFIG.symbol}`} />
+        <Stat
+          label="Total liquidity"
+          value={`${fmt(stats.totalLiq, 2)} ${CHAIN_CONFIG.symbol}`}
+          sub={nativeUsd > 0 ? fmtUsd(stats.totalLiq * nativeUsd) : undefined}
+        />
+
       </div>
 
       {/* Controls */}
