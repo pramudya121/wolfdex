@@ -128,14 +128,15 @@ export default function MarketTokenCard({
 
       <div className="grid grid-cols-3 gap-2 text-[11px] relative">
         <Metric
-          label={`Liq · ${CHAIN_CONFIG.symbol}`}
-          value={token.liquidity > 0 ? fmt(token.liquidity, 2) : 'No pool'}
+          label="Liquidity"
+          value={token.liquidity > 0 ? `${fmt(token.liquidity, 2)} ${CHAIN_CONFIG.symbol}` : 'No pool'}
           sub={token.liquidityUsd > 0 ? fmtUsd(token.liquidityUsd) : undefined}
         />
         <Metric label="Supply" value={fmt(token.totalSupply, 0)} />
         <Metric
-          label={`Mkt cap · ${CHAIN_CONFIG.symbol}`}
+          label="Mkt cap"
           value={token.price > 0 && token.totalSupply > 0 ? fmt(token.price * token.totalSupply, 2) : '—'}
+          mono
           sub={token.priceUsd > 0 && token.totalSupply > 0 ? fmtUsd(token.priceUsd * token.totalSupply) : undefined}
         />
       </div>
