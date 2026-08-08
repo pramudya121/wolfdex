@@ -271,11 +271,13 @@ export default function MarketView() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="wolf-card rounded-2xl p-4">
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{label}</div>
       <div className="text-lg font-bold truncate">{value}</div>
+      {sub && <div className="text-[10px] text-muted-foreground truncate">{sub}</div>}
     </div>
   );
 }
+
