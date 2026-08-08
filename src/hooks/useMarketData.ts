@@ -59,6 +59,8 @@ function writeHistory(h: HistoryMap) {
 const ZERO = '0x0000000000000000000000000000000000000000';
 /** Tokens per progressive read slice — keeps each multicall well under gas limits. */
 const BATCH_SIZE = 40;
+/** Slices fetched in parallel after the first one. */
+const CONCURRENCY = 4;
 
 
 export function useMarketData() {
@@ -213,8 +215,11 @@ export function useMarketData() {
     const ordered = [...addresses].sort((a, b) => Number(b.curated) - Number(a.curated));
     const usdcAddr = getTokenBySymbol('USDC')?.address.toLowerCase();
     try {
+      const slices: IdentityFields[][] = [];
       for (let i = 0; i < ordered.length; i += BATCH_SIZE) {
-        const slice = ordered.slice(i, i + BATCH_SIZE);
+        slices.push(ordered.slice(i, i + BATCH_SIZE));
+      }
+      const runSlice = async (slice: IdentityFields[]) => {
         let batch: Record<string, any> = {};
         try {
           batch = await loadBatch(slice);
@@ -227,7 +232,13 @@ export function useMarketData() {
           const usdcInNative = batch[usdcAddr].price ?? 0;
           if (usdcInNative > 0) setNativeUsd(1 / usdcInNative);
         }
-        if (i === 0) setLoading(false);
+      };
+      // First slice holds the curated assets — render it before the long tail,
+      // then stream the rest with bounded concurrency.
+      await runSlice(slices[0]);
+      setLoading(false);
+      for (let i = 1; i < slices.length; i += CONCURRENCY) {
+        await Promise.all(slices.slice(i, i + CONCURRENCY).map(runSlice));
       }
     } finally {
       setLoading(false);
