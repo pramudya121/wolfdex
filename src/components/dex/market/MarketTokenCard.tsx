@@ -6,7 +6,7 @@
 import { Link } from '@tanstack/react-router';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import Sparkline from './Sparkline';
+import MiniDailyChart from './MiniDailyChart';
 import { CHAIN_CONFIG } from '@/config/contracts';
 import type { MarketToken } from '@/hooks/useMarketData';
 
@@ -18,6 +18,16 @@ export function fmt(n: number, digits = 4): string {
   return n.toLocaleString('en-US', { maximumFractionDigits: digits });
 }
 
+/** USD formatter — keeps small token prices readable. */
+export function fmtUsd(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return '—';
+  if (n >= 1000) return `$${fmt(n, 2)}`;
+  if (n >= 1) return `$${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
+  if (n >= 0.01) return `$${n.toLocaleString('en-US', { maximumFractionDigits: 4 })}`;
+  if (n < 0.000001) return `$${n.toExponential(2)}`;
+  return `$${n.toLocaleString('en-US', { maximumFractionDigits: 8 })}`;
+}
+
 export function age(ts: number | null): string {
   if (!ts) return '—';
   const secs = Math.max(1, Math.floor((Date.now() - ts) / 1000));
@@ -25,6 +35,7 @@ export function age(ts: number | null): string {
   if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
   return `${Math.floor(secs / 86400)}d ago`;
 }
+
 
 export default function MarketTokenCard({
   token,
