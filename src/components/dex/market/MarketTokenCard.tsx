@@ -192,11 +192,13 @@ export default function MarketTokenCard({
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="rounded-xl bg-wolf-surface/60 border border-wolf-border/30 px-2.5 py-1.5">
       <div className="text-[9px] uppercase tracking-wider text-muted-foreground">{label}</div>
       <div className="font-semibold truncate">{value}</div>
+      {sub && <div className="text-[9px] text-muted-foreground truncate">{sub}</div>}
     </div>
+
   );
 }
