@@ -57,6 +57,9 @@ function writeHistory(h: HistoryMap) {
 }
 
 const ZERO = '0x0000000000000000000000000000000000000000';
+/** Tokens per progressive read slice — keeps each multicall well under gas limits. */
+const BATCH_SIZE = 40;
+
 
 export function useMarketData() {
   const { tokens: registry, loading: registryLoading, refresh: refreshRegistry } = useLaunchpadRegistry();
