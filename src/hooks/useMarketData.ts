@@ -28,14 +28,19 @@ export interface MarketToken {
   createdAt: number | null;   // unix ms
   /** Price in zkLTC (native) from the token/WzkLTC pool. */
   price: number;
+  /** Price in USD, derived from the WzkLTC/USDC pool. 0 when unknown. */
+  priceUsd: number;
   /** Liquidity in zkLTC (2 × native side of the pool). */
   liquidity: number;
+  /** Liquidity converted to USD. 0 when the USDC pool has no price. */
+  liquidityUsd: number;
   totalSupply: number;
   /** Percentage change vs the oldest sample in the local price history. */
   change: number;
   history: number[];
   pair: string | null;
 }
+
 
 const HISTORY_KEY = 'wolfdex.market.history.v1';
 const MAX_POINTS = 40;
