@@ -14,9 +14,16 @@ import { CONTRACTS } from '@/config/contracts';
 const MULTICALL_ABI = [
   // Multicall3 standard
   'function aggregate3((address target, bool allowFailure, bytes callData)[] calls) payable returns ((bool success, bytes returnData)[] returnData)',
-  // Fallback to legacy Multicall2 if aggregate3 isn't available
+  // Multicall2
   'function tryAggregate(bool requireSuccess, (address target, bytes callData)[] calls) returns ((bool success, bytes returnData)[] returnData)',
+  // Multicall1 (all-or-nothing)
+  'function aggregate((address target, bytes callData)[] calls) returns (uint256 blockNumber, bytes[] returnData)',
 ];
+
+/** Batching flavour supported by the deployed aggregator; probed once per session. */
+type Flavour = 'aggregate3' | 'tryAggregate' | 'aggregate' | 'single';
+let flavour: Flavour | null = null;
+
 
 export interface Call {
   target: string;
