@@ -45,7 +45,88 @@ function getInterface(abi: Call['abi']): ethers.utils.Interface {
   return new ethers.utils.Interface(abi as any);
 }
 
+interface Encoded {
+  target: string;
+  allowFailure: boolean;
+  callData: string;
+}
+interface RawResult {
+  success: boolean;
+  returnData: string;
+}
+
+/** One-by-one execution — last resort, still parallel. */
+async function execSingle(
+  provider: ReturnType<typeof getReadProvider>,
+  encoded: Encoded[],
+): Promise<RawResult[]> {
+  return Promise.all(
+    encoded.map(async e => {
+      try {
+        return { success: true, returnData: await provider.call({ to: e.target, data: e.callData }) };
+      } catch {
+        return { success: false, returnData: '0x' };
+      }
+    }),
+  );
+}
+
 /**
+ * Run one encoded batch, adapting to whichever aggregator flavour the chain's
+ * multicall contract actually implements (Multicall3 / 2 / 1). Multicall1's
+ * `aggregate` is all-or-nothing, so a revert is handled by splitting the batch
+ * in half recursively — a single bad target then costs log(n) calls instead of n.
+ */
+async function execBatch(
+  mc: ethers.Contract,
+  provider: ReturnType<typeof getReadProvider>,
+  encoded: Encoded[],
+): Promise<RawResult[]> {
+  if (encoded.length === 0) return [];
+
+  if (flavour === null) {
+    const probe = encoded.slice(0, 1);
+    for (const f of ['aggregate3', 'tryAggregate', 'aggregate'] as const) {
+      try {
+        if (f === 'aggregate3') await mc.callStatic.aggregate3(probe);
+        else if (f === 'tryAggregate') await mc.callStatic.tryAggregate(false, probe.map(stripFlag));
+        else await mc.callStatic.aggregate(probe.map(stripFlag));
+        flavour = f;
+        break;
+      } catch { /* try next flavour */ }
+    }
+    if (flavour === null) flavour = 'single';
+  }
+
+  if (flavour === 'single') return execSingle(provider, encoded);
+
+  try {
+    if (flavour === 'aggregate3') {
+      const raw = await mc.callStatic.aggregate3(encoded);
+      return raw.map((r: RawResult) => ({ success: r.success, returnData: r.returnData }));
+    }
+    if (flavour === 'tryAggregate') {
+      const raw = await mc.callStatic.tryAggregate(false, encoded.map(stripFlag));
+      return raw.map((r: RawResult) => ({ success: r.success, returnData: r.returnData }));
+    }
+    const res = await mc.callStatic.aggregate(encoded.map(stripFlag));
+    return (res.returnData as string[]).map(d => ({ success: d !== '0x', returnData: d }));
+  } catch {
+    if (encoded.length === 1) return execSingle(provider, encoded);
+    const mid = Math.ceil(encoded.length / 2);
+    const [a, b] = await Promise.all([
+      execBatch(mc, provider, encoded.slice(0, mid)),
+      execBatch(mc, provider, encoded.slice(mid)),
+    ]);
+    return [...a, ...b];
+  }
+}
+
+function stripFlag(e: Encoded) {
+  return { target: e.target, callData: e.callData };
+}
+
+
  * Execute many read calls in one RPC round-trip via Multicall3.
  * @param calls list of {target, abi, functionName, args}
  * @param chunkSize split into batches of this many to stay under gas limit (default 200)
