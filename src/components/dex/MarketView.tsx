@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useMarketData } from '@/hooks/useMarketData';
 import { useMarketSocial } from '@/hooks/useMarketSocial';
-import MarketTokenCard, { fmt } from './market/MarketTokenCard';
+import MarketTokenCard, { fmt, fmtUsd } from './market/MarketTokenCard';
 import { CHAIN_CONFIG } from '@/config/contracts';
 import { WolfSkeleton } from './ui/WolfSkeleton';
 
@@ -34,7 +34,7 @@ type SortId = typeof SORTS[number]['id'];
 const PAGE = 12;
 
 export default function MarketView() {
-  const { tokens, loading, lastUpdated, refresh } = useMarketData();
+  const { tokens, loading, lastUpdated, nativeUsd, refresh } = useMarketData();
   const social = useMarketSocial();
   const [tab, setTab] = useState<TabId>('all');
   const [sort, setSort] = useState<SortId>('default');
