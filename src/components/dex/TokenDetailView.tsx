@@ -200,8 +200,15 @@ export default function TokenDetailView({ address: rawAddress }: { address: stri
           <div className="text-right shrink-0">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Price</div>
             <div className="text-2xl font-black font-mono">
-              {market && market.price > 0 ? fmt(market.price, 8) : '—'}
-              <span className="text-[11px] text-muted-foreground ml-1">{CHAIN_CONFIG.symbol}</span>
+              {market && market.priceUsd > 0
+                ? fmtUsd(market.priceUsd)
+                : market && market.price > 0 ? fmt(market.price, 8) : '—'}
+              <span className="text-[11px] text-muted-foreground ml-1">
+                {market && market.priceUsd > 0 ? 'USDC' : CHAIN_CONFIG.symbol}
+              </span>
+            </div>
+            <div className="text-[11px] font-mono text-muted-foreground">
+              {market && market.price > 0 ? `${fmt(market.price, 8)} ${CHAIN_CONFIG.symbol}` : 'no pool price yet'}
             </div>
             <div className={`text-xs font-semibold ${up ? 'text-wolf-green' : 'text-wolf-red'}`}>
               {market && market.history.length > 1
@@ -215,23 +222,49 @@ export default function TokenDetailView({ address: rawAddress }: { address: stri
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
-        <Stat label="Liquidity" value={market && market.liquidity > 0 ? `${fmt(market.liquidity, 2)} ${CHAIN_CONFIG.symbol}` : 'No pool yet'} />
         <Stat
-          label={`24h volume`}
-          value={stats.volume > 0 ? `${fmt(stats.volume, 3)} ${CHAIN_CONFIG.symbol}` : stats.loading ? '…' : '—'}
+          label="Liquidity"
+          value={market && market.liquidity > 0 ? `${fmt(market.liquidity, 2)} ${CHAIN_CONFIG.symbol}` : 'No pool yet'}
+          sub={market && market.liquidityUsd > 0 ? fmtUsd(market.liquidityUsd) : undefined}
         />
-        <Stat label="24h high" value={stats.high > 0 ? fmt(stats.high, 8) : '—'} />
-        <Stat label="24h low" value={stats.low > 0 ? fmt(stats.low, 8) : '—'} />
+        <Stat
+          label="24h volume"
+          value={stats.volume > 0 ? `${fmt(stats.volume, 3)} ${CHAIN_CONFIG.symbol}` : stats.loading ? '…' : '—'}
+          sub={stats.volume > 0 && nativeUsd > 0 ? fmtUsd(stats.volume * nativeUsd) : undefined}
+        />
+        <Stat
+          label="24h high"
+          value={stats.high > 0 ? fmt(stats.high, 8) : '—'}
+          sub={stats.high > 0 && nativeUsd > 0 ? fmtUsd(stats.high * nativeUsd) : undefined}
+        />
+        <Stat
+          label="24h low"
+          value={stats.low > 0 ? fmt(stats.low, 8) : '—'}
+          sub={stats.low > 0 && nativeUsd > 0 ? fmtUsd(stats.low * nativeUsd) : undefined}
+        />
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-        <Stat label="Total supply" value={chain ? fmt(parseFloat(chain.totalSupply), 0) : marketLoading ? '…' : '—'} />
+        <Stat
+          label="Total supply"
+          value={chain ? fmt(parseFloat(chain.totalSupply), 0) : marketLoading ? '…' : '—'}
+          sub={chain && market && market.priceUsd > 0
+            ? `mkt cap ${fmtUsd(parseFloat(chain.totalSupply) * market.priceUsd)}`
+            : undefined}
+        />
         <Stat
           label="Holders (est.)"
           value={holders !== null ? fmt(holders, 0) : holdersLoading ? '…' : '—'}
         />
-        <Stat label="Your balance" value={chain?.balance ? `${fmt(parseFloat(chain.balance), 4)} ${symbol}` : '— connect wallet'} />
+        <Stat
+          label="Your balance"
+          value={chain?.balance ? `${fmt(parseFloat(chain.balance), 4)} ${symbol}` : '— connect wallet'}
+          sub={chain?.balance && market && market.priceUsd > 0
+            ? fmtUsd(parseFloat(chain.balance) * market.priceUsd)
+            : undefined}
+        />
         <Stat label="Creator" value={market?.creator ? `${market.creator.slice(0, 6)}…${market.creator.slice(-4)}` : 'Unknown'} mono />
       </div>
+
 
 
       {/* Chart + swap */}
