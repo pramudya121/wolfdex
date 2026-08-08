@@ -6,7 +6,7 @@
 import { Link } from '@tanstack/react-router';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import Sparkline from './Sparkline';
+import MiniDailyChart from './MiniDailyChart';
 import { CHAIN_CONFIG } from '@/config/contracts';
 import type { MarketToken } from '@/hooks/useMarketData';
 
@@ -18,6 +18,16 @@ export function fmt(n: number, digits = 4): string {
   return n.toLocaleString('en-US', { maximumFractionDigits: digits });
 }
 
+/** USD formatter — keeps small token prices readable. */
+export function fmtUsd(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return '—';
+  if (n >= 1000) return `$${fmt(n, 2)}`;
+  if (n >= 1) return `$${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
+  if (n >= 0.01) return `$${n.toLocaleString('en-US', { maximumFractionDigits: 4 })}`;
+  if (n < 0.000001) return `$${n.toExponential(2)}`;
+  return `$${n.toLocaleString('en-US', { maximumFractionDigits: 8 })}`;
+}
+
 export function age(ts: number | null): string {
   if (!ts) return '—';
   const secs = Math.max(1, Math.floor((Date.now() - ts) / 1000));
@@ -25,6 +35,7 @@ export function age(ts: number | null): string {
   if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
   return `${Math.floor(secs / 86400)}d ago`;
 }
+
 
 export default function MarketTokenCard({
   token,
@@ -96,29 +107,39 @@ export default function MarketTokenCard({
       </div>
 
       <div className="flex items-end justify-between gap-2 relative">
-        <div>
+        <div className="min-w-0">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Price</div>
-          <div className="text-lg font-bold font-mono">
-            {token.price > 0 ? fmt(token.price, 8) : '—'}
-            <span className="text-[10px] text-muted-foreground ml-1">{CHAIN_CONFIG.symbol}</span>
+          <div className="text-lg font-bold font-mono truncate">
+            {token.priceUsd > 0 ? fmtUsd(token.priceUsd) : token.price > 0 ? fmt(token.price, 8) : '—'}
+            {token.priceUsd > 0 && <span className="text-[10px] text-muted-foreground ml-1">USDC</span>}
+            {token.priceUsd <= 0 && token.price > 0 && (
+              <span className="text-[10px] text-muted-foreground ml-1">{CHAIN_CONFIG.symbol}</span>
+            )}
+          </div>
+          <div className="text-[10px] font-mono text-muted-foreground truncate">
+            {token.price > 0 ? `${fmt(token.price, 8)} ${CHAIN_CONFIG.symbol}` : 'awaiting first pool'}
           </div>
           <div className={`text-[11px] font-semibold ${up ? 'text-wolf-green' : 'text-wolf-red'}`}>
             {token.history.length > 1 ? `${up ? '▲' : '▼'} ${Math.abs(token.change).toFixed(2)}%` : 'no trend yet'}
           </div>
         </div>
-        <Sparkline data={token.history} positive={up} className="text-muted-foreground" />
+        <MiniDailyChart pair={token.pair} tokenAddress={token.address} fallback={token.history} />
       </div>
 
       <div className="grid grid-cols-3 gap-2 text-[11px] relative">
-        <Metric label="Liquidity" value={token.liquidity > 0 ? `${fmt(token.liquidity, 2)} ${CHAIN_CONFIG.symbol}` : 'No pool'} />
+        <Metric
+          label="Liquidity"
+          value={token.liquidity > 0 ? `${fmt(token.liquidity, 2)} ${CHAIN_CONFIG.symbol}` : 'No pool'}
+          sub={token.liquidityUsd > 0 ? fmtUsd(token.liquidityUsd) : undefined}
+        />
         <Metric label="Supply" value={fmt(token.totalSupply, 0)} />
         <Metric
           label="Mkt cap"
-          value={token.price > 0 && token.totalSupply > 0
-            ? `${fmt(token.price * token.totalSupply, 2)} ${CHAIN_CONFIG.symbol}`
-            : '—'}
+          value={token.price > 0 && token.totalSupply > 0 ? fmt(token.price * token.totalSupply, 2) : '—'}
+          sub={token.priceUsd > 0 && token.totalSupply > 0 ? fmtUsd(token.priceUsd * token.totalSupply) : undefined}
         />
       </div>
+
 
       <div className="flex items-center gap-1.5 relative">
         <Link
@@ -169,11 +190,13 @@ export default function MarketTokenCard({
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="rounded-xl bg-wolf-surface/60 border border-wolf-border/30 px-2.5 py-1.5">
       <div className="text-[9px] uppercase tracking-wider text-muted-foreground">{label}</div>
       <div className="font-semibold truncate">{value}</div>
+      {sub && <div className="text-[9px] text-muted-foreground truncate">{sub}</div>}
     </div>
+
   );
 }

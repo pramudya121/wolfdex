@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useMarketData } from '@/hooks/useMarketData';
 import { useMarketSocial } from '@/hooks/useMarketSocial';
-import MarketTokenCard, { fmt } from './market/MarketTokenCard';
+import MarketTokenCard, { fmt, fmtUsd } from './market/MarketTokenCard';
 import { CHAIN_CONFIG } from '@/config/contracts';
 import { WolfSkeleton } from './ui/WolfSkeleton';
 
@@ -34,7 +34,7 @@ type SortId = typeof SORTS[number]['id'];
 const PAGE = 12;
 
 export default function MarketView() {
-  const { tokens, loading, lastUpdated, refresh } = useMarketData();
+  const { tokens, loading, lastUpdated, nativeUsd, refresh } = useMarketData();
   const social = useMarketSocial();
   const [tab, setTab] = useState<TabId>('all');
   const [sort, setSort] = useState<SortId>('default');
@@ -131,6 +131,14 @@ export default function MarketView() {
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-wolf-surface/60 border border-wolf-border/30 text-[11px] mb-3">
           <span className="w-1.5 h-1.5 rounded-full bg-wolf-green animate-pulse" />
           <span className="text-muted-foreground">Live on-chain data</span>
+          {nativeUsd > 0 && (
+            <>
+              <span className="text-wolf-border">·</span>
+              <span className="text-muted-foreground">
+                1 {CHAIN_CONFIG.symbol} ≈ {fmtUsd(nativeUsd)}
+              </span>
+            </>
+          )}
           {lastUpdated && (
             <>
               <span className="text-wolf-border">·</span>
@@ -140,6 +148,7 @@ export default function MarketView() {
             </>
           )}
         </div>
+
         <h1 className="text-4xl sm:text-5xl font-black wolf-gradient-text tracking-tight mb-2">WolfDex Market</h1>
         <p className="text-muted-foreground text-sm max-w-xl mx-auto">
           Every token launched on WolfDex, priced straight from the AMM pools. Track new launches,
@@ -152,7 +161,12 @@ export default function MarketView() {
         <Stat label="Listed tokens" value={stats.count.toLocaleString('en-US')} />
         <Stat label="With live pool" value={stats.withPool.toLocaleString('en-US')} />
         <Stat label="New (24h)" value={stats.newToday.toLocaleString('en-US')} />
-        <Stat label="Total liquidity" value={`${fmt(stats.totalLiq, 2)} ${CHAIN_CONFIG.symbol}`} />
+        <Stat
+          label="Total liquidity"
+          value={`${fmt(stats.totalLiq, 2)} ${CHAIN_CONFIG.symbol}`}
+          sub={nativeUsd > 0 ? fmtUsd(stats.totalLiq * nativeUsd) : undefined}
+        />
+
       </div>
 
       {/* Controls */}
@@ -257,11 +271,13 @@ export default function MarketView() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="wolf-card rounded-2xl p-4">
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{label}</div>
       <div className="text-lg font-bold truncate">{value}</div>
+      {sub && <div className="text-[10px] text-muted-foreground truncate">{sub}</div>}
     </div>
   );
 }
+
