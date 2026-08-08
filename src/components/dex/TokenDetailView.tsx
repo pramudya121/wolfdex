@@ -18,8 +18,9 @@ import { usePairStats } from '@/hooks/usePairStats';
 import { useTokenHolders } from '@/hooks/useTokenHolders';
 import { useDexContext } from '@/context/DexContext';
 
-import { fmt, age } from './market/MarketTokenCard';
+import { fmt, fmtUsd, age } from './market/MarketTokenCard';
 import Sparkline from './market/Sparkline';
+
 import PairChart from './PairChart';
 import RecentTrades from './market/RecentTrades';
 import TokenPools from './market/TokenPools';
@@ -38,7 +39,7 @@ export default function TokenDetailView({ address: rawAddress }: { address: stri
   try { address = ethers.utils.getAddress(rawAddress); } catch { /* keep raw */ }
 
   const { wallet, dex, txHistory } = useDexContext();
-  const { token: market, loading: marketLoading, refresh } = useMarketToken(address);
+  const { token: market, loading: marketLoading, refresh, nativeUsd } = useMarketToken(address);
   const social = useMarketSocial();
   const stats = usePairStats(market?.pair ?? null);
   const { holders, loading: holdersLoading } = useTokenHolders(address);
