@@ -259,10 +259,11 @@ interface IdentityFields {
 
 /** Single-token variant used by the token detail page. */
 export function useMarketToken(address: string) {
-  const { tokens, loading, refresh, lastUpdated } = useMarketData();
+  const { tokens, loading, refresh, lastUpdated, nativeUsd } = useMarketData();
   const token = useMemo(
     () => tokens.find(t => t.address.toLowerCase() === address.toLowerCase()) ?? null,
     [tokens, address],
   );
-  return { token, loading, refresh, lastUpdated };
+  return { token, loading, refresh, lastUpdated, nativeUsd };
 }
+
