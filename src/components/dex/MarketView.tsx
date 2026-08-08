@@ -131,6 +131,14 @@ export default function MarketView() {
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-wolf-surface/60 border border-wolf-border/30 text-[11px] mb-3">
           <span className="w-1.5 h-1.5 rounded-full bg-wolf-green animate-pulse" />
           <span className="text-muted-foreground">Live on-chain data</span>
+          {nativeUsd > 0 && (
+            <>
+              <span className="text-wolf-border">·</span>
+              <span className="text-muted-foreground">
+                1 {CHAIN_CONFIG.symbol} ≈ {fmtUsd(nativeUsd)}
+              </span>
+            </>
+          )}
           {lastUpdated && (
             <>
               <span className="text-wolf-border">·</span>
@@ -140,6 +148,7 @@ export default function MarketView() {
             </>
           )}
         </div>
+
         <h1 className="text-4xl sm:text-5xl font-black wolf-gradient-text tracking-tight mb-2">WolfDex Market</h1>
         <p className="text-muted-foreground text-sm max-w-xl mx-auto">
           Every token launched on WolfDex, priced straight from the AMM pools. Track new launches,
