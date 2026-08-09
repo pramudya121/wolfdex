@@ -1001,6 +1001,16 @@ export default function DomainsView() {
                     <><Sparkles className="h-4 w-4" />Mint Domain</>
                   )}
                 </motion.button>
+                <a
+                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(
+                    `I'm claiming ${availability.name}.${DNS_TLD} on WolfDex Name Service 🐺`,
+                  )}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 rounded-2xl border border-wolf-border/40 bg-wolf-surface/60 px-4 py-3 text-xs font-bold text-foreground transition hover:border-wolf-pink/50 hover:text-wolf-pink"
+                >
+                  <Twitter className="h-3.5 w-3.5" /> Share
+                </a>
               </div>
             </motion.section>
           )}
@@ -1361,6 +1371,13 @@ export default function DomainsView() {
             </div>
           )}
         </section>
+
+        {/* Why claim / how it works / pricing / FAQ */}
+        <DomainsPerks
+          onPick={() => {
+            if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        />
       </div>
 
       {/* Action modal — renew / transfer */}
