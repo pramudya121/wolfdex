@@ -191,7 +191,6 @@ export default function DomainsView() {
   };
 
   const nameValid = query.length >= 3 && DOMAIN_REGEX.test(query);
-  const [liveEnabled, setLiveEnabled] = useState(true);
 
   // primaryName is derived reactively via usePrimaryDomain(address) above.
 
@@ -271,6 +270,14 @@ export default function DomainsView() {
       setAvailability({ state: 'idle' });
     }
   }, [query]);
+
+  /* Live availability — debounced check while the user types. */
+  useEffect(() => {
+    if (!nameValid || minting) return;
+    const t = setTimeout(() => { void handleSearch(query); }, 450);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, nameValid, minting]);
 
   /* ------------------------------------------------------------------ */
   /*  Gas estimate for mint (commit + register together)                */
@@ -1045,6 +1052,47 @@ export default function DomainsView() {
                     <><Sparkles className="h-4 w-4" />Mint Domain</>
                   )}
                 </motion.button>
+              {mintStep > 0 && (
+                <div className="mb-3 w-full rounded-2xl border border-wolf-border/40 bg-background/50 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    {['Commit', 'Reveal wait', 'Register', 'Done'].map((s, i) => {
+                      const step = i + 1;
+                      const active = mintStep === step;
+                      const passed = mintStep > step;
+                      return (
+                        <div key={s} className="flex flex-1 items-center gap-2">
+                          <span
+                            className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border text-[10px] font-black ${
+                              passed
+                                ? 'border-wolf-pink/60 bg-wolf-pink/20 text-wolf-pink'
+                                : active
+                                  ? 'border-wolf-pink/60 text-wolf-pink'
+                                  : 'border-wolf-border/40 text-muted-foreground'
+                            }`}
+                          >
+                            {passed ? <Check className="h-3 w-3" /> : active ? <Loader2 className="h-3 w-3 animate-spin" /> : step}
+                          </span>
+                          <span className={`hidden text-[10px] font-bold uppercase tracking-wider sm:inline ${active || passed ? 'text-foreground' : 'text-muted-foreground'}`}>{s}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {(mintTx.commit || mintTx.register) && (
+                    <div className="mt-2 flex flex-wrap gap-3 text-[10px] font-bold">
+                      {mintTx.commit && (
+                        <a href={`${CHAIN_CONFIG.blockExplorer}/tx/${mintTx.commit}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-wolf-pink">
+                          Commit tx <ExternalLink className="h-2.5 w-2.5" />
+                        </a>
+                      )}
+                      {mintTx.register && (
+                        <a href={`${CHAIN_CONFIG.blockExplorer}/tx/${mintTx.register}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-wolf-pink">
+                          Register tx <ExternalLink className="h-2.5 w-2.5" />
+                        </a>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
                 <a
                   href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(
                     `I'm claiming ${availability.name}.${DNS_TLD} on WolfDex Name Service 🐺`,
@@ -1055,6 +1103,13 @@ export default function DomainsView() {
                 >
                   <Twitter className="h-3.5 w-3.5" /> Share
                 </a>
+                <Link
+                  to="/domain/$name"
+                  params={{ name: availability.name }}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-wolf-border/40 bg-wolf-surface/60 px-4 py-3 text-xs font-bold text-foreground transition hover:border-wolf-pink/50 hover:text-wolf-pink"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" /> Details
+                </Link>
               </div>
             </motion.section>
           )}
