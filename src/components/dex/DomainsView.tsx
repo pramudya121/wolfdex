@@ -852,6 +852,24 @@ export default function DomainsView() {
           <p className="mt-3 text-center text-[11px] text-muted-foreground">
             Lowercase letters, digits and hyphens only. Minimum 3 characters.
           </p>
+
+          {/* Inspiration chips — one tap to try a name */}
+          <div className="mx-auto mt-5 flex max-w-2xl flex-wrap items-center justify-center gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Need ideas
+            </span>
+            {NAME_IDEAS.map(n => (
+              <motion.button
+                key={n}
+                whileHover={{ y: -2 }}
+                whileTap={{ scale: 0.96 }}
+                onClick={() => { handleQueryChange(n); setTimeout(handleSearch, 0); }}
+                className="rounded-xl border border-wolf-border/40 bg-wolf-surface/50 px-3 py-1.5 text-xs font-semibold text-foreground transition hover:border-wolf-pink/50 hover:bg-wolf-pink/10 hover:text-wolf-pink"
+              >
+                {n}<span className="text-wolf-pink">.{DNS_TLD}</span>
+              </motion.button>
+            ))}
+          </div>
         </motion.section>
 
         {/* Stats bar */}
