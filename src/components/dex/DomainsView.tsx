@@ -43,6 +43,10 @@ import {
 } from '@/config/abis';
 import { getReadProvider } from '@/lib/rpc';
 import { setPrimaryDomainLocal, usePrimaryDomain } from '@/hooks/usePrimaryDomain';
+import DomainsPerks from '@/components/dex/domains/DomainsPerks';
+
+/** Curated inspiration chips shown under the search field. */
+const NAME_IDEAS = ['alpha', 'moon', 'degen', 'whale', 'wolfking', 'satoshi', 'diamond', 'apex'];
 
 /* -------------------------------------------------------------------------- */
 /*  Types & helpers                                                            */
