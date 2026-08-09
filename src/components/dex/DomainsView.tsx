@@ -43,6 +43,10 @@ import {
 } from '@/config/abis';
 import { getReadProvider } from '@/lib/rpc';
 import { setPrimaryDomainLocal, usePrimaryDomain } from '@/hooks/usePrimaryDomain';
+import DomainsPerks from '@/components/dex/domains/DomainsPerks';
+
+/** Curated inspiration chips shown under the search field. */
+const NAME_IDEAS = ['alpha', 'moon', 'degen', 'whale', 'wolfking', 'satoshi', 'diamond', 'apex'];
 
 /* -------------------------------------------------------------------------- */
 /*  Types & helpers                                                            */
@@ -189,11 +193,13 @@ export default function DomainsView() {
   /* ------------------------------------------------------------------ */
   /*  handleSearch — on-chain availability via Controller + Registry    */
   /* ------------------------------------------------------------------ */
-  const handleSearch = useCallback(async () => {
-    if (!nameValid) {
+  const handleSearch = useCallback(async (override?: string) => {
+    const name = (override ?? query).toLowerCase();
+    if (!(name.length >= 3 && DOMAIN_REGEX.test(name))) {
       toast.error('Enter a valid name (min 3 chars, a-z, 0-9, -)');
       return;
     }
+    if (override) setQuery(name);
     setAvailability({ state: 'checking' });
     setGasEstimate(null);
     try {
@@ -204,9 +210,9 @@ export default function DomainsView() {
       // Prefer explicit domainInfo (owner, expires, available); fall back to
       // isAvailable + registrar.expiries when the controller variant is older.
       const [info, availFlag, priceRes] = await Promise.all([
-        controller.domainInfo(query).catch(() => null),
-        controller.isAvailable(query).catch(() => null),
-        controller.price(query, 365 * 24 * 60 * 60).catch(() => null),
+        controller.domainInfo(name).catch(() => null),
+        controller.isAvailable(name).catch(() => null),
+        controller.price(name, 365 * 24 * 60 * 60).catch(() => null),
       ]);
 
       let isAvail: boolean;
@@ -220,7 +226,7 @@ export default function DomainsView() {
       } else if (typeof availFlag === 'boolean') {
         isAvail = availFlag;
         if (!isAvail) {
-          const tokenId = labelHash(query);
+          const tokenId = labelHash(name);
           const [o, e] = await Promise.all([
             registrar.ownerOf(tokenId).catch(() => ethers.constants.AddressZero),
             registrar.expiries(tokenId).catch(() => ethers.BigNumber.from(0)),
@@ -235,16 +241,16 @@ export default function DomainsView() {
       if (isAvail) {
         setAvailability({
           state: 'available',
-          name: query,
-          priceUsd: USD_PER_YEAR(query.length),
+          name,
+          priceUsd: USD_PER_YEAR(name.length),
           priceWei: priceRes ? ethers.BigNumber.from(priceRes) : null,
         });
         setSuggestions([]);
       } else {
-        setAvailability({ state: 'taken', name: query, owner: ownerAddr, expires });
+        setAvailability({ state: 'taken', name, owner: ownerAddr, expires });
         // Compute up to 4 available alternates in the background.
         (async () => {
-          const candidates = SUGGESTION_SUFFIXES.map(s => `${query}${s}`);
+          const candidates = SUGGESTION_SUFFIXES.map(s => `${name}${s}`);
           const checks = await Promise.all(
             candidates.map(n =>
               controller.isAvailable(n).then((ok: boolean) => (ok ? n : null)).catch(() => null),
@@ -258,7 +264,7 @@ export default function DomainsView() {
       toast.error(err?.shortMessage || err?.message || 'Failed to check availability');
       setAvailability({ state: 'idle' });
     }
-  }, [nameValid, query]);
+  }, [query]);
 
   /* ------------------------------------------------------------------ */
   /*  Gas estimate for mint (commit + register together)                */
@@ -822,7 +828,7 @@ export default function DomainsView() {
               <input
                 value={query}
                 onChange={e => handleQueryChange(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                onKeyDown={e => { if (e.key === 'Enter') void handleSearch(); }}
                 placeholder="yourname"
                 spellCheck={false}
                 autoComplete="off"
@@ -833,7 +839,7 @@ export default function DomainsView() {
               </span>
             </div>
             <button
-              onClick={handleSearch}
+              onClick={() => void handleSearch()}
               disabled={!nameValid || availability.state === 'checking'}
               className="wolf-btn-primary flex h-14 items-center justify-center gap-2 rounded-2xl px-6 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-60"
             >
@@ -848,6 +854,24 @@ export default function DomainsView() {
           <p className="mt-3 text-center text-[11px] text-muted-foreground">
             Lowercase letters, digits and hyphens only. Minimum 3 characters.
           </p>
+
+          {/* Inspiration chips — one tap to try a name */}
+          <div className="mx-auto mt-5 flex max-w-2xl flex-wrap items-center justify-center gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Need ideas
+            </span>
+            {NAME_IDEAS.map(n => (
+              <motion.button
+                key={n}
+                whileHover={{ y: -2 }}
+                whileTap={{ scale: 0.96 }}
+                onClick={() => { handleQueryChange(n); void handleSearch(n); }}
+                className="rounded-xl border border-wolf-border/40 bg-wolf-surface/50 px-3 py-1.5 text-xs font-semibold text-foreground transition hover:border-wolf-pink/50 hover:bg-wolf-pink/10 hover:text-wolf-pink"
+              >
+                {n}<span className="text-wolf-pink">.{DNS_TLD}</span>
+              </motion.button>
+            ))}
+          </div>
         </motion.section>
 
         {/* Stats bar */}
@@ -977,6 +1001,16 @@ export default function DomainsView() {
                     <><Sparkles className="h-4 w-4" />Mint Domain</>
                   )}
                 </motion.button>
+                <a
+                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(
+                    `I'm claiming ${availability.name}.${DNS_TLD} on WolfDex Name Service 🐺`,
+                  )}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 rounded-2xl border border-wolf-border/40 bg-wolf-surface/60 px-4 py-3 text-xs font-bold text-foreground transition hover:border-wolf-pink/50 hover:text-wolf-pink"
+                >
+                  <Twitter className="h-3.5 w-3.5" /> Share
+                </a>
               </div>
             </motion.section>
           )}
@@ -1030,7 +1064,7 @@ export default function DomainsView() {
                     {suggestions.map(s => (
                       <button
                         key={s}
-                        onClick={() => { setQuery(s); setAvailability({ state: 'idle' }); setTimeout(handleSearch, 0); }}
+                        onClick={() => { setAvailability({ state: 'idle' }); void handleSearch(s); }}
                         className="group inline-flex items-center gap-1.5 rounded-xl border border-wolf-border/40 bg-wolf-surface/50 px-3 py-1.5 text-xs font-semibold text-foreground transition hover:border-wolf-pink/50 hover:bg-wolf-pink/10 hover:text-wolf-pink"
                       >
                         {s}<span className="text-wolf-pink">.{DNS_TLD}</span>
@@ -1337,6 +1371,13 @@ export default function DomainsView() {
             </div>
           )}
         </section>
+
+        {/* Why claim / how it works / pricing / FAQ */}
+        <DomainsPerks
+          onPick={() => {
+            if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        />
       </div>
 
       {/* Action modal — renew / transfer */}
