@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      domain_requests: {
+        Row: {
+          created_at: string
+          domain_name: string
+          email: string
+          id: string
+          message: string | null
+          status: string
+          updated_at: string
+          wallet_address: string | null
+        }
+        Insert: {
+          created_at?: string
+          domain_name: string
+          email: string
+          id?: string
+          message?: string | null
+          status?: string
+          updated_at?: string
+          wallet_address?: string | null
+        }
+        Update: {
+          created_at?: string
+          domain_name?: string
+          email?: string
+          id?: string
+          message?: string | null
+          status?: string
+          updated_at?: string
+          wallet_address?: string | null
+        }
+        Relationships: []
+      }
       launchpad_tokens: {
         Row: {
           address: string

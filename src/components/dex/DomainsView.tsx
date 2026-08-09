@@ -44,6 +44,8 @@ import {
 import { getReadProvider } from '@/lib/rpc';
 import { setPrimaryDomainLocal, usePrimaryDomain } from '@/hooks/usePrimaryDomain';
 import DomainsPerks from '@/components/dex/domains/DomainsPerks';
+import DomainRequestForm from '@/components/dex/domains/DomainRequestForm';
+import { Link } from '@tanstack/react-router';
 
 /** Curated inspiration chips shown under the search field. */
 const NAME_IDEAS = ['alpha', 'moon', 'degen', 'whale', 'wolfking', 'satoshi', 'diamond', 'apex'];
@@ -174,6 +176,9 @@ export default function DomainsView() {
   const [sortMode, setSortMode] = useState<SortMode>('expiry-asc');
   const [ownedFilter, setOwnedFilter] = useState('');
   const [refreshingActivity, setRefreshingActivity] = useState(false);
+  /** On-chain mint progress: 0 idle · 1 commit · 2 reveal wait · 3 register · 4 done */
+  const [mintStep, setMintStep] = useState(0);
+  const [mintTx, setMintTx] = useState<{ commit?: string; register?: string }>({});
 
   const handleQueryChange = (raw: string) => {
     // Strip a trailing .wolf / .wolf. so pasting a full domain still works.
@@ -266,6 +271,14 @@ export default function DomainsView() {
     }
   }, [query]);
 
+  /* Live availability — debounced check while the user types. */
+  useEffect(() => {
+    if (!nameValid || minting) return;
+    const t = setTimeout(() => { void handleSearch(query); }, 450);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, nameValid, minting]);
+
   /* ------------------------------------------------------------------ */
   /*  Gas estimate for mint (commit + register together)                */
   /* ------------------------------------------------------------------ */
@@ -307,6 +320,8 @@ export default function DomainsView() {
       return;
     }
     setMinting(true);
+    setMintStep(1);
+    setMintTx({});
     const name = availability.name;
     const duration = years * 365 * 24 * 60 * 60;
 
@@ -324,15 +339,20 @@ export default function DomainsView() {
 
       toast.loading('Step 1/2 — committing to chain…', { id: 'mint' });
       const commitTx = await controller.commit(commitment, name);
+      setMintTx(prev => ({ ...prev, commit: commitTx.hash }));
       await commitTx.wait();
+      setMintStep(2);
 
       const waitMs = Math.max(5_000, delay.toNumber() * 1000 + 3_000);
       toast.loading(`Waiting ${Math.ceil(waitMs / 1000)}s reveal window…`, { id: 'mint' });
       await new Promise(r => setTimeout(r, waitMs));
 
       toast.loading('Step 2/2 — registering domain…', { id: 'mint' });
+      setMintStep(3);
       const regTx = await controller.register(name, address, duration, secret, { value: priceWei });
+      setMintTx(prev => ({ ...prev, register: regTx.hash }));
       await regTx.wait();
+      setMintStep(4);
 
       // First-ever mint for this address → auto-pin as primary so the header
       // instantly shows "name.wolf" in place of the raw wallet address.
@@ -363,6 +383,7 @@ export default function DomainsView() {
     } catch (err: any) {
       console.error('[DNS] mint', err);
       toast.error(err?.shortMessage || err?.message || 'Mint failed', { id: 'mint' });
+      setMintStep(0);
     } finally {
       setMinting(false);
     }
@@ -834,8 +855,38 @@ export default function DomainsView() {
                 autoComplete="off"
                 className="h-14 w-full rounded-2xl border border-wolf-border/40 bg-background/70 pl-11 pr-24 text-base font-semibold text-foreground outline-none transition focus:border-wolf-pink/60 focus:ring-2 focus:ring-wolf-pink/30"
               />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 rounded-lg border border-wolf-border/40 bg-wolf-surface/70 px-2.5 py-1 text-sm font-bold text-wolf-pink">
-                .{DNS_TLD}
+              <span className="absolute right-4 top-1/2 flex -translate-y-1/2 items-center gap-2">
+                {query.length > 0 && (
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-black uppercase tracking-wider ${
+                      !nameValid
+                        ? 'border-wolf-border/40 text-muted-foreground'
+                        : availability.state === 'checking'
+                          ? 'border-wolf-border/40 text-muted-foreground'
+                          : availability.state === 'available'
+                            ? 'border-wolf-pink/50 bg-wolf-pink/10 text-wolf-pink'
+                            : availability.state === 'taken'
+                              ? 'border-destructive/50 bg-destructive/10 text-destructive'
+                              : 'border-wolf-border/40 text-muted-foreground'
+                    }`}
+                    aria-live="polite"
+                  >
+                    {!nameValid ? (
+                      <>Min 3</>
+                    ) : availability.state === 'checking' ? (
+                      <><Loader2 className="h-3 w-3 animate-spin" />Checking</>
+                    ) : availability.state === 'available' ? (
+                      <><Check className="h-3 w-3" />Free</>
+                    ) : availability.state === 'taken' ? (
+                      <><X className="h-3 w-3" />Taken</>
+                    ) : (
+                      <>Idle</>
+                    )}
+                  </span>
+                )}
+                <span className="rounded-lg border border-wolf-border/40 bg-wolf-surface/70 px-2.5 py-1 text-sm font-bold text-wolf-pink">
+                  .{DNS_TLD}
+                </span>
               </span>
             </div>
             <button
@@ -1001,6 +1052,47 @@ export default function DomainsView() {
                     <><Sparkles className="h-4 w-4" />Mint Domain</>
                   )}
                 </motion.button>
+              {mintStep > 0 && (
+                <div className="mb-3 w-full rounded-2xl border border-wolf-border/40 bg-background/50 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    {['Commit', 'Reveal wait', 'Register', 'Done'].map((s, i) => {
+                      const step = i + 1;
+                      const active = mintStep === step;
+                      const passed = mintStep > step;
+                      return (
+                        <div key={s} className="flex flex-1 items-center gap-2">
+                          <span
+                            className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border text-[10px] font-black ${
+                              passed
+                                ? 'border-wolf-pink/60 bg-wolf-pink/20 text-wolf-pink'
+                                : active
+                                  ? 'border-wolf-pink/60 text-wolf-pink'
+                                  : 'border-wolf-border/40 text-muted-foreground'
+                            }`}
+                          >
+                            {passed ? <Check className="h-3 w-3" /> : active ? <Loader2 className="h-3 w-3 animate-spin" /> : step}
+                          </span>
+                          <span className={`hidden text-[10px] font-bold uppercase tracking-wider sm:inline ${active || passed ? 'text-foreground' : 'text-muted-foreground'}`}>{s}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {(mintTx.commit || mintTx.register) && (
+                    <div className="mt-2 flex flex-wrap gap-3 text-[10px] font-bold">
+                      {mintTx.commit && (
+                        <a href={`${CHAIN_CONFIG.blockExplorer}/tx/${mintTx.commit}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-wolf-pink">
+                          Commit tx <ExternalLink className="h-2.5 w-2.5" />
+                        </a>
+                      )}
+                      {mintTx.register && (
+                        <a href={`${CHAIN_CONFIG.blockExplorer}/tx/${mintTx.register}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-wolf-pink">
+                          Register tx <ExternalLink className="h-2.5 w-2.5" />
+                        </a>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
                 <a
                   href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(
                     `I'm claiming ${availability.name}.${DNS_TLD} on WolfDex Name Service 🐺`,
@@ -1011,6 +1103,13 @@ export default function DomainsView() {
                 >
                   <Twitter className="h-3.5 w-3.5" /> Share
                 </a>
+                <Link
+                  to="/domain/$name"
+                  params={{ name: availability.name }}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-wolf-border/40 bg-wolf-surface/60 px-4 py-3 text-xs font-bold text-foreground transition hover:border-wolf-pink/50 hover:text-wolf-pink"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" /> Details
+                </Link>
               </div>
             </motion.section>
           )}
@@ -1371,6 +1470,9 @@ export default function DomainsView() {
             </div>
           )}
         </section>
+
+        {/* Concierge lead capture */}
+        <DomainRequestForm presetName={nameValid ? query : ''} />
 
         {/* Why claim / how it works / pricing / FAQ */}
         <DomainsPerks
