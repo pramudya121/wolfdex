@@ -46,9 +46,17 @@ export const CONTRACTS = {
 export const DNS_TLD = 'wolf';
 
 /**
+ * The deployed faucet stores tokens in a FIXED array of 7 slots
+ * (`tokens(0)`..`tokens(6)`). Any tokenIndex >= 7 makes setToken/claim revert
+ * with "invalid token", so the UI must never offer slot 7+.
+ */
+export const FAUCET_MAX_SLOTS = 7;
+
+/**
  * Faucet token list — order MUST match the on-chain `tokens(uint256)` slots
  * configured by the contract owner via setToken(tokenIndex, tokenAddress).
  * Each entry references a curated TOKENS symbol so the UI can show logos.
+ * To add a token (e.g. USDC) an admin must REPLACE one of these 7 slots.
  */
 export const FAUCET_TOKENS: { index: number; symbol: string }[] = [
   { index: 0, symbol: 'wzkLTC' },
@@ -58,8 +66,7 @@ export const FAUCET_TOKENS: { index: number; symbol: string }[] = [
   { index: 4, symbol: 'ETH' },
   { index: 5, symbol: 'LITVM' },
   { index: 6, symbol: 'WDEX' },
-  { index: 7, symbol: 'USDC' },
-];
+].filter(t => t.index < FAUCET_MAX_SLOTS);
 
 
 export interface TokenInfo {
