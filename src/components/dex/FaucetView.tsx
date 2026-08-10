@@ -542,6 +542,33 @@ function AdminPanel({ slots, cooldown, reload }: { slots: FaucetSlot[]; cooldown
     run('cd', () => faucet!.setCooldown(v), `Cooldown set to ${v}s`);
   };
 
+  /** setToken with client-side guards: the contract only has FAUCET_MAX_SLOTS
+   *  fixed slots and reverts with "invalid token" for any higher index or a
+   *  non-contract address. */
+  const setTokenSlot = async (index: number) => {
+    if (!faucet) { toast.error('Connect wallet'); return; }
+    if (index < 0 || index >= FAUCET_MAX_SLOTS) {
+      toast.error(`Faucet contract hanya punya ${FAUCET_MAX_SLOTS} slot (#0–#${FAUCET_MAX_SLOTS - 1}). Ganti salah satu slot untuk menambah token baru.`);
+      return;
+    }
+    const raw = (tokenAddrs[index] || '').trim();
+    if (!ethers.utils.isAddress(raw)) { toast.error('Invalid token address'); return; }
+    const addr = ethers.utils.getAddress(raw);
+    if (addr === ethers.constants.AddressZero) { toast.error('Token address tidak boleh 0x0'); return; }
+    try {
+      const code = await (provider ?? getReadProvider()).getCode(addr);
+      if (!code || code === '0x') { toast.error('Address itu bukan contract ERC20 di LitVM LiteForge'); return; }
+      const erc = new ethers.Contract(addr, ERC20_ABI, provider ?? getReadProvider());
+      await erc.decimals();
+    } catch {
+      toast.error('Gagal membaca ERC20 (decimals) dari address tersebut');
+      return;
+    }
+    run(`tk-${index}`, () => faucet.setToken(index, addr), `Token slot #${index} updated`);
+  };
+
+
+
   const refill = async (s: FaucetSlot) => {
     if (!signer || !faucet || !address) { toast.error('Connect wallet'); return; }
     if (!s.isConfigured) {
