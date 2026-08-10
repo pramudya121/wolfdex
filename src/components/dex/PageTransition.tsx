@@ -1,21 +1,20 @@
 import { motion, useReducedMotion } from 'framer-motion';
 import { useLocation } from '@tanstack/react-router';
-import { Suspense, useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import RouteErrorBoundary from './RouteErrorBoundary';
-import RouteSkeleton from './ui/RouteSkeleton';
 
 /**
  * PageTransition — wraps the route Outlet and fades content in on every
  * pathname change.
  *
  * NOTE: this deliberately does NOT use <AnimatePresence mode="wait">. With
- * lazy routes, an exit animation that gets interrupted by a fast second
- * navigation could leave AnimatePresence waiting forever — the new page never
- * mounted and the user saw an EMPTY page. A keyed enter-only animation can
- * never deadlock, and it also feels snappier.
+ * lazy routes, an exit animation interrupted by a fast second navigation could
+ * leave AnimatePresence waiting forever — the new page never mounted and the
+ * user saw an EMPTY page. A keyed enter-only animation can never deadlock, and
+ * it also feels snappier.
  *
- * It also owns the route-level Suspense + error boundary so a slow or failed
- * chunk shows a skeleton / retry card instead of blank space.
+ * It also owns a route-level error boundary so a failed render or chunk shows
+ * a retry card instead of blank space.
  */
 export default function PageTransition({ children }: { children: ReactNode }) {
   const location = useLocation();
@@ -31,10 +30,9 @@ export default function PageTransition({ children }: { children: ReactNode }) {
   }, []);
 
   const body = (
-    <RouteErrorBoundary resetKey={location.pathname}>
-      <Suspense fallback={<RouteSkeleton variant="grid" />}>{children}</Suspense>
-    </RouteErrorBoundary>
+    <RouteErrorBoundary resetKey={location.pathname}>{children}</RouteErrorBoundary>
   );
+
 
   // Reduced motion → no animation at all, just swap contents.
   if (reduce) return <div key={location.pathname}>{body}</div>;
