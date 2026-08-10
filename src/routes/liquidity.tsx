@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { lazy, Suspense } from "react";
+import { Suspense } from 'react';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import RouteSkeleton from "@/components/dex/ui/RouteSkeleton";
 import TextGenerateEffect from "@/components/dex/ui/TextGenerateEffect";
 import { useDexContext } from "@/context/DexContext";
 import { useTokenResolver } from "@/hooks/useTokenResolver";
 
-const LiquidityPanel = lazy(() => import("@/components/dex/LiquidityPanel"));
+const LiquidityPanel = lazyWithRetry(() => import("@/components/dex/LiquidityPanel"));
 
 export const Route = createFileRoute("/liquidity")({
   validateSearch: (search: Record<string, unknown>): { token?: string } => ({

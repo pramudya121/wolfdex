@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { lazy, Suspense } from "react";
+import { Suspense } from 'react';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import RouteSkeleton from "@/components/dex/ui/RouteSkeleton";
 import { useDexContext } from "@/context/DexContext";
 
-const PoolsView = lazy(() => import("@/components/dex/PoolsView"));
+const PoolsView = lazyWithRetry(() => import("@/components/dex/PoolsView"));
 
 export const Route = createFileRoute("/pools")({
   head: () => ({

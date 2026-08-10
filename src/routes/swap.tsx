@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { lazy, Suspense, useState } from "react";
+import { Suspense, useState } from 'react';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { motion } from "framer-motion";
 import LivePriceTicker from "@/components/dex/LivePriceTicker";
 import TextGenerateEffect from "@/components/dex/ui/TextGenerateEffect";
@@ -8,9 +9,9 @@ import { useDexContext } from "@/context/DexContext";
 import { useLimitOrders } from "@/hooks/useLimitOrders";
 import { useTokenResolver } from "@/hooks/useTokenResolver";
 
-const SwapCard = lazy(() => import("@/components/dex/SwapCard"));
-const LimitOrderCard = lazy(() => import("@/components/dex/LimitOrderCard"));
-const OpenOrdersList = lazy(() => import("@/components/dex/OpenOrdersList"));
+const SwapCard = lazyWithRetry(() => import("@/components/dex/SwapCard"));
+const LimitOrderCard = lazyWithRetry(() => import("@/components/dex/LimitOrderCard"));
+const OpenOrdersList = lazyWithRetry(() => import("@/components/dex/OpenOrdersList"));
 
 export const Route = createFileRoute("/swap")({
   validateSearch: (search: Record<string, unknown>): { to?: string; from?: string } => ({
