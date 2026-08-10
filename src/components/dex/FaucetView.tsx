@@ -695,13 +695,14 @@ function AdminPanel({ slots, cooldown, reload }: { slots: FaucetSlot[]; cooldown
                       <input value={tokenAddrs[s.index] || ''} onChange={e => setTokenAddrs(t => ({ ...t, [s.index]: e.target.value }))}
                         className="flex-1 bg-wolf-surface border border-wolf-border/40 rounded-md px-2 py-1.5 text-[11px] font-mono" placeholder="0x…" />
                       <button
-                        onClick={() => run(`tk-${s.index}`, () => faucet!.setToken(s.index, tokenAddrs[s.index]), `Token #${s.index} updated`)}
+                        onClick={() => setTokenSlot(s.index)}
                         disabled={busy === `tk-${s.index}`}
                         className="px-2 py-1.5 rounded-md bg-wolf-pink/20 border border-wolf-pink/40 text-[11px] font-bold hover:bg-wolf-pink/30 disabled:opacity-50">
                         {busy === `tk-${s.index}` ? '…' : 'Set'}
                       </button>
                     </div>
                     {!!s.expectedToken?.address && !s.isConfigured && (
+
                       <button
                         onClick={() => setTokenAddrs(t => ({ ...t, [s.index]: s.expectedToken?.address || '' }))}
                         className="mt-2 rounded-md border border-wolf-border/30 bg-wolf-surface px-2 py-1 text-[10px] font-bold text-muted-foreground hover:text-foreground"
