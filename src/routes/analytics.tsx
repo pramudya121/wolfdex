@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { lazy, Suspense } from "react";
+import { Suspense } from 'react';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import RouteSkeleton from "@/components/dex/ui/RouteSkeleton";
 
-const AnalyticsView = lazy(() => import("@/components/dex/AnalyticsView"));
+const AnalyticsView = lazyWithRetry(() => import("@/components/dex/AnalyticsView"));
 
 export const Route = createFileRoute("/analytics")({
   head: () => ({

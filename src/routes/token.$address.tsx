@@ -1,8 +1,9 @@
 import { createFileRoute, Link, useParams } from '@tanstack/react-router';
-import { lazy, Suspense } from 'react';
+import { Suspense } from 'react';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import RouteSkeleton from '@/components/dex/ui/RouteSkeleton';
 
-const TokenDetailView = lazy(() => import('@/components/dex/TokenDetailView'));
+const TokenDetailView = lazyWithRetry(() => import('@/components/dex/TokenDetailView'));
 
 export const Route = createFileRoute('/token/$address')({
   head: ({ params }) => {

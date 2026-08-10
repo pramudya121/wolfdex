@@ -9,6 +9,7 @@ import GlobalLimitWatcher from "@/components/dex/GlobalLimitWatcher";
 import PageTransition from "@/components/dex/PageTransition";
 import RegistryHydrator from "@/components/dex/RegistryHydrator";
 import ScrollToTop from "@/components/dex/ScrollToTop";
+import RouteProgressBar from "@/components/dex/RouteProgressBar";
 
 import { DexProvider, useDexContext } from "@/context/DexContext";
 import { Toaster } from "sonner";
@@ -76,6 +77,7 @@ function AppLayout() {
 
   return (
     <div className="min-h-screen">
+      <RouteProgressBar />
       <WaveBackground />
       <div style={{ opacity: isHome ? 0 : 1, transition: 'opacity 200ms', position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }}>
         <CometShower />

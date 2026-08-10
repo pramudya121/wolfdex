@@ -1,8 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { lazy, Suspense } from 'react';
+import { Suspense } from 'react';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import RouteSkeleton from '@/components/dex/ui/RouteSkeleton';
 
-const MarketView = lazy(() => import('@/components/dex/MarketView'));
+const MarketView = lazyWithRetry(() => import('@/components/dex/MarketView'));
 
 export const Route = createFileRoute('/market')({
   head: () => ({
