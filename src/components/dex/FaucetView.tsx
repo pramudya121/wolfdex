@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ethers } from 'ethers';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { CONTRACTS, FAUCET_TOKENS, getTokenByAddress, getTokenBySymbol, type TokenInfo } from '@/config/contracts';
+import { CONTRACTS, FAUCET_TOKENS, FAUCET_MAX_SLOTS, getTokenByAddress, getTokenBySymbol, type TokenInfo } from '@/config/contracts';
 import { FAUCET_ABI, ERC20_ABI } from '@/config/abis';
 import { useDexContext } from '@/context/DexContext';
 import { getReadProvider, decodeRpcError } from '@/lib/rpc';
