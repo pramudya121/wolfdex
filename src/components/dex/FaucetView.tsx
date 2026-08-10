@@ -658,6 +658,7 @@ function AdminPanel({ slots, cooldown, reload }: { slots: FaucetSlot[]; cooldown
             <h3 className="font-bold text-sm">Faucet Setup Status</h3>
             <p className="text-[11px] text-muted-foreground mt-1">
               {configuredCount}/{slots.length} slot sudah aktif on-chain.
+              {' '}Contract faucet punya {FAUCET_MAX_SLOTS} slot tetap (#0–#{FAUCET_MAX_SLOTS - 1}); untuk menambah token baru (mis. USDC) ganti address di salah satu slot.
             </p>
           </div>
           {unconfiguredSlots.length > 0 && (
