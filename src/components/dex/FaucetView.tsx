@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ethers } from 'ethers';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { CONTRACTS, FAUCET_TOKENS, getTokenByAddress, getTokenBySymbol, type TokenInfo } from '@/config/contracts';
+import { CONTRACTS, FAUCET_TOKENS, FAUCET_MAX_SLOTS, getTokenByAddress, getTokenBySymbol, type TokenInfo } from '@/config/contracts';
 import { FAUCET_ABI, ERC20_ABI } from '@/config/abis';
 import { useDexContext } from '@/context/DexContext';
 import { getReadProvider, decodeRpcError } from '@/lib/rpc';
@@ -542,6 +542,33 @@ function AdminPanel({ slots, cooldown, reload }: { slots: FaucetSlot[]; cooldown
     run('cd', () => faucet!.setCooldown(v), `Cooldown set to ${v}s`);
   };
 
+  /** setToken with client-side guards: the contract only has FAUCET_MAX_SLOTS
+   *  fixed slots and reverts with "invalid token" for any higher index or a
+   *  non-contract address. */
+  const setTokenSlot = async (index: number) => {
+    if (!faucet) { toast.error('Connect wallet'); return; }
+    if (index < 0 || index >= FAUCET_MAX_SLOTS) {
+      toast.error(`Faucet contract hanya punya ${FAUCET_MAX_SLOTS} slot (#0–#${FAUCET_MAX_SLOTS - 1}). Ganti salah satu slot untuk menambah token baru.`);
+      return;
+    }
+    const raw = (tokenAddrs[index] || '').trim();
+    if (!ethers.utils.isAddress(raw)) { toast.error('Invalid token address'); return; }
+    const addr = ethers.utils.getAddress(raw);
+    if (addr === ethers.constants.AddressZero) { toast.error('Token address tidak boleh 0x0'); return; }
+    try {
+      const code = await (provider ?? getReadProvider()).getCode(addr);
+      if (!code || code === '0x') { toast.error('Address itu bukan contract ERC20 di LitVM LiteForge'); return; }
+      const erc = new ethers.Contract(addr, ERC20_ABI, provider ?? getReadProvider());
+      await erc.decimals();
+    } catch {
+      toast.error('Gagal membaca ERC20 (decimals) dari address tersebut');
+      return;
+    }
+    run(`tk-${index}`, () => faucet.setToken(index, addr), `Token slot #${index} updated`);
+  };
+
+
+
   const refill = async (s: FaucetSlot) => {
     if (!signer || !faucet || !address) { toast.error('Connect wallet'); return; }
     if (!s.isConfigured) {
@@ -631,6 +658,7 @@ function AdminPanel({ slots, cooldown, reload }: { slots: FaucetSlot[]; cooldown
             <h3 className="font-bold text-sm">Faucet Setup Status</h3>
             <p className="text-[11px] text-muted-foreground mt-1">
               {configuredCount}/{slots.length} slot sudah aktif on-chain.
+              {' '}Contract faucet punya {FAUCET_MAX_SLOTS} slot tetap (#0–#{FAUCET_MAX_SLOTS - 1}); untuk menambah token baru (mis. USDC) ganti address di salah satu slot.
             </p>
           </div>
           {unconfiguredSlots.length > 0 && (
@@ -695,13 +723,14 @@ function AdminPanel({ slots, cooldown, reload }: { slots: FaucetSlot[]; cooldown
                       <input value={tokenAddrs[s.index] || ''} onChange={e => setTokenAddrs(t => ({ ...t, [s.index]: e.target.value }))}
                         className="flex-1 bg-wolf-surface border border-wolf-border/40 rounded-md px-2 py-1.5 text-[11px] font-mono" placeholder="0x…" />
                       <button
-                        onClick={() => run(`tk-${s.index}`, () => faucet!.setToken(s.index, tokenAddrs[s.index]), `Token #${s.index} updated`)}
+                        onClick={() => setTokenSlot(s.index)}
                         disabled={busy === `tk-${s.index}`}
                         className="px-2 py-1.5 rounded-md bg-wolf-pink/20 border border-wolf-pink/40 text-[11px] font-bold hover:bg-wolf-pink/30 disabled:opacity-50">
                         {busy === `tk-${s.index}` ? '…' : 'Set'}
                       </button>
                     </div>
                     {!!s.expectedToken?.address && !s.isConfigured && (
+
                       <button
                         onClick={() => setTokenAddrs(t => ({ ...t, [s.index]: s.expectedToken?.address || '' }))}
                         className="mt-2 rounded-md border border-wolf-border/30 bg-wolf-surface px-2 py-1 text-[10px] font-bold text-muted-foreground hover:text-foreground"
