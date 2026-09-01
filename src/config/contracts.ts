@@ -40,6 +40,10 @@ export const CONTRACTS = {
   DNS_BASE_REGISTRAR: '0x9A47Cb878Bf7B0e5b10c27F0320243381C7D0bA1',
   DNS_CONTROLLER: '0x02aC6445843e9D30F1f4512DfaA2F4289bED2224',
   DNS_RESOLVER: '0x70943a7eA0D2f717030021dbc8cce8dfaCbea79A',
+  // DexAggregatorRouter — routes swaps through whitelisted external routers
+  // and takes an optional protocol fee. Owner-only admin surface at /admin.
+  AGGREGATOR: '0x4D460aF6ceB10B01A84A3E1E45f40C25923e3d7C',
+
 };
 
 /** TLD used by the WolfDex Name Service (e.g. "alice.wolf"). */

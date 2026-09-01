@@ -319,3 +319,22 @@ export const DNS_RESOLVER_ABI = [
   'function setText(string name, string key, string value)',
   'function setReverse(address user, string name)',
 ];
+
+/**
+ * DexAggregatorRouter — routes swaps through whitelisted DEX routers and
+ * takes an optional protocol fee. Owner-only: whitelist, fee config, recovery.
+ */
+export const AGGREGATOR_ABI = [
+  'function executeSwap(address router, uint256 amountIn, uint256 amountOutMin, address[] path, address to, uint256 deadline) returns (uint256[] amounts)',
+  'function getExpectedOutput(address router, uint256 amountIn, address[] path) view returns (uint256)',
+  'function isWhitelistedRouter(address) view returns (bool)',
+  'function updateRouterWhitelist(address router, bool status)',
+  'function updateFeeConfiguration(uint256 _feeBps, address _feeRecipient)',
+  'function recoverTokens(address tokenAddress, uint256 amount)',
+  'function feeBps() view returns (uint256)',
+  'function feeRecipient() view returns (address)',
+  'function owner() view returns (address)',
+  'event FeeUpdated(uint256 newFee, address newRecipient)',
+  'event RouterStatusUpdated(address indexed router, bool status)',
+  'event SwapExecuted(address indexed user, address indexed router, uint256 amountIn, uint256 amountOut)',
+];
