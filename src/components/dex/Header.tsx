@@ -6,6 +6,7 @@ import wolfLogo from '@/assets/wolf-logo.png';
 import type { WalletType } from '@/hooks/useWallet';
 import { usePrimaryDomain } from '@/hooks/usePrimaryDomain';
 import { DNS_TLD } from '@/config/contracts';
+import { useAggregatorOwner } from '@/hooks/useAggregator';
 
 import { WolfSkeleton, WolfSkeletonOrb, WolfSpinner } from './ui/WolfSkeleton';
 
@@ -52,6 +53,8 @@ export default function Header({ address, balance, isConnected, isConnecting = f
   const primaryLabel = usePrimaryDomain(address);
   const primaryDomain = primaryLabel ? `${primaryLabel}.${DNS_TLD}` : '';
   const walletLabel = primaryDomain || shortAddr;
+  const { isOwner } = useAggregatorOwner(address);
+  const navItems = isOwner ? [...NAV_ITEMS, { path: '/admin' as const, label: 'Admin' }] : NAV_ITEMS;
   const installedWallets = WALLETS.filter(wallet => wallet.badge === 'Installed');
   const popularWallets = WALLETS.filter(wallet => wallet.badge === 'Popular');
 
@@ -135,7 +138,7 @@ export default function Header({ address, balance, isConnected, isConnecting = f
           </Link>
 
           <nav className="hidden min-[1180px]:flex min-w-0 flex-1 items-center justify-center gap-0.5 px-2">
-            {NAV_ITEMS.map(item => {
+            {navItems.map(item => {
               const active = location.pathname === item.path;
               return (
                 <Link
@@ -217,7 +220,7 @@ export default function Header({ address, balance, isConnected, isConnecting = f
                   </div>
                 )}
                 <div className="grid grid-cols-2 gap-1.5">
-                  {NAV_ITEMS.map(item => {
+                  {navItems.map(item => {
                     const active = location.pathname === item.path;
                     return (
                       <Link
