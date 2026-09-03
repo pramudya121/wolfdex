@@ -134,12 +134,27 @@ function FarmCard({ pool, farming, allPools }: { pool: FarmPool; farming: Farmin
               {pool.apr > 999_999 ? '∞' : pool.apr > 0 ? `${formatNum(pool.apr.toString(), 2)}%` : '—'}
             </motion.div>
           </div>
-          <div className="bg-gradient-to-br from-wolf-gold/15 to-wolf-gold/5 rounded-lg p-2.5 border border-wolf-gold/30">
-            <div className="text-[9px] uppercase text-muted-foreground tracking-wider">Reward / Day</div>
-            <div className="font-bold text-sm text-wolf-gold mt-0.5">
-              {formatNum(pool.rewardPerDay.toString(), 4)} {pool.rewardSymbol}
-            </div>
-          </div>
+          {(() => {
+            const staked = parseFloat(pool.totalStaked || '0');
+            const mine = parseFloat(user?.amount ?? '0');
+            const share = staked > 0 ? mine / staked : 0;
+            const yourPerDay = pool.rewardPerDay * share;
+            return (
+              <div className="bg-gradient-to-br from-wolf-gold/15 to-wolf-gold/5 rounded-lg p-2.5 border border-wolf-gold/30">
+                <div className="text-[9px] uppercase text-muted-foreground tracking-wider">Your Reward / Day</div>
+                <div className="font-bold text-sm text-wolf-gold mt-0.5">
+                  {mine > 0
+                    ? `${formatNum(yourPerDay.toString(), 6)} ${pool.rewardSymbol}`
+                    : '—'}
+                </div>
+                <div className="text-[9px] text-muted-foreground mt-0.5">
+                  Pool emission {formatNum(pool.rewardPerDay.toString(), 4)} {pool.rewardSymbol}/day
+                  {mine > 0 && share > 0 ? ` · your share ${(share * 100).toFixed(2)}%` : ''}
+                </div>
+              </div>
+            );
+          })()}
+
         </div>
         <div className="grid grid-cols-3 gap-2 mb-4">
           <div className="bg-wolf-surface/40 rounded-lg p-2 border border-wolf-border/20">
