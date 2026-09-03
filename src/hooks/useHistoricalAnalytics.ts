@@ -100,10 +100,11 @@ export function useHistoricalAnalytics(opts?: { bucket?: Bucket; windowDays?: nu
       // Hash of pair set so cache invalidates when new pairs appear.
       const pairsHash = pairs.length + '_' + pairs[0].slice(2, 10);
 
-      if (!force) {
-        const c = readCache(bucket, windowDays, pairsHash);
-        if (c) { setSeries(c.series); return; }
-      }
+       if (!force) {
+         const c = readCache(bucket, windowDays, pairsHash);
+         if (c) { setSeries(c.series); setStats(c.stats ?? EMPTY_STATS); return; }
+       }
+
 
       setLoading(true);
       const provider = new ethers.providers.JsonRpcProvider(CHAIN_CONFIG.rpcUrl);
