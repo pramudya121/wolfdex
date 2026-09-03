@@ -34,13 +34,25 @@ export interface SeriesPoint {
 
 const CACHE_TTL = 5 * 60_000;
 
+/** Rolling on-chain activity stats derived from indexed Swap events. */
+export interface HistoryStats {
+  volume24h: number;
+  prevVolume24h: number;
+  swaps24h: number;
+  volumeChangePct: number;
+}
+
+const EMPTY_STATS: HistoryStats = { volume24h: 0, prevVolume24h: 0, swaps24h: 0, volumeChangePct: 0 };
+
 interface CacheEntry {
   series: SeriesPoint[];
+  stats?: HistoryStats;
   fetchedAt: number;
   bucket: Bucket;
   windowDays: number;
   pairsHash: string;
 }
+
 
 function cacheKey(bucket: Bucket, days: number, pairsHash: string) {
   return `wolfdex.analytics.history.${bucket}.${days}.${pairsHash}.v1`;
@@ -75,6 +87,8 @@ export function useHistoricalAnalytics(opts?: { bucket?: Bucket; windowDays?: nu
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [latestBlock, setLatestBlock] = useState(0);
+  const [stats, setStats] = useState<HistoryStats>(EMPTY_STATS);
+
 
   const fetchOnce = useCallback(async (force = false) => {
     setError(null);
@@ -86,10 +100,11 @@ export function useHistoricalAnalytics(opts?: { bucket?: Bucket; windowDays?: nu
       // Hash of pair set so cache invalidates when new pairs appear.
       const pairsHash = pairs.length + '_' + pairs[0].slice(2, 10);
 
-      if (!force) {
-        const c = readCache(bucket, windowDays, pairsHash);
-        if (c) { setSeries(c.series); return; }
-      }
+       if (!force) {
+         const c = readCache(bucket, windowDays, pairsHash);
+         if (c) { setSeries(c.series); setStats(c.stats ?? EMPTY_STATS); return; }
+       }
+
 
       setLoading(true);
       const provider = new ethers.providers.JsonRpcProvider(CHAIN_CONFIG.rpcUrl);
