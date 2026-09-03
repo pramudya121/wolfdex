@@ -34,13 +34,25 @@ export interface SeriesPoint {
 
 const CACHE_TTL = 5 * 60_000;
 
+/** Rolling on-chain activity stats derived from indexed Swap events. */
+export interface HistoryStats {
+  volume24h: number;
+  prevVolume24h: number;
+  swaps24h: number;
+  volumeChangePct: number;
+}
+
+const EMPTY_STATS: HistoryStats = { volume24h: 0, prevVolume24h: 0, swaps24h: 0, volumeChangePct: 0 };
+
 interface CacheEntry {
   series: SeriesPoint[];
+  stats?: HistoryStats;
   fetchedAt: number;
   bucket: Bucket;
   windowDays: number;
   pairsHash: string;
 }
+
 
 function cacheKey(bucket: Bucket, days: number, pairsHash: string) {
   return `wolfdex.analytics.history.${bucket}.${days}.${pairsHash}.v1`;
