@@ -87,6 +87,8 @@ export function useHistoricalAnalytics(opts?: { bucket?: Bucket; windowDays?: nu
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [latestBlock, setLatestBlock] = useState(0);
+  const [stats, setStats] = useState<HistoryStats>(EMPTY_STATS);
+
 
   const fetchOnce = useCallback(async (force = false) => {
     setError(null);
