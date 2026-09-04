@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TOKENS, NATIVE_TOKEN, isWrapUnwrap, type TokenInfo, CONTRACTS, CHAIN_CONFIG, getTokenByAddress } from '@/config/contracts';
+import { TOKENS, NATIVE_TOKEN, isWrapUnwrap, isNativeToken, type TokenInfo, CONTRACTS, CHAIN_CONFIG, getTokenByAddress } from '@/config/contracts';
 import { toast } from 'sonner';
 import TokenModal from './TokenModal';
 import TxSettingsPanel from './TxSettingsPanel';
-import { useTxSettings } from '@/context/DexContext';
+import { useTxSettings, useDexContext } from '@/context/DexContext';
+import { useAggregatorConfig } from '@/hooks/useAggregator';
 import type { RouteQuote, SwapPreflight } from '@/hooks/useDex';
 import { WolfSpinner } from './ui/WolfSkeleton';
+
 
 interface SwapCardProps {
   swap: (from: TokenInfo, to: TokenInfo, amountIn: string, amountOut: string, slippagePct?: number, deadlineMinutes?: number, routePath?: string[]) => Promise<string>;
