@@ -63,6 +63,25 @@ export interface SwapPreflight {
   };
 }
 
+/** Live on-chain config of DexAggregatorRouter. */
+export interface AggregatorConfig {
+  feeBps: number;
+  feeRecipient: string;
+  routerWhitelisted: boolean;
+  owner: string | null;
+  /** True when a swap can actually be routed through the aggregator. */
+  available: boolean;
+}
+
+/** Result of an aggregator swap, with real amounts from the SwapExecuted event. */
+export interface AggregatorSwapResult {
+  hash: string;
+  amountIn: string | null;
+  amountOut: string | null;
+  via: 'aggregator';
+}
+
+
 export function useDex(signer: ethers.Signer | null, address: string | null) {
   const [loading, setLoading] = useState(false);
   const [txHash, setTxHash] = useState<string | null>(null);
