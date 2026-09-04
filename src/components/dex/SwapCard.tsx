@@ -78,6 +78,7 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
       setRoute(null);
       setPriceImpact(0);
       setPreflight(null);
+      setAggQuote(null);
       return;
     }
     const timer = setTimeout(async () => {
@@ -87,6 +88,7 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
         setRoute(null);
         setToAmount('0');
         setPriceImpact(0);
+        setAggQuote(null);
         setPreflight({
           ok: false, warnings: [], errors: ['No route found — pair has no liquidity'],
           details: { path: [], amountIn: '0', amountOutMin: '0', deadline: 0, deadlineIso: '', slippageBips: 0, needsApproval: false, currentAllowance: '0', balance: '0', pairExists: [], estimatedGas: null, method: 'swapExactTokensForTokens', value: '0' },
@@ -97,6 +99,15 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
       setToAmount(best.amountOut);
       // Use the on-chain reserve-based price impact (toToken/fromToken).
       setPriceImpact(best.priceImpactPct);
+
+      // Aggregator quote (net of protocol fee), straight from getExpectedOutput.
+      if (aggEligible) {
+        const q = await dex.getAggregatorQuote(fromAmount, best.path);
+        setAggQuote(q);
+        if (q && useAgg && parseFloat(q) > 0) setToAmount(q);
+      } else {
+        setAggQuote(null);
+      }
 
       // Run pre-flight validation against on-chain state.
       if (isConnected) {
@@ -113,7 +124,7 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
       }
     }, 500);
     return () => clearTimeout(timer);
-  }, [fromAmount, fromToken, toToken, getBestRoute, previewSwap, wrapType, slippage, deadline, isConnected]);
+  }, [fromAmount, fromToken, toToken, getBestRoute, previewSwap, wrapType, slippage, deadline, isConnected, aggEligible, useAgg, dex]);
 
   const handleSwitch = () => {
     setFromToken(toToken);
@@ -125,16 +136,40 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
   const handleSwap = async () => {
     if (!fromAmount || parseFloat(fromAmount) <= 0) return;
     // Hard block on preflight errors so we don't burn gas on a guaranteed revert.
-    if (preflight && preflight.errors.length > 0) {
-      toast.error('Swap blocked', { description: preflight.errors[0] });
+    // Aggregator routes use a different spender, so allowance-related errors
+    // from the direct-router preflight don't apply there.
+    const blocking = (preflight?.errors ?? []).filter(
+      e => !(aggActive && /allowance|approv/i.test(e)),
+    );
+    if (blocking.length > 0) {
+      toast.error('Swap blocked', { description: blocking[0] });
       return;
     }
     try {
-      const hash = await swap(fromToken, toToken, fromAmount, toAmount || '0', parseFloat(slippage), parseFloat(deadline), route?.path);
-      toast.success(`${buttonLabel} successful!`, {
-        description: `${fromAmount} ${fromToken.symbol} → ${toAmount} ${toToken.symbol}`,
-        action: { label: 'View TX', onClick: () => window.open(`${CHAIN_CONFIG.blockExplorer}/tx/${hash}`, '_blank') },
-      });
+      if (aggActive) {
+        const res = await dex.swapViaAggregator(
+          fromToken, toToken, fromAmount, toAmount || '0',
+          parseFloat(slippage), parseFloat(deadline), route?.path,
+        );
+        const outActual = res.amountOut ?? toAmount;
+        setLastResult({
+          hash: res.hash,
+          amountIn: res.amountIn ?? fromAmount,
+          amountOut: outActual,
+          via: 'Aggregator',
+        });
+        toast.success('Swap successful via Aggregator', {
+          description: `${res.amountIn ?? fromAmount} ${fromToken.symbol} → ${parseFloat(outActual).toFixed(6)} ${toToken.symbol}`,
+          action: { label: 'View TX', onClick: () => window.open(`${CHAIN_CONFIG.blockExplorer}/tx/${res.hash}`, '_blank') },
+        });
+      } else {
+        const hash = await swap(fromToken, toToken, fromAmount, toAmount || '0', parseFloat(slippage), parseFloat(deadline), route?.path);
+        setLastResult({ hash, amountIn: fromAmount, amountOut: toAmount, via: 'Router' });
+        toast.success(`${buttonLabel} successful!`, {
+          description: `${fromAmount} ${fromToken.symbol} → ${toAmount} ${toToken.symbol}`,
+          action: { label: 'View TX', onClick: () => window.open(`${CHAIN_CONFIG.blockExplorer}/tx/${hash}`, '_blank') },
+        });
+      }
       setFromAmount('');
       setToAmount('');
       loadBalances();
@@ -142,6 +177,7 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
       toast.error(`${buttonLabel} failed`, { description: e.reason || e.message || 'Unknown error' });
     }
   };
+
 
   const setPercentage = (pct: number) => {
     const bal = parseFloat(fromBalance);
