@@ -44,10 +44,23 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
   const [route, setRoute] = useState<RouteQuote | null>(null);
   const [preflight, setPreflight] = useState<SwapPreflight | null>(null);
   const [previewing, setPreviewing] = useState(false);
+  // Aggregator routing state
+  const { dex } = useDexContext();
+  const aggCfg = useAggregatorConfig();
+  const [useAgg, setUseAgg] = useState(true);
+  const [aggQuote, setAggQuote] = useState<string | null>(null);
+  const [lastResult, setLastResult] = useState<{ hash: string; amountIn: string; amountOut: string; via: string } | null>(null);
 
   const wrapType = isWrapUnwrap(fromToken.address, toToken.address);
+  /** The aggregator is not payable — ERC-20 ↔ ERC-20 only. */
+  const aggEligible = !wrapType
+    && aggCfg.routerWhitelisted
+    && !isNativeToken(fromToken.address)
+    && !isNativeToken(toToken.address);
+  const aggActive = aggEligible && useAgg;
   // Always show "Swap" — wrap/unwrap is just a swap with WETH under the hood.
   const buttonLabel = 'Swap';
+
 
   const loadBalances = useCallback(async () => {
     if (!isConnected) return;
