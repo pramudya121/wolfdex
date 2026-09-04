@@ -319,8 +319,75 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
               })}
               <span className="text-[10px] text-wolf-pink ml-auto">{(route?.hops || 1) * 0.3}% fee</span>
             </div>
+
+            {/* Aggregator routing — real DexAggregatorRouter config */}
+            {aggEligible && (
+              <div className="mt-3 pt-3 border-t border-wolf-border/15 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-1.5 text-muted-foreground">
+                    <span>🛡️</span> Route via Aggregator
+                  </span>
+                  <button
+                    onClick={() => setUseAgg(v => !v)}
+                    className={`relative w-10 h-5 rounded-full transition-colors ${aggActive ? 'bg-wolf-pink' : 'bg-wolf-surface border border-wolf-border/40'}`}
+                    aria-label="Toggle aggregator routing"
+                  >
+                    <motion.span layout
+                      className="absolute top-0.5 w-4 h-4 rounded-full bg-white"
+                      style={{ left: aggActive ? 22 : 2 }}
+                    />
+                  </button>
+                </div>
+                <div className="flex justify-between text-[11px] text-muted-foreground">
+                  <span>Protocol fee</span>
+                  <span className="text-foreground tabular-nums">
+                    {(aggCfg.feeBps / 100).toFixed(2)}% ({aggCfg.feeBps} bps)
+                    {aggActive && fromAmount && parseFloat(fromAmount) > 0 && (
+                      <> · ≈{(parseFloat(fromAmount) * aggCfg.feeBps / 10000).toFixed(6)} {fromToken.symbol}</>
+                    )}
+                  </span>
+                </div>
+                {aggCfg.feeRecipient && (
+                  <div className="flex justify-between text-[11px] text-muted-foreground">
+                    <span>Fee recipient</span>
+                    <span className="font-mono text-[10px] text-foreground">
+                      {aggCfg.feeRecipient.slice(0, 8)}…{aggCfg.feeRecipient.slice(-6)}
+                    </span>
+                  </div>
+                )}
+                {aggQuote && (
+                  <div className="flex justify-between text-[11px] text-muted-foreground">
+                    <span>Aggregator quote</span>
+                    <span className="text-foreground tabular-nums">{parseFloat(aggQuote).toFixed(6)} {toToken.symbol}</span>
+                  </div>
+                )}
+              </div>
+            )}
+            {!wrapType && !aggEligible && !aggCfg.loading && !isNativeToken(fromToken.address) && !isNativeToken(toToken.address) && (
+              <div className="mt-3 pt-3 border-t border-wolf-border/15 text-[11px] text-muted-foreground">
+                Aggregator route unavailable — WolfDex router is not whitelisted on the aggregator.
+              </div>
+            )}
           </motion.div>
         )}
+
+        {/* Last executed swap — real amounts from the on-chain receipt */}
+        {lastResult && (
+          <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+            className="mt-3 p-3 rounded-xl bg-wolf-green/10 border border-wolf-green/30 text-xs space-y-1"
+          >
+            <div className="flex items-center justify-between font-semibold text-wolf-green">
+              <span>✅ Confirmed via {lastResult.via}</span>
+              <a href={`${CHAIN_CONFIG.blockExplorer}/tx/${lastResult.hash}`} target="_blank" rel="noreferrer"
+                className="font-mono text-[10px] underline"
+              >{lastResult.hash.slice(0, 10)}…</a>
+            </div>
+            <div className="text-muted-foreground tabular-nums">
+              {parseFloat(lastResult.amountIn).toFixed(6)} {fromToken.symbol} → {parseFloat(lastResult.amountOut).toFixed(6)} {toToken.symbol}
+            </div>
+          </motion.div>
+        )}
+
 
         {/* On-chain validation: errors */}
         {preflight && preflight.errors.length > 0 && (
