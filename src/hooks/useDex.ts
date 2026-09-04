@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { CONTRACTS, isNativeToken, isWrappedNative, isWrapUnwrap, CHAIN_CONFIG, type TokenInfo } from '@/config/contracts';
-import { ROUTER_ABI, WETH_ABI, ERC20_ABI, FACTORY_ABI, PAIR_ABI, MULTICALL_ABI } from '@/config/abis';
+import { ROUTER_ABI, WETH_ABI, ERC20_ABI, FACTORY_ABI, PAIR_ABI, MULTICALL_ABI, AGGREGATOR_ABI } from '@/config/abis';
 import { getReadProvider } from '@/lib/rpc';
 
 const DEFAULT_DEADLINE_MINUTES = 20;
@@ -62,6 +62,25 @@ export interface SwapPreflight {
     value: string;             // ETH value sent (formatted)
   };
 }
+
+/** Live on-chain config of DexAggregatorRouter. */
+export interface AggregatorConfig {
+  feeBps: number;
+  feeRecipient: string;
+  routerWhitelisted: boolean;
+  owner: string | null;
+  /** True when a swap can actually be routed through the aggregator. */
+  available: boolean;
+}
+
+/** Result of an aggregator swap, with real amounts from the SwapExecuted event. */
+export interface AggregatorSwapResult {
+  hash: string;
+  amountIn: string | null;
+  amountOut: string | null;
+  via: 'aggregator';
+}
+
 
 export function useDex(signer: ethers.Signer | null, address: string | null) {
   const [loading, setLoading] = useState(false);
@@ -422,6 +441,112 @@ export function useDex(signer: ethers.Signer | null, address: string | null) {
     } finally { setLoading(false); }
   }, [getRouter, getWeth, address, approveToken]);
 
+  /* ------------------------- DexAggregatorRouter ------------------------- */
+
+  const getAggregator = useCallback((useSigner = false) => {
+    if (useSigner && !signer) throw new Error('Wallet not connected');
+    return new ethers.Contract(
+      CONTRACTS.AGGREGATOR,
+      AGGREGATOR_ABI,
+      useSigner ? signer! : readProvider,
+    );
+  }, [signer, readProvider]);
+
+  /** Live aggregator config: protocol fee, recipient, and router whitelist state. */
+  const getAggregatorConfig = useCallback(async (): Promise<AggregatorConfig> => {
+    try {
+      const agg = getAggregator();
+      const [bps, recipient, whitelisted, owner] = await Promise.all([
+        agg.feeBps(),
+        agg.feeRecipient(),
+        agg.isWhitelistedRouter(CONTRACTS.ROUTER),
+        agg.owner(),
+      ]);
+      return {
+        feeBps: Number(bps.toString()),
+        feeRecipient: recipient as string,
+        routerWhitelisted: !!whitelisted,
+        owner: (owner as string).toLowerCase(),
+        available: !!whitelisted,
+      };
+    } catch {
+      return { feeBps: 0, feeRecipient: ethers.constants.AddressZero, routerWhitelisted: false, owner: null, available: false };
+    }
+  }, [getAggregator]);
+
+  /**
+   * Quote through the aggregator's own `getExpectedOutput` (net of protocol fee).
+   * Returns null when the aggregator can't quote (router not whitelisted, no pool).
+   */
+  const getAggregatorQuote = useCallback(async (amountIn: string, path: string[]): Promise<string | null> => {
+    try {
+      if (path.length < 2) return null;
+      const agg = getAggregator();
+      const out = await agg.getExpectedOutput(CONTRACTS.ROUTER, ethers.utils.parseEther(amountIn), path);
+      return ethers.utils.formatEther(out);
+    } catch { return null; }
+  }, [getAggregator]);
+
+  /**
+   * Execute a swap through DexAggregatorRouter.executeSwap.
+   * The aggregator is not payable and does not unwrap, so it only handles
+   * ERC-20 → ERC-20 paths; native legs must use the router directly.
+   */
+  const swapViaAggregator = useCallback(async (
+    fromToken: TokenInfo,
+    toToken: TokenInfo,
+    amountIn: string,
+    amountOutExpected: string,
+    slippagePct?: number,
+    deadlineMinutes?: number,
+    routePath?: string[],
+  ): Promise<AggregatorSwapResult> => {
+    setLoading(true); setError(null); setTxHash(null);
+    try {
+      if (!signer || !address) throw new Error('Wallet not connected');
+      if (isNativeToken(fromToken.address) || isNativeToken(toToken.address)) {
+        throw new Error('Aggregator route supports ERC-20 pairs only');
+      }
+      const agg = getAggregator(true);
+      const whitelisted: boolean = await agg.isWhitelistedRouter(CONTRACTS.ROUTER);
+      if (!whitelisted) throw new Error('Router is not whitelisted on the aggregator');
+
+      const slippageBips = pctToBips(slippagePct);
+      const deadline = getDeadline(deadlineMinutes);
+      const parsedIn = ethers.utils.parseEther(amountIn);
+      const parsedOutMin = calcMinAmount(ethers.utils.parseEther(amountOutExpected), slippageBips);
+      const path = routePath && routePath.length >= 2 ? routePath : [fromToken.address, toToken.address];
+
+      // The aggregator pulls the input token from the user, so approve IT.
+      await approveToken(fromToken.address, parsedIn, CONTRACTS.AGGREGATOR);
+
+      const tx = await agg.executeSwap(CONTRACTS.ROUTER, parsedIn, parsedOutMin, path, address, deadline);
+      const receipt = await tx.wait();
+      setTxHash(tx.hash);
+
+      // Parse the real amounts out of the SwapExecuted event.
+      let actualOut: string | null = null;
+      let actualIn: string | null = null;
+      try {
+        const iface = new ethers.utils.Interface(AGGREGATOR_ABI);
+        for (const log of receipt.logs || []) {
+          if (log.address.toLowerCase() !== CONTRACTS.AGGREGATOR.toLowerCase()) continue;
+          const parsed = iface.parseLog(log);
+          if (parsed.name === 'SwapExecuted') {
+            actualIn = ethers.utils.formatEther(parsed.args.amountIn);
+            actualOut = ethers.utils.formatEther(parsed.args.amountOut);
+          }
+        }
+      } catch { /* event optional */ }
+
+      return { hash: tx.hash, amountIn: actualIn, amountOut: actualOut, via: 'aggregator' };
+    } catch (e: any) {
+      setError(e.reason || e.message || 'Aggregator swap failed');
+      throw e;
+    } finally { setLoading(false); }
+  }, [signer, address, getAggregator, approveToken]);
+
+
   const addLiquidity = useCallback(async (
     tokenA: TokenInfo, tokenB: TokenInfo,
     amountA: string, amountB: string,
@@ -682,5 +807,7 @@ export function useDex(signer: ethers.Signer | null, address: string | null) {
     getAmountsOut, getBestRoute, previewSwap, getTokenBalance, getMultipleBalances,
     getPairAddress, getPairInfo, getPairInfosBatch, getAllPairs,
     approveToken, getErc20,
+    getAggregatorConfig, getAggregatorQuote, swapViaAggregator,
+
   };
 }

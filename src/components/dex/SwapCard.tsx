@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TOKENS, NATIVE_TOKEN, isWrapUnwrap, type TokenInfo, CONTRACTS, CHAIN_CONFIG, getTokenByAddress } from '@/config/contracts';
+import { TOKENS, NATIVE_TOKEN, isWrapUnwrap, isNativeToken, type TokenInfo, CONTRACTS, CHAIN_CONFIG, getTokenByAddress } from '@/config/contracts';
 import { toast } from 'sonner';
 import TokenModal from './TokenModal';
 import TxSettingsPanel from './TxSettingsPanel';
-import { useTxSettings } from '@/context/DexContext';
+import { useTxSettings, useDexContext } from '@/context/DexContext';
+import { useAggregatorConfig } from '@/hooks/useAggregator';
 import type { RouteQuote, SwapPreflight } from '@/hooks/useDex';
 import { WolfSpinner } from './ui/WolfSkeleton';
+
 
 interface SwapCardProps {
   swap: (from: TokenInfo, to: TokenInfo, amountIn: string, amountOut: string, slippagePct?: number, deadlineMinutes?: number, routePath?: string[]) => Promise<string>;
@@ -42,10 +44,23 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
   const [route, setRoute] = useState<RouteQuote | null>(null);
   const [preflight, setPreflight] = useState<SwapPreflight | null>(null);
   const [previewing, setPreviewing] = useState(false);
+  // Aggregator routing state
+  const { dex } = useDexContext();
+  const aggCfg = useAggregatorConfig();
+  const [useAgg, setUseAgg] = useState(true);
+  const [aggQuote, setAggQuote] = useState<string | null>(null);
+  const [lastResult, setLastResult] = useState<{ hash: string; amountIn: string; amountOut: string; via: string } | null>(null);
 
   const wrapType = isWrapUnwrap(fromToken.address, toToken.address);
+  /** The aggregator is not payable — ERC-20 ↔ ERC-20 only. */
+  const aggEligible = !wrapType
+    && aggCfg.routerWhitelisted
+    && !isNativeToken(fromToken.address)
+    && !isNativeToken(toToken.address);
+  const aggActive = aggEligible && useAgg;
   // Always show "Swap" — wrap/unwrap is just a swap with WETH under the hood.
   const buttonLabel = 'Swap';
+
 
   const loadBalances = useCallback(async () => {
     if (!isConnected) return;
@@ -63,6 +78,7 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
       setRoute(null);
       setPriceImpact(0);
       setPreflight(null);
+      setAggQuote(null);
       return;
     }
     const timer = setTimeout(async () => {
@@ -72,6 +88,7 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
         setRoute(null);
         setToAmount('0');
         setPriceImpact(0);
+        setAggQuote(null);
         setPreflight({
           ok: false, warnings: [], errors: ['No route found — pair has no liquidity'],
           details: { path: [], amountIn: '0', amountOutMin: '0', deadline: 0, deadlineIso: '', slippageBips: 0, needsApproval: false, currentAllowance: '0', balance: '0', pairExists: [], estimatedGas: null, method: 'swapExactTokensForTokens', value: '0' },
@@ -82,6 +99,15 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
       setToAmount(best.amountOut);
       // Use the on-chain reserve-based price impact (toToken/fromToken).
       setPriceImpact(best.priceImpactPct);
+
+      // Aggregator quote (net of protocol fee), straight from getExpectedOutput.
+      if (aggEligible) {
+        const q = await dex.getAggregatorQuote(fromAmount, best.path);
+        setAggQuote(q);
+        if (q && useAgg && parseFloat(q) > 0) setToAmount(q);
+      } else {
+        setAggQuote(null);
+      }
 
       // Run pre-flight validation against on-chain state.
       if (isConnected) {
@@ -98,7 +124,7 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
       }
     }, 500);
     return () => clearTimeout(timer);
-  }, [fromAmount, fromToken, toToken, getBestRoute, previewSwap, wrapType, slippage, deadline, isConnected]);
+  }, [fromAmount, fromToken, toToken, getBestRoute, previewSwap, wrapType, slippage, deadline, isConnected, aggEligible, useAgg, dex]);
 
   const handleSwitch = () => {
     setFromToken(toToken);
@@ -110,16 +136,40 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
   const handleSwap = async () => {
     if (!fromAmount || parseFloat(fromAmount) <= 0) return;
     // Hard block on preflight errors so we don't burn gas on a guaranteed revert.
-    if (preflight && preflight.errors.length > 0) {
-      toast.error('Swap blocked', { description: preflight.errors[0] });
+    // Aggregator routes use a different spender, so allowance-related errors
+    // from the direct-router preflight don't apply there.
+    const blocking = (preflight?.errors ?? []).filter(
+      e => !(aggActive && /allowance|approv/i.test(e)),
+    );
+    if (blocking.length > 0) {
+      toast.error('Swap blocked', { description: blocking[0] });
       return;
     }
     try {
-      const hash = await swap(fromToken, toToken, fromAmount, toAmount || '0', parseFloat(slippage), parseFloat(deadline), route?.path);
-      toast.success(`${buttonLabel} successful!`, {
-        description: `${fromAmount} ${fromToken.symbol} → ${toAmount} ${toToken.symbol}`,
-        action: { label: 'View TX', onClick: () => window.open(`${CHAIN_CONFIG.blockExplorer}/tx/${hash}`, '_blank') },
-      });
+      if (aggActive) {
+        const res = await dex.swapViaAggregator(
+          fromToken, toToken, fromAmount, toAmount || '0',
+          parseFloat(slippage), parseFloat(deadline), route?.path,
+        );
+        const outActual = res.amountOut ?? toAmount;
+        setLastResult({
+          hash: res.hash,
+          amountIn: res.amountIn ?? fromAmount,
+          amountOut: outActual,
+          via: 'Aggregator',
+        });
+        toast.success('Swap successful via Aggregator', {
+          description: `${res.amountIn ?? fromAmount} ${fromToken.symbol} → ${parseFloat(outActual).toFixed(6)} ${toToken.symbol}`,
+          action: { label: 'View TX', onClick: () => window.open(`${CHAIN_CONFIG.blockExplorer}/tx/${res.hash}`, '_blank') },
+        });
+      } else {
+        const hash = await swap(fromToken, toToken, fromAmount, toAmount || '0', parseFloat(slippage), parseFloat(deadline), route?.path);
+        setLastResult({ hash, amountIn: fromAmount, amountOut: toAmount, via: 'Router' });
+        toast.success(`${buttonLabel} successful!`, {
+          description: `${fromAmount} ${fromToken.symbol} → ${toAmount} ${toToken.symbol}`,
+          action: { label: 'View TX', onClick: () => window.open(`${CHAIN_CONFIG.blockExplorer}/tx/${hash}`, '_blank') },
+        });
+      }
       setFromAmount('');
       setToAmount('');
       loadBalances();
@@ -127,6 +177,7 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
       toast.error(`${buttonLabel} failed`, { description: e.reason || e.message || 'Unknown error' });
     }
   };
+
 
   const setPercentage = (pct: number) => {
     const bal = parseFloat(fromBalance);
@@ -268,8 +319,75 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
               })}
               <span className="text-[10px] text-wolf-pink ml-auto">{(route?.hops || 1) * 0.3}% fee</span>
             </div>
+
+            {/* Aggregator routing — real DexAggregatorRouter config */}
+            {aggEligible && (
+              <div className="mt-3 pt-3 border-t border-wolf-border/15 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-1.5 text-muted-foreground">
+                    <span>🛡️</span> Route via Aggregator
+                  </span>
+                  <button
+                    onClick={() => setUseAgg(v => !v)}
+                    className={`relative w-10 h-5 rounded-full transition-colors ${aggActive ? 'bg-wolf-pink' : 'bg-wolf-surface border border-wolf-border/40'}`}
+                    aria-label="Toggle aggregator routing"
+                  >
+                    <motion.span layout
+                      className="absolute top-0.5 w-4 h-4 rounded-full bg-white"
+                      style={{ left: aggActive ? 22 : 2 }}
+                    />
+                  </button>
+                </div>
+                <div className="flex justify-between text-[11px] text-muted-foreground">
+                  <span>Protocol fee</span>
+                  <span className="text-foreground tabular-nums">
+                    {(aggCfg.feeBps / 100).toFixed(2)}% ({aggCfg.feeBps} bps)
+                    {aggActive && fromAmount && parseFloat(fromAmount) > 0 && (
+                      <> · ≈{(parseFloat(fromAmount) * aggCfg.feeBps / 10000).toFixed(6)} {fromToken.symbol}</>
+                    )}
+                  </span>
+                </div>
+                {aggCfg.feeRecipient && (
+                  <div className="flex justify-between text-[11px] text-muted-foreground">
+                    <span>Fee recipient</span>
+                    <span className="font-mono text-[10px] text-foreground">
+                      {aggCfg.feeRecipient.slice(0, 8)}…{aggCfg.feeRecipient.slice(-6)}
+                    </span>
+                  </div>
+                )}
+                {aggQuote && (
+                  <div className="flex justify-between text-[11px] text-muted-foreground">
+                    <span>Aggregator quote</span>
+                    <span className="text-foreground tabular-nums">{parseFloat(aggQuote).toFixed(6)} {toToken.symbol}</span>
+                  </div>
+                )}
+              </div>
+            )}
+            {!wrapType && !aggEligible && !aggCfg.loading && !isNativeToken(fromToken.address) && !isNativeToken(toToken.address) && (
+              <div className="mt-3 pt-3 border-t border-wolf-border/15 text-[11px] text-muted-foreground">
+                Aggregator route unavailable — WolfDex router is not whitelisted on the aggregator.
+              </div>
+            )}
           </motion.div>
         )}
+
+        {/* Last executed swap — real amounts from the on-chain receipt */}
+        {lastResult && (
+          <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+            className="mt-3 p-3 rounded-xl bg-wolf-green/10 border border-wolf-green/30 text-xs space-y-1"
+          >
+            <div className="flex items-center justify-between font-semibold text-wolf-green">
+              <span>✅ Confirmed via {lastResult.via}</span>
+              <a href={`${CHAIN_CONFIG.blockExplorer}/tx/${lastResult.hash}`} target="_blank" rel="noreferrer"
+                className="font-mono text-[10px] underline"
+              >{lastResult.hash.slice(0, 10)}…</a>
+            </div>
+            <div className="text-muted-foreground tabular-nums">
+              {parseFloat(lastResult.amountIn).toFixed(6)} {fromToken.symbol} → {parseFloat(lastResult.amountOut).toFixed(6)} {toToken.symbol}
+            </div>
+          </motion.div>
+        )}
+
 
         {/* On-chain validation: errors */}
         {preflight && preflight.errors.length > 0 && (
