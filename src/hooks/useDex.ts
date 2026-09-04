@@ -807,5 +807,7 @@ export function useDex(signer: ethers.Signer | null, address: string | null) {
     getAmountsOut, getBestRoute, previewSwap, getTokenBalance, getMultipleBalances,
     getPairAddress, getPairInfo, getPairInfosBatch, getAllPairs,
     approveToken, getErc20,
+    getAggregatorConfig, getAggregatorQuote, swapViaAggregator,
+
   };
 }
