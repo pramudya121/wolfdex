@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { CONTRACTS, isNativeToken, isWrappedNative, isWrapUnwrap, CHAIN_CONFIG, type TokenInfo } from '@/config/contracts';
-import { ROUTER_ABI, WETH_ABI, ERC20_ABI, FACTORY_ABI, PAIR_ABI, MULTICALL_ABI } from '@/config/abis';
+import { ROUTER_ABI, WETH_ABI, ERC20_ABI, FACTORY_ABI, PAIR_ABI, MULTICALL_ABI, AGGREGATOR_ABI } from '@/config/abis';
 import { getReadProvider } from '@/lib/rpc';
 
 const DEFAULT_DEADLINE_MINUTES = 20;
