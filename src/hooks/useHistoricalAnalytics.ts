@@ -242,7 +242,7 @@ export function useHistoricalAnalytics(opts?: { bucket?: Bucket; windowDays?: nu
 
   useEffect(() => { fetchOnce(false); }, [fetchOnce]);
 
-  return { series, loading, error, latestBlock, refresh: () => fetchOnce(true) };
+  return { series, stats, loading, error, latestBlock, refresh: () => fetchOnce(true) };
 }
 
 function getWeekNum(d: Date) {
