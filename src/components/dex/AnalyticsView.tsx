@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { getTokenByAddress, TOKENS } from '@/config/contracts';
+import { getTokenByAddress, TOKENS, CONTRACTS } from '@/config/contracts';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useDexContext } from '@/context/DexContext';
 import PairChart from './PairChart';
