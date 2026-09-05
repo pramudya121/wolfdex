@@ -23,8 +23,8 @@ import { useAggregatorOwner } from '@/hooks/useAggregator';
 import { useCustomTokens } from '@/hooks/useCustomTokens';
 import { uploadTokenLogo, useLaunchpadRegistry } from '@/hooks/useLaunchpadRegistry';
 import { registerVerifiedToken, buildVerifyMessage } from '@/lib/adminTokens.functions';
+import { listAggregatorRouters, saveAggregatorRouter, buildRouterMessage } from '@/lib/adminRouters.functions';
 
-const ROUTERS_KEY = 'wolfdex_admin_routers';
 
 interface RouterRow { address: string; label: string; whitelisted: boolean | null }
 
