@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { getTokenByAddress, TOKENS } from '@/config/contracts';
+import { getTokenByAddress, TOKENS, CONTRACTS } from '@/config/contracts';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useDexContext } from '@/context/DexContext';
 import PairChart from './PairChart';
@@ -10,6 +10,7 @@ import { useHistoricalAnalytics, type Bucket } from '@/hooks/useHistoricalAnalyt
 interface PoolData {
   symbol0: string; symbol1: string; reserve0: string; reserve1: string;
   logo0: string; logo1: string; tvl: number; address: string;
+  token0: string; token1: string;
 }
 
 export default function AnalyticsView() {
@@ -22,7 +23,7 @@ export default function AnalyticsView() {
   const [selectedPair, setSelectedPair] = useState<PoolData | null>(null);
 
   const windowDays = chartPeriod === '7d' ? 7 : chartPeriod === '30d' ? 30 : 90;
-  const { series: historySeries, loading: historyLoading, refresh: refreshHistory } =
+  const { series: historySeries, stats: historyStats, loading: historyLoading, refresh: refreshHistory } =
     useHistoricalAnalytics({ bucket: chartBucket, windowDays });
 
   const load = useCallback(async (force = false) => {
@@ -46,6 +47,8 @@ export default function AnalyticsView() {
           logo1: tok1?.logo || '/images/wdex-logo.png',
           tvl: r0 + r1,
           address: addr,
+          token0: info.token0,
+          token1: info.token1,
         });
       }
       setPools(out);
@@ -55,17 +58,33 @@ export default function AnalyticsView() {
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalTVL = useMemo(() => pools.reduce((s, p) => s + p.tvl, 0), [pools]);
-  const totalVolume = useMemo(() => {
-    if (historySeries.length === 0) return totalTVL * 0.12;
-    const last = historySeries[historySeries.length - 1];
-    return last?.volume ?? 0;
-  }, [historySeries, totalTVL]);
+  const totalVolume = historyStats.volume24h;
   const totalFees = totalVolume * 0.003;
+  const volumeChange = historyStats.volumeChangePct;
   const chartData = historySeries;
 
-  const topTokens = useMemo(() => TOKENS.filter(t => !t.isNative).slice(0, 6).map((t) => ({
-    ...t, price: (Math.random() * 1000).toFixed(2), change: ((Math.random() - 0.3) * 10).toFixed(2),
-  })), []);
+  /** Top tokens ranked by real on-chain liquidity; price quoted against the
+   *  native/wrapped-native side of the deepest pool that contains the token. */
+  const topTokens = useMemo(() => {
+    const liq = new Map<string, number>();
+    const priced = new Map<string, number>();
+    const wrapped = CONTRACTS.WETH.toLowerCase();
+    for (const p of pools) {
+      const a0 = p.token0.toLowerCase(), a1 = p.token1.toLowerCase();
+      const r0 = parseFloat(p.reserve0) || 0, r1 = parseFloat(p.reserve1) || 0;
+      liq.set(a0, (liq.get(a0) || 0) + r0);
+      liq.set(a1, (liq.get(a1) || 0) + r1);
+      if (a1 === wrapped && r0 > 0) priced.set(a0, r1 / r0);
+      if (a0 === wrapped && r1 > 0) priced.set(a1, r0 / r1);
+    }
+    return TOKENS.filter(t => !t.isNative)
+      .map(t => {
+        const key = t.address.toLowerCase();
+        return { ...t, liquidity: liq.get(key) || 0, price: priced.get(key) ?? null };
+      })
+      .sort((a, b) => b.liquidity - a.liquidity)
+      .slice(0, 6);
+  }, [pools]);
 
   const showSkeleton = loading && pools.length === 0;
 
@@ -132,8 +151,8 @@ export default function AnalyticsView() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
             {[
               { icon: '🔒', label: 'Total Value Locked', value: `$${totalTVL.toFixed(2)}`, change: '+0.5%', positive: true },
-              { icon: '📊', label: 'Volume (24h)',       value: `$${totalVolume.toFixed(2)}`, change: '+4.8%', positive: true },
-              { icon: '💸', label: 'Fees (24h)',         value: `$${totalFees.toFixed(2)}`, change: '+4.3%', positive: true },
+              { icon: '📊', label: 'Volume (24h)',       value: `${totalVolume.toFixed(4)}`, change: `${volumeChange >= 0 ? '+' : ''}${volumeChange.toFixed(1)}%`, positive: volumeChange >= 0 },
+              { icon: '💸', label: 'Fees (24h)',         value: `${totalFees.toFixed(4)}`, change: `${historyStats.swaps24h} swaps`, positive: true },
               { icon: '🏊', label: 'Total Pools',        value: pools.length.toString(),    change: '',      positive: true },
             ].map((s, i) => (
               <motion.div key={s.label}
@@ -230,10 +249,13 @@ export default function AnalyticsView() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-medium text-sm">${t.price}</div>
-                      <div className={`text-[10px] ${parseFloat(t.change) >= 0 ? 'text-wolf-green' : 'text-destructive'}`}>
-                        {parseFloat(t.change) >= 0 ? '+' : ''}{t.change}%
+                      <div className="font-medium text-sm">
+                        {t.price !== null ? `${t.price.toFixed(6)} zkLTC` : '—'}
                       </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        Liq {t.liquidity.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                      </div>
+
                     </div>
                   </div>
                 ))}

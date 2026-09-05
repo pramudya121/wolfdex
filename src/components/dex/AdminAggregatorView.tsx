@@ -23,8 +23,8 @@ import { useAggregatorOwner } from '@/hooks/useAggregator';
 import { useCustomTokens } from '@/hooks/useCustomTokens';
 import { uploadTokenLogo, useLaunchpadRegistry } from '@/hooks/useLaunchpadRegistry';
 import { registerVerifiedToken, buildVerifyMessage } from '@/lib/adminTokens.functions';
+import { listAggregatorRouters, saveAggregatorRouter, buildRouterMessage } from '@/lib/adminRouters.functions';
 
-const ROUTERS_KEY = 'wolfdex_admin_routers';
 
 interface RouterRow { address: string; label: string; whitelisted: boolean | null }
 
@@ -166,14 +166,17 @@ function RoutersPanel({
   );
 
   useEffect(() => {
-    let stored: RouterRow[] = [];
-    try {
-      stored = JSON.parse(localStorage.getItem(ROUTERS_KEY) || '[]');
-    } catch { /* ignore */ }
-    const base: RouterRow[] = [{ address: CONTRACTS.ROUTER, label: 'WolfDex Router', whitelisted: null }];
-    const merged = [...base, ...stored.filter(s => s.address.toLowerCase() !== CONTRACTS.ROUTER.toLowerCase())];
-    setRows(merged);
-    loadStatuses(merged);
+    (async () => {
+      let stored: RouterRow[] = [];
+      try {
+        const remote = await listAggregatorRouters();
+        stored = remote.map(r => ({ address: ethers.utils.getAddress(r.address), label: r.label, whitelisted: null }));
+      } catch { /* offline — fall back to the canonical router only */ }
+      const base: RouterRow[] = [{ address: CONTRACTS.ROUTER, label: 'WolfDex Router', whitelisted: null }];
+      const merged = [...base, ...stored.filter(s => s.address.toLowerCase() !== CONTRACTS.ROUTER.toLowerCase())];
+      setRows(merged);
+      loadStatuses(merged);
+    })();
   }, [loadStatuses]);
 
   useEffect(() => {
@@ -190,10 +193,17 @@ function RoutersPanel({
     })();
   }, [readContract]);
 
-  const persist = (next: RouterRow[]) => {
-    setRows(next);
-    const custom = next.filter(r => r.address.toLowerCase() !== CONTRACTS.ROUTER.toLowerCase());
-    localStorage.setItem(ROUTERS_KEY, JSON.stringify(custom));
+  /** Persist a router entry to the shared database (owner-signed). */
+  const persistRemote = async (address: string, label: string, remove = false) => {
+    if (address.toLowerCase() === CONTRACTS.ROUTER.toLowerCase()) return;
+    if (!signer) return;
+    try {
+      const timestamp = Date.now();
+      const signature = await signer.signMessage(buildRouterMessage(address, timestamp));
+      await saveAggregatorRouter({ data: { address, label, remove, timestamp, signature } });
+    } catch (e: any) {
+      toast.error('Could not sync router list', { description: e?.message || 'Please retry' });
+    }
   };
 
   const run = async (key: string, fn: () => Promise<ethers.ContractTransaction>, ok: string) => {
@@ -224,11 +234,13 @@ function RoutersPanel({
       'Router whitelisted',
     );
     if (!ok) return;
-    const next: RouterRow[] = [
+    const label = newLabel.trim() || 'External Router';
+    const checksummed = ethers.utils.getAddress(addr);
+    setRows([
       ...rows.filter(r => r.address.toLowerCase() !== addr.toLowerCase()),
-      { address: ethers.utils.getAddress(addr), label: newLabel.trim() || 'External Router', whitelisted: true },
-    ];
-    persist(next);
+      { address: checksummed, label, whitelisted: true },
+    ]);
+    await persistRemote(checksummed, label);
     setNewRouter(''); setNewLabel('');
   };
 
@@ -239,7 +251,9 @@ function RoutersPanel({
       () => writeContract!.updateRouterWhitelist(row.address, next),
       next ? 'Router whitelisted' : 'Router removed from whitelist',
     );
-    if (ok) persist(rows.map(r => (r.address === row.address ? { ...r, whitelisted: next } : r)));
+    if (!ok) return;
+    setRows(rows.map(r => (r.address === row.address ? { ...r, whitelisted: next } : r)));
+    await persistRemote(row.address, row.label, !next);
   };
 
   const saveFee = async () => {
