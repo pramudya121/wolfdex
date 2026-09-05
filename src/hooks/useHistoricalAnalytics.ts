@@ -214,8 +214,25 @@ export function useHistoricalAnalytics(opts?: { bucket?: Bucket; windowDays?: nu
       // Reverse so oldest → newest.
       out.push(...futurePoints.reverse());
 
+      // Rolling 24h / previous 24h stats straight from indexed swap events.
+      let v24 = 0, vPrev = 0, s24 = 0;
+      for (const r of rows) {
+        const ts = tsMap.get(r.block);
+        if (!ts) continue;
+        const age = now - ts;
+        if (age <= SECONDS_PER_DAY) { v24 += r.vol; s24 += 1; }
+        else if (age <= SECONDS_PER_DAY * 2) { vPrev += r.vol; }
+      }
+      const nextStats: HistoryStats = {
+        volume24h: +v24.toFixed(4),
+        prevVolume24h: +vPrev.toFixed(4),
+        swaps24h: s24,
+        volumeChangePct: vPrev > 0 ? ((v24 - vPrev) / vPrev) * 100 : (v24 > 0 ? 100 : 0),
+      };
+
       setSeries(out);
-      writeCache({ series: out, fetchedAt: Date.now(), bucket, windowDays, pairsHash });
+      setStats(nextStats);
+      writeCache({ series: out, stats: nextStats, fetchedAt: Date.now(), bucket, windowDays, pairsHash });
     } catch (e: any) {
       setError(e?.message || 'Failed to load historical analytics');
     } finally {
