@@ -47,6 +47,8 @@ export default function AnalyticsView() {
           logo1: tok1?.logo || '/images/wdex-logo.png',
           tvl: r0 + r1,
           address: addr,
+          token0: info.token0,
+          token1: info.token1,
         });
       }
       setPools(out);
