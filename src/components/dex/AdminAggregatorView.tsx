@@ -234,11 +234,13 @@ function RoutersPanel({
       'Router whitelisted',
     );
     if (!ok) return;
-    const next: RouterRow[] = [
+    const label = newLabel.trim() || 'External Router';
+    const checksummed = ethers.utils.getAddress(addr);
+    setRows([
       ...rows.filter(r => r.address.toLowerCase() !== addr.toLowerCase()),
-      { address: ethers.utils.getAddress(addr), label: newLabel.trim() || 'External Router', whitelisted: true },
-    ];
-    persist(next);
+      { address: checksummed, label, whitelisted: true },
+    ]);
+    await persistRemote(checksummed, label);
     setNewRouter(''); setNewLabel('');
   };
 
@@ -249,7 +251,9 @@ function RoutersPanel({
       () => writeContract!.updateRouterWhitelist(row.address, next),
       next ? 'Router whitelisted' : 'Router removed from whitelist',
     );
-    if (ok) persist(rows.map(r => (r.address === row.address ? { ...r, whitelisted: next } : r)));
+    if (!ok) return;
+    setRows(rows.map(r => (r.address === row.address ? { ...r, whitelisted: next } : r)));
+    await persistRemote(row.address, row.label, !next);
   };
 
   const saveFee = async () => {
