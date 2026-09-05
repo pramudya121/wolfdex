@@ -249,10 +249,13 @@ export default function AnalyticsView() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-medium text-sm">${t.price}</div>
-                      <div className={`text-[10px] ${parseFloat(t.change) >= 0 ? 'text-wolf-green' : 'text-destructive'}`}>
-                        {parseFloat(t.change) >= 0 ? '+' : ''}{t.change}%
+                      <div className="font-medium text-sm">
+                        {t.price !== null ? `${t.price.toFixed(6)} zkLTC` : '—'}
                       </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        Liq {t.liquidity.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                      </div>
+
                     </div>
                   </div>
                 ))}
