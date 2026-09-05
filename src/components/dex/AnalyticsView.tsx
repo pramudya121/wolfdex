@@ -10,6 +10,7 @@ import { useHistoricalAnalytics, type Bucket } from '@/hooks/useHistoricalAnalyt
 interface PoolData {
   symbol0: string; symbol1: string; reserve0: string; reserve1: string;
   logo0: string; logo1: string; tvl: number; address: string;
+  token0: string; token1: string;
 }
 
 export default function AnalyticsView() {
