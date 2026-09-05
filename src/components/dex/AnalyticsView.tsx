@@ -151,8 +151,8 @@ export default function AnalyticsView() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
             {[
               { icon: '🔒', label: 'Total Value Locked', value: `$${totalTVL.toFixed(2)}`, change: '+0.5%', positive: true },
-              { icon: '📊', label: 'Volume (24h)',       value: `$${totalVolume.toFixed(2)}`, change: '+4.8%', positive: true },
-              { icon: '💸', label: 'Fees (24h)',         value: `$${totalFees.toFixed(2)}`, change: '+4.3%', positive: true },
+              { icon: '📊', label: 'Volume (24h)',       value: `${totalVolume.toFixed(4)}`, change: `${volumeChange >= 0 ? '+' : ''}${volumeChange.toFixed(1)}%`, positive: volumeChange >= 0 },
+              { icon: '💸', label: 'Fees (24h)',         value: `${totalFees.toFixed(4)}`, change: `${historyStats.swaps24h} swaps`, positive: true },
               { icon: '🏊', label: 'Total Pools',        value: pools.length.toString(),    change: '',      positive: true },
             ].map((s, i) => (
               <motion.div key={s.label}
