@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      aggregator_routers: {
+        Row: {
+          address: string
+          created_at: string
+          label: string
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          label?: string
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          label?: string
+        }
+        Relationships: []
+      }
       domain_requests: {
         Row: {
           created_at: string
