@@ -166,14 +166,17 @@ function RoutersPanel({
   );
 
   useEffect(() => {
-    let stored: RouterRow[] = [];
-    try {
-      stored = JSON.parse(localStorage.getItem(ROUTERS_KEY) || '[]');
-    } catch { /* ignore */ }
-    const base: RouterRow[] = [{ address: CONTRACTS.ROUTER, label: 'WolfDex Router', whitelisted: null }];
-    const merged = [...base, ...stored.filter(s => s.address.toLowerCase() !== CONTRACTS.ROUTER.toLowerCase())];
-    setRows(merged);
-    loadStatuses(merged);
+    (async () => {
+      let stored: RouterRow[] = [];
+      try {
+        const remote = await listAggregatorRouters();
+        stored = remote.map(r => ({ address: ethers.utils.getAddress(r.address), label: r.label, whitelisted: null }));
+      } catch { /* offline — fall back to the canonical router only */ }
+      const base: RouterRow[] = [{ address: CONTRACTS.ROUTER, label: 'WolfDex Router', whitelisted: null }];
+      const merged = [...base, ...stored.filter(s => s.address.toLowerCase() !== CONTRACTS.ROUTER.toLowerCase())];
+      setRows(merged);
+      loadStatuses(merged);
+    })();
   }, [loadStatuses]);
 
   useEffect(() => {
@@ -190,10 +193,17 @@ function RoutersPanel({
     })();
   }, [readContract]);
 
-  const persist = (next: RouterRow[]) => {
-    setRows(next);
-    const custom = next.filter(r => r.address.toLowerCase() !== CONTRACTS.ROUTER.toLowerCase());
-    localStorage.setItem(ROUTERS_KEY, JSON.stringify(custom));
+  /** Persist a router entry to the shared database (owner-signed). */
+  const persistRemote = async (address: string, label: string, remove = false) => {
+    if (address.toLowerCase() === CONTRACTS.ROUTER.toLowerCase()) return;
+    if (!signer) return;
+    try {
+      const timestamp = Date.now();
+      const signature = await signer.signMessage(buildRouterMessage(address, timestamp));
+      await saveAggregatorRouter({ data: { address, label, remove, timestamp, signature } });
+    } catch (e: any) {
+      toast.error('Could not sync router list', { description: e?.message || 'Please retry' });
+    }
   };
 
   const run = async (key: string, fn: () => Promise<ethers.ContractTransaction>, ok: string) => {
