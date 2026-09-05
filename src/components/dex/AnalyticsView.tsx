@@ -23,7 +23,7 @@ export default function AnalyticsView() {
   const [selectedPair, setSelectedPair] = useState<PoolData | null>(null);
 
   const windowDays = chartPeriod === '7d' ? 7 : chartPeriod === '30d' ? 30 : 90;
-  const { series: historySeries, loading: historyLoading, refresh: refreshHistory } =
+  const { series: historySeries, stats: historyStats, loading: historyLoading, refresh: refreshHistory } =
     useHistoricalAnalytics({ bucket: chartBucket, windowDays });
 
   const load = useCallback(async (force = false) => {
