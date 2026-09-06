@@ -138,7 +138,7 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
       }
     }, 500);
     return () => clearTimeout(timer);
-  }, [fromAmount, fromToken, toToken, getBestRoute, previewSwap, wrapType, slippage, deadline, isConnected, aggEligible, useAgg, dex]);
+  }, [fromAmount, fromToken, toToken, getBestRoute, previewSwap, wrapType, slippage, deadline, isConnected, aggEligible, useAgg, dex, selectedRouter?.address]);
 
   const handleSwitch = () => {
     setFromToken(toToken);
