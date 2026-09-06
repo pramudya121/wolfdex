@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import TokenModal from './TokenModal';
 import TxSettingsPanel from './TxSettingsPanel';
 import { useTxSettings, useDexContext } from '@/context/DexContext';
-import { useAggregatorConfig } from '@/hooks/useAggregator';
+import { useAggregatorConfig, useAggregatorRouters } from '@/hooks/useAggregator';
 import type { RouteQuote, SwapPreflight } from '@/hooks/useDex';
 import { WolfSpinner } from './ui/WolfSkeleton';
 
