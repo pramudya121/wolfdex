@@ -47,17 +47,31 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
   // Aggregator routing state
   const { dex } = useDexContext();
   const aggCfg = useAggregatorConfig();
+  const { routers: aggRouters } = useAggregatorRouters();
   const [useAgg, setUseAgg] = useState(true);
+  const [routerAddr, setRouterAddr] = useState<string>(CONTRACTS.ROUTER);
   const [aggQuote, setAggQuote] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<{ hash: string; amountIn: string; amountOut: string; via: string } | null>(null);
+
+  const usableRouters = aggRouters.filter(r => r.whitelisted);
+  const selectedRouter = usableRouters.find(r => r.address.toLowerCase() === routerAddr.toLowerCase())
+    ?? usableRouters[0];
+
+  // Keep the selection valid once the whitelist finishes loading.
+  useEffect(() => {
+    if (selectedRouter && selectedRouter.address.toLowerCase() !== routerAddr.toLowerCase()) {
+      setRouterAddr(selectedRouter.address);
+    }
+  }, [selectedRouter, routerAddr]);
 
   const wrapType = isWrapUnwrap(fromToken.address, toToken.address);
   /** The aggregator is not payable — ERC-20 ↔ ERC-20 only. */
   const aggEligible = !wrapType
-    && aggCfg.routerWhitelisted
+    && !!selectedRouter
     && !isNativeToken(fromToken.address)
     && !isNativeToken(toToken.address);
   const aggActive = aggEligible && useAgg;
+
   // Always show "Swap" — wrap/unwrap is just a swap with WETH under the hood.
   const buttonLabel = 'Swap';
 
