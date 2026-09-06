@@ -116,7 +116,7 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
 
       // Aggregator quote (net of protocol fee), straight from getExpectedOutput.
       if (aggEligible) {
-        const q = await dex.getAggregatorQuote(fromAmount, best.path);
+        const q = await dex.getAggregatorQuote(fromAmount, best.path, selectedRouter?.address);
         setAggQuote(q);
         if (q && useAgg && parseFloat(q) > 0) setToAmount(q);
       } else {
