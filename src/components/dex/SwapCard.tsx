@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import TokenModal from './TokenModal';
 import TxSettingsPanel from './TxSettingsPanel';
 import { useTxSettings, useDexContext } from '@/context/DexContext';
-import { useAggregatorConfig } from '@/hooks/useAggregator';
+import { useAggregatorConfig, useAggregatorRouters } from '@/hooks/useAggregator';
 import type { RouteQuote, SwapPreflight } from '@/hooks/useDex';
 import { WolfSpinner } from './ui/WolfSkeleton';
 
@@ -47,17 +47,31 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
   // Aggregator routing state
   const { dex } = useDexContext();
   const aggCfg = useAggregatorConfig();
+  const { routers: aggRouters } = useAggregatorRouters();
   const [useAgg, setUseAgg] = useState(true);
+  const [routerAddr, setRouterAddr] = useState<string>(CONTRACTS.ROUTER);
   const [aggQuote, setAggQuote] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<{ hash: string; amountIn: string; amountOut: string; via: string } | null>(null);
+
+  const usableRouters = aggRouters.filter(r => r.whitelisted);
+  const selectedRouter = usableRouters.find(r => r.address.toLowerCase() === routerAddr.toLowerCase())
+    ?? usableRouters[0];
+
+  // Keep the selection valid once the whitelist finishes loading.
+  useEffect(() => {
+    if (selectedRouter && selectedRouter.address.toLowerCase() !== routerAddr.toLowerCase()) {
+      setRouterAddr(selectedRouter.address);
+    }
+  }, [selectedRouter, routerAddr]);
 
   const wrapType = isWrapUnwrap(fromToken.address, toToken.address);
   /** The aggregator is not payable — ERC-20 ↔ ERC-20 only. */
   const aggEligible = !wrapType
-    && aggCfg.routerWhitelisted
+    && !!selectedRouter
     && !isNativeToken(fromToken.address)
     && !isNativeToken(toToken.address);
   const aggActive = aggEligible && useAgg;
+
   // Always show "Swap" — wrap/unwrap is just a swap with WETH under the hood.
   const buttonLabel = 'Swap';
 
@@ -102,7 +116,7 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
 
       // Aggregator quote (net of protocol fee), straight from getExpectedOutput.
       if (aggEligible) {
-        const q = await dex.getAggregatorQuote(fromAmount, best.path);
+        const q = await dex.getAggregatorQuote(fromAmount, best.path, selectedRouter?.address);
         setAggQuote(q);
         if (q && useAgg && parseFloat(q) > 0) setToAmount(q);
       } else {
@@ -124,7 +138,7 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
       }
     }, 500);
     return () => clearTimeout(timer);
-  }, [fromAmount, fromToken, toToken, getBestRoute, previewSwap, wrapType, slippage, deadline, isConnected, aggEligible, useAgg, dex]);
+  }, [fromAmount, fromToken, toToken, getBestRoute, previewSwap, wrapType, slippage, deadline, isConnected, aggEligible, useAgg, dex, selectedRouter?.address]);
 
   const handleSwitch = () => {
     setFromToken(toToken);
@@ -149,8 +163,9 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
       if (aggActive) {
         const res = await dex.swapViaAggregator(
           fromToken, toToken, fromAmount, toAmount || '0',
-          parseFloat(slippage), parseFloat(deadline), route?.path,
+          parseFloat(slippage), parseFloat(deadline), route?.path, selectedRouter?.address,
         );
+
         const outActual = res.amountOut ?? toAmount;
         setLastResult({
           hash: res.hash,
@@ -338,6 +353,28 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
                     />
                   </button>
                 </div>
+                {/* DEX router picker — every router the owner whitelisted */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span>DEX router</span>
+                    <span className="text-[10px] text-wolf-green">{usableRouters.length} available</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {usableRouters.map(r => (
+                      <button key={r.address}
+                        onClick={() => setRouterAddr(r.address)}
+                        className={`px-2.5 py-1 rounded-full text-[11px] border transition-colors ${
+                          selectedRouter?.address.toLowerCase() === r.address.toLowerCase()
+                            ? 'bg-wolf-pink/20 border-wolf-pink/50 text-foreground'
+                            : 'bg-wolf-surface border-wolf-border/40 text-muted-foreground hover:text-foreground'
+                        }`}
+                        title={r.address}
+                      >
+                        {r.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <div className="flex justify-between text-[11px] text-muted-foreground">
                   <span>Protocol fee</span>
                   <span className="text-foreground tabular-nums">
@@ -365,9 +402,10 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
             )}
             {!wrapType && !aggEligible && !aggCfg.loading && !isNativeToken(fromToken.address) && !isNativeToken(toToken.address) && (
               <div className="mt-3 pt-3 border-t border-wolf-border/15 text-[11px] text-muted-foreground">
-                Aggregator route unavailable — WolfDex router is not whitelisted on the aggregator.
+                Aggregator route unavailable — no whitelisted DEX router yet. Add and enable one in the admin console.
               </div>
             )}
+
           </motion.div>
         )}
 

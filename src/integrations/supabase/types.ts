@@ -65,6 +65,42 @@ export type Database = {
         }
         Relationships: []
       }
+      ecosystem_dapps: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          logo_url: string | null
+          name: string
+          sort_order: number
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          logo_url?: string | null
+          name: string
+          sort_order?: number
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          logo_url?: string | null
+          name?: string
+          sort_order?: number
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
       launchpad_tokens: {
         Row: {
           address: string
