@@ -501,6 +501,7 @@ export function useDex(signer: ethers.Signer | null, address: string | null) {
     slippagePct?: number,
     deadlineMinutes?: number,
     routePath?: string[],
+    routerAddress?: string,
   ): Promise<AggregatorSwapResult> => {
     setLoading(true); setError(null); setTxHash(null);
     try {
@@ -508,8 +509,9 @@ export function useDex(signer: ethers.Signer | null, address: string | null) {
       if (isNativeToken(fromToken.address) || isNativeToken(toToken.address)) {
         throw new Error('Aggregator route supports ERC-20 pairs only');
       }
+      const router = routerAddress || CONTRACTS.ROUTER;
       const agg = getAggregator(true);
-      const whitelisted: boolean = await agg.isWhitelistedRouter(CONTRACTS.ROUTER);
+      const whitelisted: boolean = await agg.isWhitelistedRouter(router);
       if (!whitelisted) throw new Error('Router is not whitelisted on the aggregator');
 
       const slippageBips = pctToBips(slippagePct);
@@ -521,7 +523,8 @@ export function useDex(signer: ethers.Signer | null, address: string | null) {
       // The aggregator pulls the input token from the user, so approve IT.
       await approveToken(fromToken.address, parsedIn, CONTRACTS.AGGREGATOR);
 
-      const tx = await agg.executeSwap(CONTRACTS.ROUTER, parsedIn, parsedOutMin, path, address, deadline);
+      const tx = await agg.executeSwap(router, parsedIn, parsedOutMin, path, address, deadline);
+
       const receipt = await tx.wait();
       setTxHash(tx.hash);
 
