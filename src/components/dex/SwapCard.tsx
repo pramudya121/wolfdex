@@ -353,6 +353,28 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
                     />
                   </button>
                 </div>
+                {/* DEX router picker — every router the owner whitelisted */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span>DEX router</span>
+                    <span className="text-[10px] text-wolf-green">{usableRouters.length} available</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {usableRouters.map(r => (
+                      <button key={r.address}
+                        onClick={() => setRouterAddr(r.address)}
+                        className={`px-2.5 py-1 rounded-full text-[11px] border transition-colors ${
+                          selectedRouter?.address.toLowerCase() === r.address.toLowerCase()
+                            ? 'bg-wolf-pink/20 border-wolf-pink/50 text-foreground'
+                            : 'bg-wolf-surface border-wolf-border/40 text-muted-foreground hover:text-foreground'
+                        }`}
+                        title={r.address}
+                      >
+                        {r.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <div className="flex justify-between text-[11px] text-muted-foreground">
                   <span>Protocol fee</span>
                   <span className="text-foreground tabular-nums">
@@ -380,9 +402,10 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
             )}
             {!wrapType && !aggEligible && !aggCfg.loading && !isNativeToken(fromToken.address) && !isNativeToken(toToken.address) && (
               <div className="mt-3 pt-3 border-t border-wolf-border/15 text-[11px] text-muted-foreground">
-                Aggregator route unavailable — WolfDex router is not whitelisted on the aggregator.
+                Aggregator route unavailable — no whitelisted DEX router yet. Add and enable one in the admin console.
               </div>
             )}
+
           </motion.div>
         )}
 
