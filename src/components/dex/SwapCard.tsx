@@ -163,8 +163,9 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
       if (aggActive) {
         const res = await dex.swapViaAggregator(
           fromToken, toToken, fromAmount, toAmount || '0',
-          parseFloat(slippage), parseFloat(deadline), route?.path,
+          parseFloat(slippage), parseFloat(deadline), route?.path, selectedRouter?.address,
         );
+
         const outActual = res.amountOut ?? toAmount;
         setLastResult({
           hash: res.hash,
