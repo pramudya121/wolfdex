@@ -5,6 +5,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
+import { Link } from '@tanstack/react-router';
 import { useMarketData } from '@/hooks/useMarketData';
 import { useMarketSocial } from '@/hooks/useMarketSocial';
 import MarketTokenCard, { fmt, fmtUsd } from './market/MarketTokenCard';
@@ -154,6 +155,12 @@ export default function MarketView() {
           Every token launched on WolfDex, priced straight from the AMM pools. Track new launches,
           trending movers and the deepest liquidity — then trade in one click.
         </p>
+        <Link
+          to="/launchpad"
+          className="inline-flex items-center gap-2 mt-5 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-wolf-pink to-wolf-gold shadow-lg hover:scale-[1.03] active:scale-95 transition-transform"
+        >
+          🚀 Create Token
+        </Link>
       </div>
 
       {/* Stats bar */}
