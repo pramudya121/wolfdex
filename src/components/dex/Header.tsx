@@ -20,7 +20,7 @@ const NAV_ITEMS = [
   { path: '/analytics', label: 'Analytics' },
   { path: '/portfolio', label: 'Portfolio' },
   { path: '/faucet', label: 'Faucet' },
-  { path: '/launchpad', label: 'Launchpad' },
+  { path: '/ecosystem', label: 'Ecosystem' },
   { path: '/market', label: 'Market' },
 
   { path: '/domains', label: 'Domains' },
