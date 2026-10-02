@@ -15,6 +15,7 @@ import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as CasinoRouteImport } from './routes/casino'
 import { Route as DocsRouteImport } from './routes/docs'
 import { Route as DomainsRouteImport } from './routes/domains'
+import { Route as EcosystemRouteImport } from './routes/ecosystem'
 import { Route as FarmingRouteImport } from './routes/farming'
 import { Route as FaucetRouteImport } from './routes/faucet'
 import { Route as LaunchpadRouteImport } from './routes/launchpad'
@@ -57,6 +58,11 @@ const DocsRoute = DocsRouteImport.update({
 const DomainsRoute = DomainsRouteImport.update({
   id: '/domains',
   path: '/domains',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EcosystemRoute = EcosystemRouteImport.update({
+  id: '/ecosystem',
+  path: '/ecosystem',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FarmingRoute = FarmingRouteImport.update({
@@ -132,6 +138,7 @@ export interface FileRoutesByFullPath {
   '/casino': typeof CasinoRouteWithChildren
   '/docs': typeof DocsRoute
   '/domains': typeof DomainsRoute
+  '/ecosystem': typeof EcosystemRoute
   '/farming': typeof FarmingRoute
   '/faucet': typeof FaucetRoute
   '/launchpad': typeof LaunchpadRoute
@@ -153,6 +160,7 @@ export interface FileRoutesByTo {
   '/casino': typeof CasinoRouteWithChildren
   '/docs': typeof DocsRoute
   '/domains': typeof DomainsRoute
+  '/ecosystem': typeof EcosystemRoute
   '/farming': typeof FarmingRoute
   '/faucet': typeof FaucetRoute
   '/launchpad': typeof LaunchpadRoute
@@ -175,6 +183,7 @@ export interface FileRoutesById {
   '/casino': typeof CasinoRouteWithChildren
   '/docs': typeof DocsRoute
   '/domains': typeof DomainsRoute
+  '/ecosystem': typeof EcosystemRoute
   '/farming': typeof FarmingRoute
   '/faucet': typeof FaucetRoute
   '/launchpad': typeof LaunchpadRoute
@@ -198,6 +207,7 @@ export interface FileRouteTypes {
     | '/casino'
     | '/docs'
     | '/domains'
+    | '/ecosystem'
     | '/farming'
     | '/faucet'
     | '/launchpad'
@@ -219,6 +229,7 @@ export interface FileRouteTypes {
     | '/casino'
     | '/docs'
     | '/domains'
+    | '/ecosystem'
     | '/farming'
     | '/faucet'
     | '/launchpad'
@@ -240,6 +251,7 @@ export interface FileRouteTypes {
     | '/casino'
     | '/docs'
     | '/domains'
+    | '/ecosystem'
     | '/farming'
     | '/faucet'
     | '/launchpad'
@@ -262,6 +274,7 @@ export interface RootRouteChildren {
   CasinoRoute: typeof CasinoRouteWithChildren
   DocsRoute: typeof DocsRoute
   DomainsRoute: typeof DomainsRoute
+  EcosystemRoute: typeof EcosystemRoute
   FarmingRoute: typeof FarmingRoute
   FaucetRoute: typeof FaucetRoute
   LaunchpadRoute: typeof LaunchpadRoute
@@ -318,6 +331,13 @@ declare module '@tanstack/react-router' {
       path: '/domains'
       fullPath: '/domains'
       preLoaderRoute: typeof DomainsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ecosystem': {
+      id: '/ecosystem'
+      path: '/ecosystem'
+      fullPath: '/ecosystem'
+      preLoaderRoute: typeof EcosystemRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/farming': {
@@ -432,6 +452,7 @@ const rootRouteChildren: RootRouteChildren = {
   CasinoRoute: CasinoRouteWithChildren,
   DocsRoute: DocsRoute,
   DomainsRoute: DomainsRoute,
+  EcosystemRoute: EcosystemRoute,
   FarmingRoute: FarmingRoute,
   FaucetRoute: FaucetRoute,
   LaunchpadRoute: LaunchpadRoute,
