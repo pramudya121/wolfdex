@@ -4,7 +4,7 @@
  * inline manager to add, edit, and remove entries; every write is signed by
  * that wallet and verified server-side.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import {
@@ -15,6 +15,7 @@ import {
   LoaderCircle,
   Pencil,
   Plus,
+  Search,
   ShieldCheck,
   Trash2,
   UploadCloud,
@@ -35,6 +36,14 @@ import {
 } from '@/lib/ecosystem.functions';
 
 const CATEGORIES = ['DeFi', 'Launchpad', 'NFT', 'Gaming', 'Infrastructure', 'Tools', 'Social', 'Bridge'] as const;
+const CATEGORY_STYLES: Record<string, string> = {
+  DeFi: 'bg-wolf-gold/15 text-wolf-gold',
+  Launchpad: 'bg-wolf-pink/15 text-wolf-pink',
+  Gaming: 'bg-wolf-green/15 text-wolf-green',
+  NFT: 'bg-wolf-pink/10 text-foreground',
+  Infrastructure: 'bg-primary/15 text-primary',
+  Bridge: 'bg-primary/10 text-foreground',
+};
 const MAX_LOGO_BYTES = 1024 * 1024;
 const ACCEPTED_LOGO_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 
@@ -61,6 +70,10 @@ export default function EcosystemView() {
   const [dragging, setDragging] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [filter, setFilter] = useState<string>('All');
+  const [query, setQuery] = useState('');
+  const [sort, setSort] = useState<'featured' | 'az' | 'category'>('featured');
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  useEffect(() => { setConfirmRemove(false); }, [form.id, showForm]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -174,7 +187,16 @@ export default function EcosystemView() {
   };
 
   const categories = ['All', ...CATEGORIES];
-  const visible = filter === 'All' ? dapps : dapps.filter(d => d.category === filter);
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const list = dapps.filter(d =>
+      (filter === 'All' || d.category === filter) &&
+      (!q || `${d.name} ${d.url} ${d.description ?? ''}`.toLowerCase().includes(q)),
+    );
+    if (sort === 'az') return [...list].sort((a, b) => a.name.localeCompare(b.name));
+    if (sort === 'category') return [...list].sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
+    return list;
+  }, [dapps, filter, query, sort]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 pb-16 sm:px-6">
@@ -279,8 +301,11 @@ export default function EcosystemView() {
                       {busy ? <><LoaderCircle className="animate-spin" /> Publishing…</> : <><ImagePlus /> {form.id ? 'Save changes' : 'Publish project'}</>}
                     </Button>
                     {form.id && (
-                      <Button variant="outline" disabled={busy} onClick={() => submit(true)} className="border-wolf-red/40 text-wolf-red hover:text-wolf-red">
-                        <Trash2 /> Remove
+                      <Button variant="outline" disabled={busy}
+                        onClick={() => { if (confirmRemove) { setConfirmRemove(false); submit(true); } else setConfirmRemove(true); }}
+                        className={`border-wolf-red/40 text-wolf-red hover:text-wolf-red ${confirmRemove ? 'bg-wolf-red/15' : ''}`}
+                      >
+                        <Trash2 /> {confirmRemove ? 'Click again to confirm' : 'Remove'}
                       </Button>
                     )}
                     <p className="ml-auto text-[11px] text-muted-foreground"><ShieldCheck className="mr-1 inline h-3.5 w-3.5" />Secured by owner wallet signature</p>
@@ -293,9 +318,22 @@ export default function EcosystemView() {
       )}
 
       {/* Filters */}
-      <div className="mb-5 flex items-end justify-between gap-4">
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div><p className="text-xs font-semibold uppercase text-wolf-gold">Directory</p><h2 className="mt-1 text-2xl font-bold">Explore projects</h2></div>
-        <p className="hidden text-xs text-muted-foreground sm:block">{visible.length} {visible.length === 1 ? 'project' : 'projects'}</p>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+          <div className="relative sm:w-64">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search projects…" className="h-10 bg-wolf-surface/40 pl-9" aria-label="Search projects" />
+          </div>
+          <select value={sort} onChange={e => setSort(e.target.value as typeof sort)} aria-label="Sort projects"
+            className="h-10 rounded-md border border-input bg-wolf-surface/40 px-3 text-sm text-foreground outline-none focus:ring-1 focus:ring-ring"
+          >
+            <option value="featured">Featured</option>
+            <option value="az">Name A–Z</option>
+            <option value="category">Category</option>
+          </select>
+          <p className="text-xs text-muted-foreground">{visible.length} {visible.length === 1 ? 'project' : 'projects'}</p>
+        </div>
       </div>
       {categories.length > 1 && (
         <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
@@ -322,8 +360,11 @@ export default function EcosystemView() {
         <div className="border-y border-wolf-border/25 py-20 text-center">
           <LayoutGrid className="mx-auto mb-4 h-10 w-10 text-muted-foreground/40" />
           <p className="font-semibold">No projects found</p>
-          <p className="mt-1 text-sm text-muted-foreground">Try another category or check back soon.</p>
-          {isOwner && <p className="text-xs text-muted-foreground mt-1">Use “Add dApp” to publish the first one.</p>}
+          <p className="mt-1 text-sm text-muted-foreground">Try another search or category.</p>
+          {(query || filter !== 'All') && (
+            <Button variant="outline" size="sm" className="mt-4" onClick={() => { setQuery(''); setFilter('All'); }}>Reset filters</Button>
+          )}
+          {isOwner && dapps.length === 0 && <p className="text-xs text-muted-foreground mt-2">Use “Add project” to publish the first one.</p>}
         </div>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -348,7 +389,7 @@ export default function EcosystemView() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <h3 className="truncate font-bold">{d.name}</h3>
-                    <span className="rounded-full bg-wolf-gold/15 px-2 py-0.5 text-[10px] text-wolf-gold">{d.category}</span>
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] ${CATEGORY_STYLES[d.category] ?? 'bg-wolf-gold/15 text-wolf-gold'}`}>{d.category}</span>
                   </div>
                   <p className="text-[11px] text-muted-foreground truncate">{d.url.replace(/^https?:\/\//, '')}</p>
                 </div>
