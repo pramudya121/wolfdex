@@ -1,3 +1,4 @@
+import { friendlyError } from '@/lib/friendlyError';
 import { useState, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { CONTRACTS, isNativeToken, isWrappedNative, isWrapUnwrap, CHAIN_CONFIG, type TokenInfo } from '@/config/contracts';
@@ -436,7 +437,7 @@ export function useDex(signer: ethers.Signer | null, address: string | null) {
       setTxHash(tx.hash);
       return tx.hash;
     } catch (e: any) {
-      setError(e.reason || e.message || 'Swap failed');
+      setError(friendlyError(e, 'Swap failed'));
       throw e;
     } finally { setLoading(false); }
   }, [getRouter, getWeth, address, approveToken]);
@@ -545,7 +546,7 @@ export function useDex(signer: ethers.Signer | null, address: string | null) {
 
       return { hash: tx.hash, amountIn: actualIn, amountOut: actualOut, via: 'aggregator' };
     } catch (e: any) {
-      setError(e.reason || e.message || 'Aggregator swap failed');
+      setError(friendlyError(e, 'Aggregator swap failed'));
       throw e;
     } finally { setLoading(false); }
   }, [signer, address, getAggregator, approveToken]);
@@ -589,7 +590,7 @@ export function useDex(signer: ethers.Signer | null, address: string | null) {
       setTxHash(tx.hash);
       return tx.hash;
     } catch (e: any) {
-      setError(e.reason || e.message || 'Add liquidity failed');
+      setError(friendlyError(e, 'Add liquidity failed'));
       throw e;
     } finally { setLoading(false); }
   }, [getRouter, address, approveToken]);
@@ -648,7 +649,7 @@ export function useDex(signer: ethers.Signer | null, address: string | null) {
       setTxHash(tx.hash);
       return tx.hash;
     } catch (e: any) {
-      setError(e.reason || e.message || 'Remove liquidity failed');
+      setError(friendlyError(e, 'Remove liquidity failed'));
       throw e;
     } finally { setLoading(false); }
   }, [getRouter, getPair, address, approveToken]);
