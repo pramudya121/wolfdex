@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ethers } from 'ethers';
 import { PAIR_ABI } from '@/config/abis';
 import { getReadProvider } from '@/lib/rpc';
+import { subscribeBlocks } from '@/lib/liveBlocks';
 
 /**
  * Per-pair OHLC candles built from the pair's `Swap` events.
@@ -59,39 +60,14 @@ function writeCache(c: CacheEntry) {
   try { localStorage.setItem(cacheKey(c.pair, c.interval, c.invert), JSON.stringify(c)); } catch { /* quota */ }
 }
 
-export function usePairOHLC(
-  pairAddress: string | null,
-  options?: { interval?: number; invert?: boolean; lookback?: number },
-) {
-  const interval = options?.interval ?? 3600;          // 1h candles by default
-  const invert = options?.invert ?? false;
-  const lookback = options?.lookback ?? LOOKBACK_BLOCKS;
 
-  const [candles, setCandles] = useState<Candle[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [latestBlock, setLatestBlock] = useState(0);
+type PricePoint = { t: number; price: number; vol: number };
 
-  const fetchOnce = useCallback(async (force = false) => {
-    if (!pairAddress) return;
-    if (!force) {
-      const c = readCache(pairAddress, interval, invert);
-      if (c) { setCandles(c.candles); return; }
-    }
-    setLoading(true); setError(null);
-    try {
-      const provider = getReadProvider();
-      const pair = new ethers.Contract(pairAddress, PAIR_ABI, provider);
-      const head = await provider.getBlockNumber();
-      const from = Math.max(0, head - lookback);
-      const filter = pair.filters.Swap();
-      const logs = await pair.queryFilter(filter, from, head);
-      if (logs.length === 0) {
-        setCandles([]);
-        writeCache({ candles: [], fetchedAt: Date.now(), pair: pairAddress, interval, invert });
-        setLatestBlock(head);
-        return;
-      }
+async function toPoints(
+  logs: ethers.Event[],
+  provider: ethers.providers.Provider,
+  invert: boolean,
+): Promise<PricePoint[]> {
       // Batch block timestamp lookups (10 at a time) — most RPCs are
       // fast for getBlock but we still avoid serial waterfalls.
       const blockNums = Array.from(new Set(logs.map(l => l.blockNumber)));
@@ -106,7 +82,6 @@ export function usePairOHLC(
       }
 
       // Build per-swap price points
-      type PricePoint = { t: number; price: number; vol: number };
       const points: PricePoint[] = [];
       for (const log of logs) {
         const ts = tsMap.get(log.blockNumber);
@@ -127,7 +102,11 @@ export function usePairOHLC(
         points.push({ t: ts, price: final, vol });
       }
 
-      // Bucket into candles
+  return points;
+}
+
+function bucketize(points: PricePoint[], interval: number): Candle[] {
+
       const buckets = new Map<number, PricePoint[]>();
       for (const p of points) {
         const bucket = Math.floor(p.t / interval) * interval;
@@ -148,6 +127,63 @@ export function usePairOHLC(
         }
         out.push({ t: b, open, high, low, close, volume: vol });
       }
+  return out;
+}
+
+/** Merge freshly built candles into an existing series (same bucket ⇒ combine). */
+function mergeCandles(base: Candle[], extra: Candle[]): Candle[] {
+  if (extra.length === 0) return base;
+  const map = new Map(base.map(c => [c.t, { ...c }]));
+  for (const c of extra) {
+    const prev = map.get(c.t);
+    if (!prev) map.set(c.t, c);
+    else map.set(c.t, {
+      t: c.t, open: prev.open, close: c.close,
+      high: Math.max(prev.high, c.high), low: Math.min(prev.low, c.low),
+      volume: prev.volume + c.volume,
+    });
+  }
+  return [...map.values()].sort((a, b) => a.t - b.t);
+}
+
+export function usePairOHLC(
+  pairAddress: string | null,
+  options?: { interval?: number; invert?: boolean; lookback?: number },
+) {
+  const interval = options?.interval ?? 3600;          // 1h candles by default
+  const invert = options?.invert ?? false;
+  const lookback = options?.lookback ?? LOOKBACK_BLOCKS;
+
+  const [candles, setCandles] = useState<Candle[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [latestBlock, setLatestBlock] = useState(0);
+
+  const fetchOnce = useCallback(async (force = false) => {
+    if (!pairAddress) return;
+    if (!force) {
+      const c = readCache(pairAddress, interval, invert);
+      if (c) {
+        setCandles(c.candles);
+        getReadProvider().getBlockNumber().then(setLatestBlock).catch(() => {});
+        return;
+      }
+    }
+    setLoading(true); setError(null);
+    try {
+      const provider = getReadProvider();
+      const pair = new ethers.Contract(pairAddress, PAIR_ABI, provider);
+      const head = await provider.getBlockNumber();
+      const from = Math.max(0, head - lookback);
+      const filter = pair.filters.Swap();
+      const logs = await pair.queryFilter(filter, from, head);
+      if (logs.length === 0) {
+        setCandles([]);
+        writeCache({ candles: [], fetchedAt: Date.now(), pair: pairAddress, interval, invert });
+        setLatestBlock(head);
+        return;
+      }
+      const out = bucketize(await toPoints(logs, provider, invert), interval);
       setCandles(out);
       setLatestBlock(head);
       writeCache({ candles: out, fetchedAt: Date.now(), pair: pairAddress, interval, invert });
@@ -164,6 +200,34 @@ export function usePairOHLC(
     setCandles([]);
     fetchOnce(false);
   }, [fetchOnce]);
+
+  // Live: on each new block, pull only the Swap logs since the last read
+  // and fold them into the series — the last candle updates in place.
+  const headRef = useRef(0);
+  headRef.current = latestBlock;
+  useEffect(() => {
+    if (!pairAddress) return;
+    let busy = false;
+    return subscribeBlocks(async (head) => {
+      const from = headRef.current;
+      if (busy || from === 0 || head <= from) return;
+      busy = true;
+      try {
+        const provider = getReadProvider();
+        const pair = new ethers.Contract(pairAddress, PAIR_ABI, provider);
+        const logs = await pair.queryFilter(pair.filters.Swap(), from + 1, head);
+        headRef.current = head;
+        setLatestBlock(head);
+        if (logs.length === 0) return;
+        const fresh = bucketize(await toPoints(logs, provider, invert), interval);
+        setCandles(prev => {
+          const merged = mergeCandles(prev, fresh);
+          writeCache({ candles: merged, fetchedAt: Date.now(), pair: pairAddress, interval, invert });
+          return merged;
+        });
+      } catch { /* keep current candles; next block retries */ } finally { busy = false; }
+    });
+  }, [pairAddress, interval, invert]);
 
   return { candles, loading, error, latestBlock, refresh: () => fetchOnce(true) };
 }
