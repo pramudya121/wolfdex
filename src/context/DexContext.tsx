@@ -59,7 +59,11 @@ export function DexProvider({ children }: { children: ReactNode }) {
   const dex = useDex(wallet.signer, wallet.address);
   const txHistory = useTxHistory(wallet.address);
   const farming = useFarming(wallet.signer, wallet.address);
-  const [showWalletModal, setShowWalletModal] = useState(false);
+  const [showWalletModal, setShowWalletModalState] = useState(false);
+  const setShowWalletModal = (v: boolean) => {
+    setShowWalletModalState(v);
+    if (v && typeof window !== 'undefined') window.dispatchEvent(new Event('wolfdex:open-wallet'));
+  };
   const [showAgent, setShowAgent] = useState(false);
 
   // Global tx settings — single source of truth (lazy-init from localStorage)

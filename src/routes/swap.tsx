@@ -1,3 +1,4 @@
+import { openWalletModal } from '@/lib/openWallet';
 import { createFileRoute } from "@tanstack/react-router";
 import { Suspense, useState } from 'react';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
@@ -128,7 +129,7 @@ function SwapPage() {
                     txHash={dex.txHash}
                     error={dex.error}
                     isConnected={wallet.isConnected}
-                    onConnectClick={() => {}}
+                    onConnectClick={openWalletModal}
                     initialFrom={initialFrom}
                     initialTo={initialTo}
                   />
@@ -144,7 +145,7 @@ function SwapPage() {
                     getTokenBalance={dex.getTokenBalance}
                     isConnected={wallet.isConnected}
                     account={wallet.address}
-                    onConnectClick={() => {}}
+                    onConnectClick={openWalletModal}
                     onCreate={limitOrders.create}
                   />
 

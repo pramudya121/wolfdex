@@ -58,6 +58,12 @@ export default function Header({ address, balance, isConnected, isConnecting = f
   const installedWallets = WALLETS.filter(wallet => wallet.badge === 'Installed');
   const popularWallets = WALLETS.filter(wallet => wallet.badge === 'Popular');
 
+  useEffect(() => {
+    const open = () => setShowWallet(true);
+    window.addEventListener('wolfdex:open-wallet', open);
+    return () => window.removeEventListener('wolfdex:open-wallet', open);
+  }, []);
+
   const wasConnectedRef = useRef(isConnected);
   useEffect(() => {
     if (!wasConnectedRef.current && isConnected) {
