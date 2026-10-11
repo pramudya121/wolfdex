@@ -1,3 +1,4 @@
+import { openWalletModal } from '@/lib/openWallet';
 /**
  * TokenDetailView — full trading page for a single token:
  * identity + on-chain stats, daily price chart from AMM swap events,
@@ -309,7 +310,7 @@ export default function TokenDetailView({ address: rawAddress }: { address: stri
             txHash={dex.txHash}
             error={dex.error}
             isConnected={wallet.isConnected}
-            onConnectClick={() => {}}
+            onConnectClick={openWalletModal}
             initialFrom={NATIVE_TOKEN}
             initialTo={tokenInfo}
           />

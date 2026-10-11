@@ -1,3 +1,4 @@
+import { openWalletModal } from '@/lib/openWallet';
 import { createFileRoute } from "@tanstack/react-router";
 import { Suspense } from 'react';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
@@ -86,7 +87,7 @@ function LiquidityPage() {
           txHash={dex.txHash}
           error={dex.error}
           isConnected={wallet.isConnected}
-          onConnectClick={() => {}}
+          onConnectClick={openWalletModal}
           initialTokenB={initialTokenB}
         />
       </Suspense>
