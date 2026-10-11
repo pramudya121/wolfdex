@@ -9,12 +9,15 @@
  * Every read for N tokens costs ~2 RPC round-trips regardless of N.
  * A rolling price history is kept in localStorage to power the sparklines.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ethers } from 'ethers';
 import { multicall } from '@/lib/multicall';
 import { FACTORY_ABI, PAIR_ABI, ERC20_ABI } from '@/config/abis';
 import { CONTRACTS, TOKENS, isBlockedToken, getTokenBySymbol } from '@/config/contracts';
 import { useLaunchpadRegistry } from '@/hooks/useLaunchpadRegistry';
+import { subscribeBlocks } from '@/lib/liveBlocks';
+
+const LIVE_THROTTLE_MS = 10_000;
 
 export interface MarketToken {
   address: string;
@@ -254,6 +257,34 @@ export function useMarketData() {
     if (registryLoading) return;
     load(identities);
   }, [identities, registryLoading, load]);
+
+  /**
+   * Live mode: re-read reserves for tokens that have a pool whenever a new
+   * block lands (throttled), without the loading flag — old numbers stay on
+   * screen and simply tick to the new value.
+   */
+  const metricsRef = useRef(metrics);
+  metricsRef.current = metrics;
+  useEffect(() => {
+    if (registryLoading || identities.length === 0) return;
+    let lastRun = Date.now();
+    let busy = false;
+    const usdcAddr = getTokenBySymbol('USDC')?.address.toLowerCase();
+    return subscribeBlocks(async () => {
+      if (busy || Date.now() - lastRun < LIVE_THROTTLE_MS) return;
+      const pooled = identities.filter(id => metricsRef.current[id.address.toLowerCase()]?.pair);
+      if (pooled.length === 0) return;
+      busy = true; lastRun = Date.now();
+      try {
+        for (let i = 0; i < pooled.length; i += BATCH_SIZE) {
+          const batch = await loadBatch(pooled.slice(i, i + BATCH_SIZE));
+          setMetrics(prev => ({ ...prev, ...batch }));
+          if (usdcAddr && batch[usdcAddr]?.price > 0) setNativeUsd(1 / batch[usdcAddr].price);
+        }
+        setLastUpdated(Date.now());
+      } catch { /* keep last good data */ } finally { busy = false; }
+    });
+  }, [identities, registryLoading, loadBatch]);
 
 
   const tokens = useMemo<MarketToken[]>(() =>
