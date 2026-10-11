@@ -59,6 +59,92 @@ function writeCache(c: CacheEntry) {
   try { localStorage.setItem(cacheKey(c.pair, c.interval, c.invert), JSON.stringify(c)); } catch { /* quota */ }
 }
 
+
+type PricePoint = { t: number; price: number; vol: number };
+
+async function toPoints(
+  logs: ethers.Event[],
+  provider: ethers.providers.Provider,
+  invert: boolean,
+): Promise<PricePoint[]> {
+      // Batch block timestamp lookups (10 at a time) — most RPCs are
+      // fast for getBlock but we still avoid serial waterfalls.
+      const blockNums = Array.from(new Set(logs.map(l => l.blockNumber)));
+      const tsMap = new Map<number, number>();
+      const CHUNK = 10;
+      for (let i = 0; i < blockNums.length; i += CHUNK) {
+        const slice = blockNums.slice(i, i + CHUNK);
+        const blocks = await Promise.all(slice.map(b => provider.getBlock(b).catch(() => null)));
+        slice.forEach((b, idx) => {
+          if (blocks[idx]) tsMap.set(b, blocks[idx]!.timestamp);
+        });
+      }
+
+      // Build per-swap price points
+      const points: PricePoint[] = [];
+      for (const log of logs) {
+        const ts = tsMap.get(log.blockNumber);
+        if (!ts) continue;
+        const a0In = log.args!.amount0In as ethers.BigNumber;
+        const a1In = log.args!.amount1In as ethers.BigNumber;
+        const a0Out = log.args!.amount0Out as ethers.BigNumber;
+        const a1Out = log.args!.amount1Out as ethers.BigNumber;
+        // Net token0 / token1 movement: positive = into pool
+        const t0 = parseFloat(ethers.utils.formatEther(a0In.sub(a0Out)));
+        const t1 = parseFloat(ethers.utils.formatEther(a1In.sub(a1Out)));
+        if (t0 === 0 || t1 === 0) continue;
+        // price of token0 in token1: -t1/t0 if direction reverses, magnitude is what we want
+        const price = Math.abs(t1) / Math.abs(t0);
+        const final = invert ? (price === 0 ? 0 : 1 / price) : price;
+        const vol = invert ? Math.abs(t0) : Math.abs(t1);
+        if (!isFinite(final) || final <= 0) continue;
+        points.push({ t: ts, price: final, vol });
+      }
+
+  return points;
+}
+
+function bucketize(points: PricePoint[], interval: number): Candle[] {
+
+      const buckets = new Map<number, PricePoint[]>();
+      for (const p of points) {
+        const bucket = Math.floor(p.t / interval) * interval;
+        if (!buckets.has(bucket)) buckets.set(bucket, []);
+        buckets.get(bucket)!.push(p);
+      }
+      const out: Candle[] = [];
+      const sortedBuckets = [...buckets.keys()].sort((a, b) => a - b);
+      for (const b of sortedBuckets) {
+        const pts = buckets.get(b)!.sort((a, b) => a.t - b.t);
+        const open = pts[0].price;
+        const close = pts[pts.length - 1].price;
+        let high = open, low = open, vol = 0;
+        for (const p of pts) {
+          if (p.price > high) high = p.price;
+          if (p.price < low) low = p.price;
+          vol += p.vol;
+        }
+        out.push({ t: b, open, high, low, close, volume: vol });
+      }
+  return out;
+}
+
+/** Merge freshly built candles into an existing series (same bucket ⇒ combine). */
+function mergeCandles(base: Candle[], extra: Candle[]): Candle[] {
+  if (extra.length === 0) return base;
+  const map = new Map(base.map(c => [c.t, { ...c }]));
+  for (const c of extra) {
+    const prev = map.get(c.t);
+    if (!prev) map.set(c.t, c);
+    else map.set(c.t, {
+      t: c.t, open: prev.open, close: c.close,
+      high: Math.max(prev.high, c.high), low: Math.min(prev.low, c.low),
+      volume: prev.volume + c.volume,
+    });
+  }
+  return [...map.values()].sort((a, b) => a.t - b.t);
+}
+
 export function usePairOHLC(
   pairAddress: string | null,
   options?: { interval?: number; invert?: boolean; lookback?: number },
@@ -92,62 +178,7 @@ export function usePairOHLC(
         setLatestBlock(head);
         return;
       }
-      // Batch block timestamp lookups (10 at a time) — most RPCs are
-      // fast for getBlock but we still avoid serial waterfalls.
-      const blockNums = Array.from(new Set(logs.map(l => l.blockNumber)));
-      const tsMap = new Map<number, number>();
-      const CHUNK = 10;
-      for (let i = 0; i < blockNums.length; i += CHUNK) {
-        const slice = blockNums.slice(i, i + CHUNK);
-        const blocks = await Promise.all(slice.map(b => provider.getBlock(b).catch(() => null)));
-        slice.forEach((b, idx) => {
-          if (blocks[idx]) tsMap.set(b, blocks[idx]!.timestamp);
-        });
-      }
-
-      // Build per-swap price points
-      type PricePoint = { t: number; price: number; vol: number };
-      const points: PricePoint[] = [];
-      for (const log of logs) {
-        const ts = tsMap.get(log.blockNumber);
-        if (!ts) continue;
-        const a0In = log.args!.amount0In as ethers.BigNumber;
-        const a1In = log.args!.amount1In as ethers.BigNumber;
-        const a0Out = log.args!.amount0Out as ethers.BigNumber;
-        const a1Out = log.args!.amount1Out as ethers.BigNumber;
-        // Net token0 / token1 movement: positive = into pool
-        const t0 = parseFloat(ethers.utils.formatEther(a0In.sub(a0Out)));
-        const t1 = parseFloat(ethers.utils.formatEther(a1In.sub(a1Out)));
-        if (t0 === 0 || t1 === 0) continue;
-        // price of token0 in token1: -t1/t0 if direction reverses, magnitude is what we want
-        const price = Math.abs(t1) / Math.abs(t0);
-        const final = invert ? (price === 0 ? 0 : 1 / price) : price;
-        const vol = invert ? Math.abs(t0) : Math.abs(t1);
-        if (!isFinite(final) || final <= 0) continue;
-        points.push({ t: ts, price: final, vol });
-      }
-
-      // Bucket into candles
-      const buckets = new Map<number, PricePoint[]>();
-      for (const p of points) {
-        const bucket = Math.floor(p.t / interval) * interval;
-        if (!buckets.has(bucket)) buckets.set(bucket, []);
-        buckets.get(bucket)!.push(p);
-      }
-      const out: Candle[] = [];
-      const sortedBuckets = [...buckets.keys()].sort((a, b) => a - b);
-      for (const b of sortedBuckets) {
-        const pts = buckets.get(b)!.sort((a, b) => a.t - b.t);
-        const open = pts[0].price;
-        const close = pts[pts.length - 1].price;
-        let high = open, low = open, vol = 0;
-        for (const p of pts) {
-          if (p.price > high) high = p.price;
-          if (p.price < low) low = p.price;
-          vol += p.vol;
-        }
-        out.push({ t: b, open, high, low, close, volume: vol });
-      }
+      const out = bucketize(await toPoints(logs, provider, invert), interval);
       setCandles(out);
       setLatestBlock(head);
       writeCache({ candles: out, fetchedAt: Date.now(), pair: pairAddress, interval, invert });
