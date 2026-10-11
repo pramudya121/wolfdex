@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ethers } from 'ethers';
 import { PAIR_ABI } from '@/config/abis';
 import { getReadProvider } from '@/lib/rpc';
+import { subscribeBlocks } from '@/lib/liveBlocks';
 
 /**
  * Per-pair OHLC candles built from the pair's `Swap` events.
@@ -162,7 +163,11 @@ export function usePairOHLC(
     if (!pairAddress) return;
     if (!force) {
       const c = readCache(pairAddress, interval, invert);
-      if (c) { setCandles(c.candles); return; }
+      if (c) {
+        setCandles(c.candles);
+        getReadProvider().getBlockNumber().then(setLatestBlock).catch(() => {});
+        return;
+      }
     }
     setLoading(true); setError(null);
     try {
@@ -195,6 +200,34 @@ export function usePairOHLC(
     setCandles([]);
     fetchOnce(false);
   }, [fetchOnce]);
+
+  // Live: on each new block, pull only the Swap logs since the last read
+  // and fold them into the series — the last candle updates in place.
+  const headRef = useRef(0);
+  headRef.current = latestBlock;
+  useEffect(() => {
+    if (!pairAddress) return;
+    let busy = false;
+    return subscribeBlocks(async (head) => {
+      const from = headRef.current;
+      if (busy || from === 0 || head <= from) return;
+      busy = true;
+      try {
+        const provider = getReadProvider();
+        const pair = new ethers.Contract(pairAddress, PAIR_ABI, provider);
+        const logs = await pair.queryFilter(pair.filters.Swap(), from + 1, head);
+        headRef.current = head;
+        setLatestBlock(head);
+        if (logs.length === 0) return;
+        const fresh = bucketize(await toPoints(logs, provider, invert), interval);
+        setCandles(prev => {
+          const merged = mergeCandles(prev, fresh);
+          writeCache({ candles: merged, fetchedAt: Date.now(), pair: pairAddress, interval, invert });
+          return merged;
+        });
+      } catch { /* keep current candles; next block retries */ } finally { busy = false; }
+    });
+  }, [pairAddress, interval, invert]);
 
   return { candles, loading, error, latestBlock, refresh: () => fetchOnce(true) };
 }
