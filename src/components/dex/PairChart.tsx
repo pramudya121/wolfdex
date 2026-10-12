@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { subscribeBlocks } from '@/lib/liveBlocks';
+import { useEffect, useMemo, useState } from 'react';
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from 'recharts';
 import { usePairOHLC, type Candle } from '@/hooks/usePairOHLC';
 
@@ -19,6 +20,8 @@ const INTERVALS: { label: string; value: number }[] = [
 
 /** Visible time window (seconds) applied on top of the indexed candles. */
 const RANGES: { label: string; seconds: number }[] = [
+  { label: '1H',  seconds: 3_600 },
+  { label: '4H',  seconds: 14_400 },
   { label: '1D',  seconds: 86_400 },
   { label: '7D',  seconds: 604_800 },
   { label: '30D', seconds: 2_592_000 },
@@ -42,6 +45,16 @@ export default function PairChart({
   const [range, setRange] = useState(0);
   const [invert, setInvert] = useState(false);
   const { candles: allCandles, loading, error, refresh } = usePairOHLC(pairAddress, { interval, invert });
+
+  // Live last candle: re-index on new blocks, at most every 15s.
+  useEffect(() => {
+    let last = Date.now();
+    return subscribeBlocks(() => {
+      if (Date.now() - last < 15_000) return;
+      last = Date.now();
+      refresh?.();
+    });
+  }, [refresh]);
 
   const candles = useMemo(() => {
     if (range === 0 || allCandles.length === 0) return allCandles;
