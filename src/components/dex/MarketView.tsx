@@ -5,7 +5,10 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Link } from '@tanstack/react-router';
+import { Link, useNavigate, useSearch } from '@tanstack/react-router';
+import { useLiveBlock } from '@/lib/liveBlocks';
+import RouteErrorBoundary from './RouteErrorBoundary';
+import Sparkline from './market/Sparkline';
 import { useMarketData } from '@/hooks/useMarketData';
 import { useMarketSocial } from '@/hooks/useMarketSocial';
 import MarketTokenCard, { fmt, fmtUsd } from './market/MarketTokenCard';
@@ -17,6 +20,7 @@ const TABS = [
   { id: 'new', label: 'New Launches', icon: '✨' },
   { id: 'trending', label: 'Trending', icon: '🔥' },
   { id: 'top', label: 'Top', icon: '🏆' },
+  { id: 'gainers', label: 'Top Gainers', icon: '📈' },
   { id: 'voted', label: 'Voted', icon: '▲' },
   { id: 'watchlist', label: 'Watchlist', icon: '★' },
 ] as const;
@@ -37,9 +41,18 @@ const PAGE = 12;
 export default function MarketView() {
   const { tokens, loading, lastUpdated, nativeUsd, refresh } = useMarketData();
   const social = useMarketSocial();
-  const [tab, setTab] = useState<TabId>('all');
-  const [sort, setSort] = useState<SortId>('default');
-  const [query, setQuery] = useState('');
+  const search = useSearch({ strict: false }) as { tab?: TabId; sort?: SortId; q?: string; view?: 'grid' | 'table' };
+  const navigate = useNavigate();
+  const tab: TabId = TABS.some(t => t.id === search.tab) ? search.tab! : 'all';
+  const sort: SortId = SORTS.some(s => s.id === search.sort) ? search.sort! : 'default';
+  const query = search.q ?? '';
+  const view = search.view === 'table' ? 'table' : 'grid';
+  const setParam = (patch: Record<string, string | undefined>) =>
+    navigate({ to: '/market', search: (prev: Record<string, unknown>) => ({ ...prev, ...patch }) as never, replace: true });
+  const setTab = (v: TabId) => setParam({ tab: v === 'all' ? undefined : v });
+  const setSort = (v: SortId) => setParam({ sort: v === 'default' ? undefined : v });
+  const setQuery = (v: string) => setParam({ q: v || undefined });
+  const live = useLiveBlock();
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [visible, setVisible] = useState(PAGE);
   const sentinel = useRef<HTMLDivElement | null>(null);
@@ -68,6 +81,8 @@ export default function MarketView() {
       );
     } else if (tab === 'top') {
       list = [...list].sort((a, b) => b.liquidity - a.liquidity);
+    } else if (tab === 'gainers') {
+      list = list.filter(t => t.history.length > 1 && t.change > 0).sort((a, b) => b.change - a.change);
     } else if (tab === 'voted') {
       list = list
         .filter(t => social.voteCount(t.address) > 0)
@@ -130,8 +145,9 @@ export default function MarketView() {
           <div className="absolute right-1/4 top-6 w-72 h-72 rounded-full bg-wolf-gold/10 blur-3xl" />
         </div>
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-wolf-surface/60 border border-wolf-border/30 text-[11px] mb-3">
-          <span className="w-1.5 h-1.5 rounded-full bg-wolf-green animate-pulse" />
-          <span className="text-muted-foreground">Live on-chain data</span>
+          <span className={`w-1.5 h-1.5 rounded-full ${live.stale ? 'bg-wolf-red' : 'bg-wolf-green animate-pulse'}`} />
+          <span className="text-muted-foreground">{live.stale ? 'Stale — reconnecting' : 'Live on-chain data'}</span>
+          {live.block > 0 && (<><span className="text-wolf-border">·</span><span className="text-muted-foreground font-mono">#{live.block.toLocaleString('en-US')}</span></>)}
           {nativeUsd > 0 && (
             <>
               <span className="text-wolf-border">·</span>
@@ -226,6 +242,15 @@ export default function MarketView() {
           >
             ✓ Verified only
           </button>
+          <div className="flex rounded-xl border border-wolf-border/40 overflow-hidden text-xs font-semibold">
+            {(['grid', 'table'] as const).map(v => (
+              <button key={v} onClick={() => setParam({ view: v === 'grid' ? undefined : v })}
+                aria-pressed={view === v}
+                className={`px-3 py-2 transition-colors ${view === v ? 'bg-wolf-pink/20 text-wolf-pink' : 'bg-wolf-surface text-muted-foreground hover:text-foreground'}`}>
+                {v === 'grid' ? '▦ Cards' : '☰ Table'}
+              </button>
+            ))}
+          </div>
           <button
             onClick={() => refresh()}
             className="px-3 py-2 rounded-xl text-xs font-semibold bg-wolf-surface border border-wolf-border/40 hover:bg-wolf-surface-hover transition-colors"
@@ -250,13 +275,20 @@ export default function MarketView() {
       ) : filtered.length === 0 ? (
         <div className="text-center py-20 text-muted-foreground">
           <div className="text-4xl mb-3">🐺</div>
-          <p className="font-semibold">No tokens match this view</p>
-          <p className="text-xs mt-1">Try another tab, clear the search, or launch your own token.</p>
+          <p className="font-semibold">{tab === 'watchlist' ? 'Your watchlist is empty' : query ? `No results for “${query}”` : 'No tokens match this view'}</p>
+          <p className="text-xs mt-1">{tab === 'watchlist' ? 'Tap ☆ on any token to follow it here.' : 'Try another tab, clear the search, or launch your own token.'}</p>
+          {(query || tab !== 'all') && (
+            <button onClick={() => setParam({ q: undefined, tab: undefined })} className="mt-4 px-4 py-2 rounded-xl text-xs font-semibold bg-wolf-surface border border-wolf-border/40 hover:bg-wolf-surface-hover">Reset filters</button>
+          )}
         </div>
       ) : (
         <>
+          {view === 'table' ? (
+            <MarketTable tokens={filtered.slice(0, visible)} social={social} />
+          ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filtered.slice(0, visible).map(t => (
+              <RouteErrorBoundary key={t.address}>
               <MarketTokenCard
                 key={t.address}
                 token={t}
@@ -266,8 +298,10 @@ export default function MarketView() {
                 onVote={() => social.vote(t.address)}
                 onWatch={() => social.toggleWatch(t.address)}
               />
+              </RouteErrorBoundary>
             ))}
           </div>
+          )}
           <div ref={sentinel} className="h-10" />
           <div className="text-center text-[11px] text-muted-foreground">
             Showing {Math.min(visible, filtered.length)} of {filtered.length} tokens
@@ -288,3 +322,71 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
   );
 }
 
+
+type Social = ReturnType<typeof useMarketSocial>;
+
+function MarketTable({ tokens, social }: { tokens: ReturnType<typeof useMarketData>['tokens']; social: Social }) {
+  return (
+    <div className="wolf-card rounded-2xl overflow-x-auto">
+      <table className="w-full text-sm min-w-[760px]">
+        <thead className="text-[10px] uppercase tracking-wider text-muted-foreground border-b border-wolf-border/30">
+          <tr>
+            <th className="text-left p-3 w-8"></th>
+            <th className="text-left p-3">Token</th>
+            <th className="text-right p-3">Price</th>
+            <th className="text-right p-3">Change</th>
+            <th className="text-right p-3">Liquidity</th>
+            <th className="text-right p-3">Trend</th>
+            <th className="text-right p-3"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {tokens.map(t => {
+            const hasTrend = t.history.length > 1;
+            const up = t.change >= 0;
+            return (
+              <tr key={t.address} className="border-b border-wolf-border/20 last:border-0 hover:bg-wolf-surface/50 transition-colors">
+                <td className="p-3">
+                  <button onClick={() => social.toggleWatch(t.address)} aria-label="Toggle watchlist"
+                    className={social.isWatched(t.address) ? 'text-wolf-gold' : 'text-muted-foreground'}>
+                    {social.isWatched(t.address) ? '★' : '☆'}
+                  </button>
+                </td>
+                <td className="p-3">
+                  <Link to="/token/$address" params={{ address: t.address }} className="flex items-center gap-2.5 hover:text-wolf-pink">
+                    <img src={t.logo} alt="" loading="lazy" className="w-8 h-8 rounded-lg object-cover bg-wolf-surface"
+                      onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
+                    <div className="min-w-0">
+                      <div className="font-semibold truncate max-w-[180px]">{t.name} {t.verified && <span className="text-wolf-gold text-xs">✓</span>}</div>
+                      <div className="text-[11px] font-mono text-muted-foreground">{t.symbol}</div>
+                    </div>
+                  </Link>
+                </td>
+                <td className="p-3 text-right font-mono">
+                  {t.priceUsd > 0 ? fmtUsd(t.priceUsd) : t.price > 0 ? `${fmt(t.price, 8)} ${CHAIN_CONFIG.symbol}` : '—'}
+                </td>
+                <td className={`p-3 text-right font-semibold ${!hasTrend ? 'text-muted-foreground' : up ? 'text-wolf-green' : 'text-wolf-red'}`}>
+                  {hasTrend ? `${up ? '▲' : '▼'} ${Math.abs(t.change).toFixed(2)}%` : '—'}
+                </td>
+                <td className="p-3 text-right">
+                  {t.liquidityUsd > 0 ? fmtUsd(t.liquidityUsd) : t.liquidity > 0 ? `${fmt(t.liquidity, 2)} ${CHAIN_CONFIG.symbol}` : <span className="text-muted-foreground">No pool</span>}
+                </td>
+                <td className="p-3">
+                  <div className="flex justify-end">
+                    {hasTrend ? <Sparkline data={t.history} positive={up} width={88} height={28} /> : <span className="text-muted-foreground text-xs">—</span>}
+                  </div>
+                </td>
+                <td className="p-3 text-right">
+                  <Link to="/swap" search={{ to: t.address }}
+                    className="inline-block text-xs font-bold px-3 py-1.5 rounded-lg bg-gradient-to-r from-wolf-pink to-wolf-gold text-white hover:opacity-90">
+                    Swap
+                  </Link>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
