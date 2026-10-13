@@ -36,7 +36,9 @@ export default function TokenPools({
   tokenAddress,
   symbol,
   decimals,
+  knownPair = null,
 }: {
+  knownPair?: string | null;
   tokenAddress: string;
   symbol: string;
   decimals: number;
@@ -78,14 +80,32 @@ export default function TokenPools({
             price: tokenReserve > 0 ? otherReserve / tokenReserve : 0,
           });
         }
+        // Fallback: the shared pair list can miss pools; read the WETH pool directly.
+        if (out.length === 0) {
+          try {
+            const { getReadProvider } = await import('@/lib/rpc');
+            const prov = getReadProvider();
+            const f = new ethers.Contract(CONTRACTS.FACTORY, ['function getPair(address,address) view returns (address)'], prov);
+            const pa: string = knownPair || await f.getPair(tokenAddress, CONTRACTS.WETH);
+            if (pa && pa !== ethers.constants.AddressZero) {
+              const pc = new ethers.Contract(pa, ['function getReserves() view returns (uint112,uint112,uint32)', 'function token0() view returns (address)'], prov);
+              const [r, t0] = await Promise.all([pc.getReserves(), pc.token0()]);
+              const isToken0 = String(t0).toLowerCase() === key;
+              const tokenReserve = parseFloat(ethers.utils.formatUnits(isToken0 ? r[0] : r[1], decimals));
+              const otherReserve = parseFloat(ethers.utils.formatUnits(isToken0 ? r[1] : r[0], 18));
+              const m = meta(CONTRACTS.WETH);
+              out.push({ pair: pa, otherAddress: CONTRACTS.WETH, otherSymbol: m.symbol, otherLogo: m.logo, tokenReserve, otherReserve, price: tokenReserve > 0 ? otherReserve / tokenReserve : 0 });
+            }
+          } catch { /* keep empty state */ }
+        }
         out.sort((a, b) => b.otherReserve - a.otherReserve);
         if (!cancelled) setRows(out);
-      } finally {
+      } catch { /* empty state */ } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [getCachedPairsWithInfo, tokenAddress, decimals]);
+  }, [getCachedPairsWithInfo, tokenAddress, decimals, knownPair]);
 
   return (
     <div className="wolf-card rounded-3xl p-4 sm:p-5">

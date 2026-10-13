@@ -335,7 +335,7 @@ export default function TokenDetailView({ address: rawAddress }: { address: stri
             decimals={decimals}
           />
         </div>
-        <TokenPools tokenAddress={address} symbol={symbol} decimals={decimals} />
+        <TokenPools tokenAddress={address} symbol={symbol} decimals={decimals} knownPair={market?.pair ?? null} />
       </div>
 
 
