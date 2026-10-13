@@ -36,7 +36,9 @@ export default function TokenPools({
   tokenAddress,
   symbol,
   decimals,
+  knownPair = null,
 }: {
+  knownPair?: string | null;
   tokenAddress: string;
   symbol: string;
   decimals: number;
@@ -84,7 +86,7 @@ export default function TokenPools({
             const { getReadProvider } = await import('@/lib/rpc');
             const prov = getReadProvider();
             const f = new ethers.Contract(CONTRACTS.FACTORY, ['function getPair(address,address) view returns (address)'], prov);
-            const pa: string = await f.getPair(tokenAddress, CONTRACTS.WETH);
+            const pa: string = knownPair || await f.getPair(tokenAddress, CONTRACTS.WETH);
             if (pa && pa !== ethers.constants.AddressZero) {
               const pc = new ethers.Contract(pa, ['function getReserves() view returns (uint112,uint112,uint32)', 'function token0() view returns (address)'], prov);
               const [r, t0] = await Promise.all([pc.getReserves(), pc.token0()]);
@@ -103,7 +105,7 @@ export default function TokenPools({
       }
     })();
     return () => { cancelled = true; };
-  }, [getCachedPairsWithInfo, tokenAddress, decimals]);
+  }, [getCachedPairsWithInfo, tokenAddress, decimals, knownPair]);
 
   return (
     <div className="wolf-card rounded-3xl p-4 sm:p-5">
