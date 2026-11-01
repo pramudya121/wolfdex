@@ -299,6 +299,9 @@ export default function Header({ address, balance, isConnected, isConnecting = f
                     <div className="mb-6">
                       <h3 className="text-[28px] font-black leading-none text-foreground">Connect Wallet</h3>
                       <p className="mt-2 text-sm text-muted-foreground">Choose a wallet to connect to WolfDex.</p>
+                      <p className="mt-2 rounded-xl border border-wolf-border/30 bg-wolf-surface/40 px-3 py-2 text-xs leading-5 text-muted-foreground">
+                        🔒 Safety check — make sure the address bar shows <span className="font-semibold text-foreground break-all">{typeof window !== 'undefined' ? window.location.host : 'wolfdex.lovable.app'}</span> before approving. We never ask for your seed phrase.
+                      </p>
                     </div>
 
                     <div className="space-y-5">
