@@ -127,6 +127,15 @@ function HomePage() {
               <Link to="/swap">
                 <ShimmerButton className="text-sm px-5 py-2.5">🐺 Start Swapping</ShimmerButton>
               </Link>
+              <a
+                href="https://wolfpad.atoms.world/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group relative inline-flex items-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-wolf-pink to-fuchsia-600 px-5 py-2.5 text-sm font-black tracking-wide text-white shadow-[0_0_25px_-5px] shadow-wolf-pink/70 transition-transform hover:scale-105"
+              >
+                <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+                🚀 LAUNCHPAD <span aria-hidden>↗</span>
+              </a>
               <Link to="/pools" className="px-5 py-2.5 rounded-xl text-sm font-semibold border border-wolf-border/40 bg-wolf-surface hover:bg-wolf-surface-hover transition-all">
                 Explore Pools →
               </Link>

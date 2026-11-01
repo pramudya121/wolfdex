@@ -133,7 +133,25 @@ export function useWallet() {
 
   useEffect(() => {
     const saved = localStorage.getItem('wolfdex_wallet') as WalletType | null;
-    if (saved) connect(saved).catch(() => localStorage.removeItem('wolfdex_wallet'));
+    if (!saved) return;
+    const ethereum = getWalletProvider(saved);
+    if (!ethereum) { localStorage.removeItem('wolfdex_wallet'); return; }
+
+    // SECURITY: restore the session SILENTLY via eth_accounts. Never call
+    // eth_requestAccounts on page load without a user gesture — auto access
+    // prompts on load are a classic phishing-page pattern that MetaMask/OKX
+    // (and browser security scanners) flag. eth_accounts only succeeds if the
+    // user already approved this site before; anything else is discarded.
+    ethereum
+      .request({ method: 'eth_accounts' })
+      .then((accounts: string[]) => {
+        if (Array.isArray(accounts) && accounts.length > 0) {
+          connect(saved).catch(() => localStorage.removeItem('wolfdex_wallet'));
+        } else {
+          localStorage.removeItem('wolfdex_wallet');
+        }
+      })
+      .catch(() => localStorage.removeItem('wolfdex_wallet'));
   }, [connect]);
 
   useEffect(() => {
