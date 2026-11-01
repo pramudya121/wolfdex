@@ -56,6 +56,7 @@
     "ethers": "5.7.2",
     "framer-motion": "11.18.2",
     "input-otp": "^1.4.2",
+    "lightweight-charts": "^5.2.1",
     "lucide-react": "^0.575.0",
     "nitro": "3.0.260603-beta",
     "react": "^19.2.0",
