@@ -159,6 +159,19 @@ export function usePairOHLC(
   const [error, setError] = useState<string | null>(null);
   const [latestBlock, setLatestBlock] = useState(0);
 
+  /** Build candles for a lookback window. Returns [] when no swaps exist. */
+  const buildCandles = useCallback(async (lb: number) => {
+    if (!pairAddress) return [];
+    const provider = getReadProvider();
+    const pair = new ethers.Contract(pairAddress, PAIR_ABI, provider);
+    const head = await provider.getBlockNumber();
+    const from = Math.max(0, head - lb);
+    const filter = pair.filters.Swap();
+    const logs = await pair.queryFilter(filter, from, head);
+    if (logs.length === 0) return [];
+    return bucketize(await toPoints(logs, provider, invert), interval);
+  }, [pairAddress, interval, invert]);
+
   const fetchOnce = useCallback(async (force = false) => {
     if (!pairAddress) return;
     if (!force) {
@@ -170,29 +183,37 @@ export function usePairOHLC(
       }
     }
     setLoading(true); setError(null);
-    try {
-      const provider = getReadProvider();
-      const pair = new ethers.Contract(pairAddress, PAIR_ABI, provider);
-      const head = await provider.getBlockNumber();
-      const from = Math.max(0, head - lookback);
-      const filter = pair.filters.Swap();
-      const logs = await pair.queryFilter(filter, from, head);
-      if (logs.length === 0) {
-        setCandles([]);
-        writeCache({ candles: [], fetchedAt: Date.now(), pair: pairAddress, interval, invert });
+    let retries = 0;
+    const attempt = async (): Promise<boolean> => {
+      try {
+        const head = await getReadProvider().getBlockNumber();
+        // Fast pass: recent window first so the chart paints quickly.
+        const fast = await buildCandles(Math.min(FAST_LOOKBACK, lookback));
         setLatestBlock(head);
-        return;
+        if (!force) setCandles(fast);
+        // Full pass: extend the historical range, replacing the fast data.
+        const full = lookback > FAST_LOOKBACK ? await buildCandles(lookback) : fast;
+        const merged = mergeCandles(fast, full);
+        setCandles(merged);
+        setLatestBlock(head);
+        writeCache({ candles: merged, fetchedAt: Date.now(), pair: pairAddress, interval, invert });
+        return true;
+      } catch (e: any) {
+        if (retries < 2) {
+          retries += 1;
+          await new Promise(r => setTimeout(r, 2500 * retries));
+          return attempt();
+        }
+        setError(e?.message || 'Failed to load price history');
+        return false;
       }
-      const out = bucketize(await toPoints(logs, provider, invert), interval);
-      setCandles(out);
-      setLatestBlock(head);
-      writeCache({ candles: out, fetchedAt: Date.now(), pair: pairAddress, interval, invert });
-    } catch (e: any) {
-      setError(e?.message || 'Failed to load price history');
+    };
+    try {
+      await attempt();
     } finally {
       setLoading(false);
     }
-  }, [pairAddress, interval, invert, lookback]);
+  }, [pairAddress, interval, invert, lookback, buildCandles]);
 
   // When pair/interval/invert changes, clear stale candles before refetch
   // so the chart shows a clean loading state instead of mismatched data.
