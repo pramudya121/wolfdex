@@ -10,7 +10,6 @@ import type {
   IChartApi,
   ISeriesApi,
   IPriceLine,
-  Time,
   UTCTimestamp,
 } from 'lightweight-charts';
 import { usePairOHLC, type Candle } from '@/hooks/usePairOHLC';
@@ -239,7 +238,7 @@ export default function TerminalChart({
       <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
         <div>
           <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-            {base ?? 'BASE} / {quote ?? 'QUOTE'}
+            {base ?? 'BASE'} / {quote ?? 'QUOTE'}
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-xl font-bold font-mono text-wolf-gold">
