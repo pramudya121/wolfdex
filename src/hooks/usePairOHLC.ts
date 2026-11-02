@@ -31,6 +31,8 @@ export interface Candle {
 }
 
 const LOOKBACK_BLOCKS = 8000;
+/** Fast first pass: recent window only, so the chart paints before the full history arrives. */
+const FAST_LOOKBACK = 1500;
 const CACHE_TTL = 90_000;
 
 interface CacheEntry {
