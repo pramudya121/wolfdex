@@ -22,7 +22,7 @@ import { useDexContext } from '@/context/DexContext';
 import { fmt, fmtUsd, age } from './market/MarketTokenCard';
 import Sparkline from './market/Sparkline';
 
-import PairChart from './PairChart';
+import TerminalChart from './TerminalChart';
 import RecentTrades from './market/RecentTrades';
 import TokenPools from './market/TokenPools';
 import SwapCard from './SwapCard';
@@ -273,14 +273,14 @@ export default function TokenDetailView({ address: rawAddress }: { address: stri
         <div className="lg:col-span-2 wolf-card rounded-3xl p-4 sm:p-5">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-bold">Price chart · {symbol}/{CHAIN_CONFIG.symbol}</h2>
-            <span className="text-[10px] text-muted-foreground">from on-chain swap events</span>
+            <span className="text-[10px] text-muted-foreground">🕯 candlestick · live</span>
           </div>
           {market?.pair ? (
-            <PairChart
+            <TerminalChart
               pairAddress={market.pair}
               baseSymbol={symbol}
               quoteSymbol={CHAIN_CONFIG.symbol}
-              height={340}
+              height={380}
             />
           ) : (
             <div className="text-center py-16 text-muted-foreground text-sm">
