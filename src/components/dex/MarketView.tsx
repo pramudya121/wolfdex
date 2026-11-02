@@ -325,23 +325,75 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
 
 type Social = ReturnType<typeof useMarketSocial>;
 
+type SortCol = 'token' | 'price' | 'change' | 'liquidity';
+
+const sortValue = {
+  token: (t: { symbol: string }) => t.symbol.toLowerCase(),
+  price: (t: { priceUsd: number; price: number }) => (t.priceUsd > 0 ? t.priceUsd : t.price),
+  change: (t: { change: number }) => t.change,
+  liquidity: (t: { liquidityUsd: number; liquidity: number }) => (t.liquidityUsd > 0 ? t.liquidityUsd : t.liquidity),
+};
+
+function SortableTh({ id, col, setCol, dir, setDir, label, align = 'right', width }: {
+  id: SortCol;
+  col: SortCol | null;
+  setCol: (c: SortCol) => void;
+  dir: 'asc' | 'desc';
+  setDir: (d: 'asc' | 'desc') => void;
+  label: string;
+  align?: 'left' | 'right';
+  width?: string;
+}) {
+  const active = col === id;
+  return (
+    <th className={`p-3 text-${align} select-none`} style={width ? { width } : undefined}>
+      <button
+        onClick={() => {
+          if (active) setDir(dir === 'desc' ? 'asc' : 'desc');
+          else { setCol(id); setDir('desc'); }
+        }}
+        className={`inline-flex items-center gap-1 uppercase tracking-wider transition-colors ${
+          active ? 'text-wolf-pink' : 'text-muted-foreground hover:text-foreground'
+        }`}
+      >
+        {label}
+        <span className="text-[9px]">{active ? (dir === 'desc' ? '▼' : '▲') : '↕'}</span>
+      </button>
+    </th>
+  );
+}
+
 function MarketTable({ tokens, social }: { tokens: ReturnType<typeof useMarketData>['tokens']; social: Social }) {
+  const [col, setCol] = useState<SortCol | null>(null);
+  const [dir, setDir] = useState<'asc' | 'desc'>('desc');
+
+  const sorted = useMemo(() => {
+    if (!col) return tokens;
+    const val = sortValue[col];
+    const copy = [...tokens];
+    copy.sort((a, b) => {
+      const cmp = String(val(a)).localeCompare(String(val(b)), undefined, { numeric: true });
+      return dir === 'desc' ? -cmp : cmp;
+    });
+    return copy;
+  }, [tokens, col, dir]);
+
   return (
     <div className="wolf-card rounded-2xl overflow-x-auto">
       <table className="w-full text-sm min-w-[760px]">
         <thead className="text-[10px] uppercase tracking-wider text-muted-foreground border-b border-wolf-border/30">
           <tr>
             <th className="text-left p-3 w-8"></th>
-            <th className="text-left p-3">Token</th>
-            <th className="text-right p-3">Price</th>
-            <th className="text-right p-3">Change</th>
-            <th className="text-right p-3">Liquidity</th>
+            <SortableTh id="token" col={col} setCol={setCol} dir={dir} setDir={setDir} label="Token" align="left" />
+            <SortableTh id="price" col={col} setCol={setCol} dir={dir} setDir={setDir} label="Price" />
+            <SortableTh id="change" col={col} setCol={setCol} dir={dir} setDir={setDir} label="Change" />
+            <SortableTh id="liquidity" col={col} setCol={setCol} dir={dir} setDir={setDir} label="Liquidity" />
             <th className="text-right p-3">Trend</th>
             <th className="text-right p-3"></th>
           </tr>
         </thead>
         <tbody>
-          {tokens.map(t => {
+          {sorted.map(t => {
             const hasTrend = t.history.length > 1;
             const up = t.change >= 0;
             return (
