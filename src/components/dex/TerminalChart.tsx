@@ -31,9 +31,9 @@ const RANGES: { label: string; seconds: number }[] = [
   { label: 'All', seconds: 0 },
 ];
 
-const UP = 'oklch(0.68 0.19 152)';
-const DOWN = 'oklch(0.60 0.24 25)';
-const GOLD = 'oklch(0.80 0.16 85)';
+const UP = '#22c07a';
+const DOWN = '#e5484d';
+const GOLD = '#e8c15a';
 
 /** Sensible precision for the price axis (handles sub-cent memecoins). */
 function pricePrecision(p: number): number {
@@ -106,13 +106,13 @@ export default function TerminalChart({
         autoSize: true,
         layout: {
           background: { color: 'transparent' },
-          textColor: 'oklch(0.68 0.02 280)',
+          textColor: '#a49fb8',
           fontSize: 10,
           attributionLogo: false,
         },
         grid: {
-          vertLines: { color: 'oklch(0.30 0.04 280 / 22%)' },
-          horzLines: { color: 'oklch(0.30 0.04 280 / 22%)' },
+          vertLines: { color: 'rgba(148,140,180,0.16)' },
+          horzLines: { color: 'rgba(148,140,180,0.16)' },
         },
         rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.1, bottom: 0.26 } },
         timeScale: {
@@ -122,8 +122,8 @@ export default function TerminalChart({
         },
         crosshair: {
           mode: LC.CrosshairMode.Normal,
-          vertLine: { color: 'oklch(0.80 0.16 85 / 55%)', labelBackgroundColor: 'oklch(0.35 0.08 85)' },
-          horzLine: { color: 'oklch(0.80 0.16 85 / 55%)', labelBackgroundColor: 'oklch(0.35 0.08 85)' },
+          vertLine: { color: 'rgba(232,193,90,0.55)', labelBackgroundColor: '#5c4a1a' },
+          horzLine: { color: 'rgba(232,193,90,0.55)', labelBackgroundColor: '#5c4a1a' },
         },
         localization: { priceFormatter: (p: number) => p.toPrecision(pricePrecision(p)) },
       });
@@ -138,14 +138,14 @@ export default function TerminalChart({
             })
           : chart.addSeries(LC.AreaSeries, {
               lineColor: GOLD, lineWidth: 2,
-              topColor: 'oklch(0.78 0.16 85 / 30%)', bottomColor: 'oklch(0.78 0.16 85 / 0%)',
+              topColor: 'rgba(232,193,90,0.30)', bottomColor: 'rgba(232,193,90,0)',
               priceFormat: { type: 'price', precision, minMove: Math.pow(10, -precision) },
             });
 
       const volSeries = chart.addSeries(LC.HistogramSeries, {
         priceFormat: { type: 'volume' },
         priceScaleId: '',
-        color: 'oklch(0.65 0.25 330 / 40%)',
+        color: 'rgba(233,64,168,0.40)',
       });
       volSeries.priceScale().applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
 
@@ -193,7 +193,7 @@ export default function TerminalChart({
   // Feed data into the chart whenever candles change (live updates included).
   const candlesRef = useRef<Candle[]>([]);
   candlesRef.current = candles;
-  const volColor = (c: Candle) => (c.close >= c.open ? 'oklch(0.68 0.19 152 / 45%)' : 'oklch(0.60 0.24 25 / 45%)');
+  const volColor = (c: Candle) => (c.close >= c.open ? 'rgba(34,192,122,0.45)' : 'rgba(229,72,77,0.45)');
 
   useEffect(() => {
     const chart = chartRef.current;
