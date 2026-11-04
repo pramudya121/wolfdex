@@ -74,6 +74,9 @@ export default function TerminalChart({
   const firstPrice = candles.length > 0 ? candles[0].open : 0;
   const change = firstPrice > 0 ? ((lastPrice - firstPrice) / firstPrice) * 100 : 0;
 
+  // Whether candles exist yet — the chart container renders only when true.
+  const hasData = candles.length > 0;
+
   const base = invert ? quoteSymbol : baseSymbol;
   const quote = invert ? baseSymbol : quoteSymbol;
 
@@ -185,7 +188,7 @@ export default function TerminalChart({
       priceLineRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode]);
+  }, [mode, hasData]);
 
   // Feed data into the chart whenever candles change (live updates included).
   const candlesRef = useRef<Candle[]>([]);
