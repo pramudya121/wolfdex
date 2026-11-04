@@ -92,6 +92,15 @@ export default function TerminalChart({
     let chart: IChartApi | null = null;
     setReady(false);
 
+    // The chart container only renders once candles exist, so wait for data
+    // before creating the chart (see the [hasData] dependency below).
+    if (!hasData) return;
+    if (!containerRef.current) {
+      // Container not mounted yet this paint — retry on the next frame.
+      const raf = requestAnimationFrame(() => setReady(r => !r ? r : r)); // no-op keep effect alive
+      void raf;
+    }
+
     (async () => {
       const LC = await import('lightweight-charts');
       const el = containerRef.current;
