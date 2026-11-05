@@ -143,8 +143,8 @@ export default function MarketTokenCard({
 
       <div className="flex items-center gap-1.5 relative">
         <Link
-          to="/swap"
-          search={{ to: token.address }}
+          to="/token/$address"
+          params={{ address: token.address }}
           className="flex-1 text-center text-xs font-bold py-2 rounded-xl bg-gradient-to-r from-wolf-pink to-wolf-gold text-white hover:opacity-90 transition-opacity"
         >
           Trade
