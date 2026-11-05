@@ -16,6 +16,7 @@ import { FACTORY_ABI, PAIR_ABI, ERC20_ABI } from '@/config/abis';
 import { CONTRACTS, TOKENS, isBlockedToken, getTokenBySymbol } from '@/config/contracts';
 import { useLaunchpadRegistry } from '@/hooks/useLaunchpadRegistry';
 import { subscribeBlocks } from '@/lib/liveBlocks';
+import { fetchSnapshots, queueSnapshotUpsert, flushSnapshotUpsert, subscribeSnapshots } from '@/lib/marketMetricsDb';
 
 const LIVE_THROTTLE_MS = 10_000;
 
@@ -68,7 +69,9 @@ const CONCURRENCY = 2;
 
 export function useMarketData() {
   const { tokens: registry, loading: registryLoading, refresh: refreshRegistry } = useLaunchpadRegistry();
-  const [metrics, setMetrics] = useState<Record<string, Omit<MarketToken, keyof IdentityFields> | undefined>>({});
+  /** Metric entry stored per token; `fromDb` marks rows seeded from the cache. */
+  type MetricEntry = Omit<MarketToken, keyof IdentityFields | 'priceUsd' | 'liquidityUsd'> & { fromDb?: boolean };
+  const [metrics, setMetrics] = useState<Record<string, MetricEntry | undefined>>({});
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   /** USD value of 1 zkLTC, derived from the USDC pool (0 = unknown). */
@@ -232,6 +235,16 @@ export function useMarketData() {
         } catch { /* a bad slice must not stop the rest */ }
         setMetrics(prev => ({ ...prev, ...batch }));
         setLastUpdated(Date.now());
+        // Publish this batch's snapshot to the shared metrics cache (throttled).
+        queueSnapshotUpsert(Object.entries(batch).map(([addr, m]) => ({
+          token_address: addr,
+          pair_address: m.pair,
+          price: m.price,
+          price_usd: m.price * nativeUsdRef.current,
+          liquidity: m.liquidity,
+          liquidity_usd: m.liquidity * nativeUsdRef.current,
+          change_24h: m.change,
+        })));
         if (usdcAddr && batch[usdcAddr]) {
           // USD reference: the USDC/WzkLTC pool gives "native per USDC",
           // so 1 zkLTC ≈ 1 / thatPrice dollars.
@@ -257,6 +270,60 @@ export function useMarketData() {
     if (registryLoading) return;
     load(identities);
   }, [identities, registryLoading, load]);
+
+  /** USD reference kept in a ref so batch upserts always see the latest value. */
+  const nativeUsdRef = useRef(nativeUsd);
+  nativeUsdRef.current = nativeUsd;
+
+  /** Seed tokens not yet covered on-chain from the shared metrics cache. */
+  useEffect(() => {
+    let alive = true;
+    fetchSnapshots().then(snap => {
+      if (!alive) return;
+      setMetrics(prev => {
+        const hints: Record<string, MetricEntry | undefined> = {};
+        for (const [addr, row] of Object.entries(snap)) {
+          if (prev[addr]) continue; // on-chain data wins
+          hints[addr] = {
+            price: row.price,
+            liquidity: row.liquidity,
+            totalSupply: 0,
+            change: row.change_24h,
+            history: [],
+            pair: row.pair_address,
+            fromDb: true,
+          };
+        }
+        return { ...hints, ...prev };
+      });
+    });
+    return () => { alive = false; flushSnapshotUpsert(); };
+  }, []);
+
+  /** Realtime: other visitors' on-chain batches fill our gaps instantly. */
+  useEffect(() => {
+    return subscribeSnapshots(rows => {
+      setMetrics(prev => {
+        const next = { ...prev };
+        for (const row of rows) {
+          const addr = row.token_address.toLowerCase();
+          const cur = next[addr];
+          // On-chain reads remain the source of truth — cache rows only fill gaps.
+          if (cur && !cur.fromDb) continue;
+          next[addr] = {
+            price: row.price,
+            liquidity: row.liquidity,
+            totalSupply: cur?.totalSupply ?? 0,
+            change: row.change_24h,
+            history: cur?.history ?? [],
+            pair: row.pair_address,
+            fromDb: true,
+          };
+        }
+        return next;
+      });
+    });
+  }, []);
 
   /**
    * Live mode: re-read reserves for tokens that have a pool whenever a new

@@ -134,6 +134,39 @@ export type Database = {
         }
         Relationships: []
       }
+      market_metrics: {
+        Row: {
+          change_24h: number
+          liquidity: number
+          liquidity_usd: number
+          pair_address: string | null
+          price: number
+          price_usd: number
+          token_address: string
+          updated_at: string
+        }
+        Insert: {
+          change_24h?: number
+          liquidity?: number
+          liquidity_usd?: number
+          pair_address?: string | null
+          price?: number
+          price_usd?: number
+          token_address: string
+          updated_at?: string
+        }
+        Update: {
+          change_24h?: number
+          liquidity?: number
+          liquidity_usd?: number
+          pair_address?: string | null
+          price?: number
+          price_usd?: number
+          token_address?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
