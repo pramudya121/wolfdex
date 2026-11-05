@@ -16,7 +16,7 @@ import { FACTORY_ABI, PAIR_ABI, ERC20_ABI } from '@/config/abis';
 import { CONTRACTS, TOKENS, isBlockedToken, getTokenBySymbol } from '@/config/contracts';
 import { useLaunchpadRegistry } from '@/hooks/useLaunchpadRegistry';
 import { subscribeBlocks } from '@/lib/liveBlocks';
-import { fetchSnapshots, queueSnapshotUpsert, flushSnapshotUpsert, subscribeSnapshots } from '@/lib/marketMetricsDb';
+import { fetchSnapshots, queueSnapshotUpsert, flushSnapshotUpsert, upsertSnapshots, subscribeSnapshots } from '@/lib/marketMetricsDb';
 
 const LIVE_THROTTLE_MS = 10_000;
 
