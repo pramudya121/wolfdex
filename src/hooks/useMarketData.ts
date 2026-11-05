@@ -70,7 +70,7 @@ const CONCURRENCY = 2;
 export function useMarketData() {
   const { tokens: registry, loading: registryLoading, refresh: refreshRegistry } = useLaunchpadRegistry();
   /** Metric entry stored per token; `fromDb` marks rows seeded from the cache. */
-  type MetricEntry = Omit<MarketToken, keyof IdentityFields> & { fromDb?: boolean };
+  type MetricEntry = Omit<MarketToken, keyof IdentityFields | 'priceUsd' | 'liquidityUsd'> & { fromDb?: boolean };
   const [metrics, setMetrics] = useState<Record<string, MetricEntry | undefined>>({});
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
