@@ -16,6 +16,7 @@ import { FACTORY_ABI, PAIR_ABI, ERC20_ABI } from '@/config/abis';
 import { CONTRACTS, TOKENS, isBlockedToken, getTokenBySymbol } from '@/config/contracts';
 import { useLaunchpadRegistry } from '@/hooks/useLaunchpadRegistry';
 import { subscribeBlocks } from '@/lib/liveBlocks';
+import { fetchSnapshots, queueSnapshotUpsert, flushSnapshotUpsert, subscribeSnapshots } from '@/lib/marketMetricsDb';
 
 const LIVE_THROTTLE_MS = 10_000;
 
@@ -68,7 +69,9 @@ const CONCURRENCY = 2;
 
 export function useMarketData() {
   const { tokens: registry, loading: registryLoading, refresh: refreshRegistry } = useLaunchpadRegistry();
-  const [metrics, setMetrics] = useState<Record<string, Omit<MarketToken, keyof IdentityFields> | undefined>>({});
+  /** Metric entry stored per token; `fromDb` marks rows seeded from the cache. */
+  type MetricEntry = Omit<MarketToken, keyof IdentityFields> & { fromDb?: boolean };
+  const [metrics, setMetrics] = useState<Record<string, MetricEntry | undefined>>({});
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   /** USD value of 1 zkLTC, derived from the USDC pool (0 = unknown). */
