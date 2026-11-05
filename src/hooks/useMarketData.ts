@@ -274,6 +274,36 @@ export function useMarketData() {
   /** USD reference kept in a ref so batch upserts always see the latest value. */
   const nativeUsdRef = useRef(nativeUsd);
   nativeUsdRef.current = nativeUsd;
+  const identitiesRef = useRef(identities);
+  identitiesRef.current = identities;
+
+  /**
+   * Immediately re-read one token's pool right off-chain and publish it —
+   * called after a swap succeeds so the new price/liquidity hits the local
+   * view and the shared realtime cache at once.
+   */
+  const snapshotToken = useCallback(async (addr: string) => {
+    const key = addr.toLowerCase();
+    const id = identitiesRef.current.find(t => t.address.toLowerCase() === key);
+    if (!id) return;
+    try {
+      const batch = await loadBatch([id]);
+      setMetrics(prev => ({ ...prev, ...batch }));
+      const m = batch[key];
+      if (m) {
+        await upsertSnapshots([{
+          token_address: key,
+          pair_address: m.pair,
+          price: m.price,
+          price_usd: m.price * nativeUsdRef.current,
+          liquidity: m.liquidity,
+          liquidity_usd: m.liquidity * nativeUsdRef.current,
+          change_24h: m.change,
+        }]);
+      }
+      setLastUpdated(Date.now());
+    } catch { /* keep last good data */ }
+  }, [loadBatch]);
 
   /** Seed tokens not yet covered on-chain from the shared metrics cache. */
   useEffect(() => {
@@ -300,7 +330,9 @@ export function useMarketData() {
     return () => { alive = false; flushSnapshotUpsert(); };
   }, []);
 
-  /** Realtime: other visitors' on-chain batches fill our gaps instantly. */
+  /** Realtime: cache rows from any visitor land instantly; the on-chain
+   *  poller re-verifies within its next live cycle and overwrites with
+   *  chain-verified values, so the cache can never drift permanently. */
   useEffect(() => {
     return subscribeSnapshots(rows => {
       setMetrics(prev => {
@@ -308,15 +340,13 @@ export function useMarketData() {
         for (const row of rows) {
           const addr = row.token_address.toLowerCase();
           const cur = next[addr];
-          // On-chain reads remain the source of truth — cache rows only fill gaps.
-          if (cur && !cur.fromDb) continue;
           next[addr] = {
             price: row.price,
             liquidity: row.liquidity,
             totalSupply: cur?.totalSupply ?? 0,
             change: row.change_24h,
             history: cur?.history ?? [],
-            pair: row.pair_address,
+            pair: row.pair_address ?? cur?.pair ?? null,
             fromDb: true,
           };
         }
