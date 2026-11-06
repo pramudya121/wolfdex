@@ -408,7 +408,7 @@ export function useMarketData() {
     await load(identities);
   }, [refreshRegistry, load, identities]);
 
-  return { tokens, loading: loading || registryLoading, lastUpdated, nativeUsd, refresh };
+  return { tokens, loading: loading || registryLoading, lastUpdated, nativeUsd, refresh, snapshotToken };
 
 }
 
