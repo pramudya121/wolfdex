@@ -25,9 +25,17 @@ interface SwapCardProps {
   initialFrom?: TokenInfo;
   /** Pre-select the "receive" token (defaults to wrapped native). */
   initialTo?: TokenInfo;
+  onSwapSuccess?: (result: {
+    hash: string;
+    from: TokenInfo;
+    to: TokenInfo;
+    amountIn: string;
+    amountOut: string;
+    via: string;
+  }) => void | Promise<void>;
 }
 
-export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwap, getTokenBalance, loading, txHash, error, isConnected, onConnectClick, initialFrom, initialTo }: SwapCardProps) {
+export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwap, getTokenBalance, loading, txHash, error, isConnected, onConnectClick, initialFrom, initialTo, onSwapSuccess }: SwapCardProps) {
   const { slippage, deadline } = useTxSettings();
   const [fromToken, setFromToken] = useState<TokenInfo>(initialFrom ?? NATIVE_TOKEN);
   const [toToken, setToToken] = useState<TokenInfo>(initialTo ?? TOKENS[1]);
@@ -177,6 +185,16 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
           description: `${res.amountIn ?? fromAmount} ${fromToken.symbol} → ${parseFloat(outActual).toFixed(6)} ${toToken.symbol}`,
           action: { label: 'View TX', onClick: () => window.open(`${CHAIN_CONFIG.blockExplorer}/tx/${res.hash}`, '_blank') },
         });
+        try {
+          await onSwapSuccess?.({
+            hash: res.hash,
+            from: fromToken,
+            to: toToken,
+            amountIn: res.amountIn ?? fromAmount,
+            amountOut: outActual,
+            via: 'Aggregator',
+          });
+        } catch { /* the confirmed swap must remain successful if cache refresh fails */ }
       } else {
         const hash = await swap(fromToken, toToken, fromAmount, toAmount || '0', parseFloat(slippage), parseFloat(deadline), route?.path);
         setLastResult({ hash, amountIn: fromAmount, amountOut: toAmount, via: 'Router' });
@@ -184,6 +202,16 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
           description: `${fromAmount} ${fromToken.symbol} → ${toAmount} ${toToken.symbol}`,
           action: { label: 'View TX', onClick: () => window.open(`${CHAIN_CONFIG.blockExplorer}/tx/${hash}`, '_blank') },
         });
+        try {
+          await onSwapSuccess?.({
+            hash,
+            from: fromToken,
+            to: toToken,
+            amountIn: fromAmount,
+            amountOut: toAmount,
+            via: 'Router',
+          });
+        } catch { /* the confirmed swap must remain successful if cache refresh fails */ }
       }
       setFromAmount('');
       setToAmount('');
@@ -205,7 +233,7 @@ export default function SwapCard({ swap, getAmountsOut, getBestRoute, previewSwa
 
   return (
     <>
-      <div className="moving-border-wrap w-full max-w-[420px] mx-auto wolf-glow">
+      <div className="moving-border-wrap w-full wolf-glow">
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18, ease: 'easeOut' }}
           className="moving-border-inner rounded-2xl p-5 overflow-hidden"
         >

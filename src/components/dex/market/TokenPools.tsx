@@ -133,7 +133,7 @@ export default function TokenPools({
             initial={{ opacity: 0, x: -8 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: Math.min(i * 0.04, 0.3) }}
-            className="flex items-center gap-3 p-3 rounded-2xl bg-wolf-surface/60 border border-wolf-border/30 hover:border-wolf-pink/40 transition-colors"
+            className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-2xl bg-wolf-surface/60 border border-wolf-border/30 hover:border-wolf-pink/40 transition-colors"
           >
             <div className="flex items-center -space-x-2 shrink-0">
               <img
@@ -150,15 +150,18 @@ export default function TokenPools({
                 {fmt(r.tokenReserve, 2)} {symbol} · {fmt(r.otherReserve, 2)} {r.otherSymbol}
               </div>
             </div>
-            <div className="text-right shrink-0">
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Rate</div>
-              <div className="text-xs font-mono font-bold">{fmt(r.price, 6)}</div>
+            <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-start sm:shrink-0">
+              <div className="text-left sm:text-right">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Rate</div>
+                <div className="text-xs font-mono font-bold">{fmt(r.price, 6)}</div>
+              </div>
+              <a
+                href={`${CHAIN_CONFIG.blockExplorer}/address/${r.pair}`}
+                target="_blank" rel="noopener noreferrer"
+                className="text-[11px] px-2 py-1 rounded-lg bg-wolf-surface hover:bg-wolf-surface-hover border border-wolf-border/40 transition-colors shrink-0"
+                aria-label={`View ${symbol}/${r.otherSymbol} pool on explorer`}
+              >🔗</a>
             </div>
-            <a
-              href={`${CHAIN_CONFIG.blockExplorer}/address/${r.pair}`}
-              target="_blank" rel="noopener noreferrer"
-              className="text-[11px] px-2 py-1 rounded-lg bg-wolf-surface hover:bg-wolf-surface-hover border border-wolf-border/40 transition-colors shrink-0"
-            >🔗</a>
           </motion.div>
         ))}
       </div>

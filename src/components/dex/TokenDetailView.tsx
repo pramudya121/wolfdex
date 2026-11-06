@@ -40,7 +40,7 @@ export default function TokenDetailView({ address: rawAddress }: { address: stri
   try { address = ethers.utils.getAddress(rawAddress); } catch { /* keep raw */ }
 
   const { wallet, dex, txHistory } = useDexContext();
-  const { token: market, loading: marketLoading, refresh, nativeUsd } = useMarketToken(address);
+  const { token: market, loading: marketLoading, refresh, nativeUsd, snapshotToken } = useMarketToken(address);
   const social = useMarketSocial();
   const stats = usePairStats(market?.pair ?? null);
   const { holders, loading: holdersLoading } = useTokenHolders(address);
@@ -103,20 +103,35 @@ export default function TokenDetailView({ address: rawAddress }: { address: stri
     logo,
   }), [address, symbol, name, decimals, logo]);
 
-  // Record swaps made from this page into the global history.
+  // The SwapCard calls onSwapSuccess for both router and aggregator trades.
   const swap: typeof dex.swap = async (from, to, amountIn, amountOut, slippagePct, deadlineMinutes, routePath) => {
     const hash = await dex.swap(from, to, amountIn, amountOut, slippagePct, deadlineMinutes, routePath);
-    if (hash && wallet.address) {
+    if (!hash) throw new Error('Swap completed without a transaction hash');
+    return hash;
+  };
+
+  const handleSwapSuccess = async (result: {
+    hash: string;
+    from: TokenInfo;
+    to: TokenInfo;
+    amountIn: string;
+    amountOut: string;
+    via: string;
+  }) => {
+    if (wallet.address) {
       txHistory.add({
-        hash,
+        hash: result.hash,
         kind: 'swap',
-        summary: `${parseFloat(amountIn).toFixed(4)} ${from.symbol} → ${parseFloat(amountOut).toFixed(4)} ${to.symbol}`,
+        summary: `${parseFloat(result.amountIn).toFixed(4)} ${result.from.symbol} → ${parseFloat(result.amountOut).toFixed(4)} ${result.to.symbol} · ${result.via}`,
         account: wallet.address,
         status: 'success',
         chainId: wallet.chainId,
       });
     }
-    return hash!;
+    await Promise.all([
+      snapshotToken(result.from.address),
+      snapshotToken(result.to.address),
+    ]);
   };
 
   const copy = () => {
@@ -198,7 +213,7 @@ export default function TokenDetailView({ address: rawAddress }: { address: stri
           </div>
 
           {/* Price block */}
-          <div className="text-right shrink-0">
+          <div className="w-full text-left sm:w-auto sm:text-right shrink-0">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Price</div>
             <div className="text-2xl font-black font-mono">
               {market && market.priceUsd > 0
@@ -269,8 +284,8 @@ export default function TokenDetailView({ address: rawAddress }: { address: stri
 
 
       {/* Chart + swap */}
-      <div className="grid lg:grid-cols-3 gap-5 items-start">
-        <div className="lg:col-span-2 wolf-card rounded-3xl p-4 sm:p-5">
+      <div className="grid min-w-0 lg:grid-cols-3 gap-4 sm:gap-5 items-start">
+        <div className="min-w-0 lg:col-span-2 wolf-card rounded-3xl p-4 sm:p-5">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-bold">Price chart · {symbol}/{CHAIN_CONFIG.symbol}</h2>
             <span className="text-[10px] text-muted-foreground">🕯 candlestick · live</span>
@@ -281,6 +296,7 @@ export default function TokenDetailView({ address: rawAddress }: { address: stri
               baseSymbol={symbol}
               quoteSymbol={CHAIN_CONFIG.symbol}
               height={380}
+              compactOnMobile
             />
           ) : (
             <div className="text-center py-16 text-muted-foreground text-sm">
@@ -313,6 +329,7 @@ export default function TokenDetailView({ address: rawAddress }: { address: stri
             onConnectClick={openWalletModal}
             initialFrom={NATIVE_TOKEN}
             initialTo={tokenInfo}
+            onSwapSuccess={handleSwapSuccess}
           />
           <div className="grid grid-cols-2 gap-2">
             <Link to="/liquidity" search={{ token: address }} className="wolf-pool-card rounded-2xl p-3 text-center text-xs font-semibold hover:scale-[1.02] transition-transform">
@@ -326,8 +343,8 @@ export default function TokenDetailView({ address: rawAddress }: { address: stri
       </div>
 
       {/* Trades + pools */}
-      <div className="mt-5 grid lg:grid-cols-3 gap-5 items-start">
-        <div className="lg:col-span-2">
+      <div className="mt-5 grid min-w-0 lg:grid-cols-3 gap-4 sm:gap-5 items-start">
+        <div className="min-w-0 lg:col-span-2">
           <RecentTrades
             pair={market?.pair ?? null}
             tokenAddress={address}

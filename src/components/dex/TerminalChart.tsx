@@ -49,12 +49,14 @@ export default function TerminalChart({
   baseSymbol,
   quoteSymbol,
   height = 380,
+  compactOnMobile = false,
   defaultInterval = 3600,
 }: {
   pairAddress: string;
   baseSymbol?: string;
   quoteSymbol?: string;
   height?: number;
+  compactOnMobile?: boolean;
   defaultInterval?: number;
 }) {
   const [interval, setInterval] = useState(defaultInterval);
@@ -323,7 +325,11 @@ export default function TerminalChart({
         </div>
       ) : (
         <div className="rounded-xl bg-wolf-surface/30 border border-wolf-border/30 p-1 relative">
-          <div ref={containerRef} style={{ height }} className="w-full min-w-0" />
+          <div
+            ref={containerRef}
+            style={compactOnMobile ? undefined : { height }}
+            className={`w-full min-w-0 ${compactOnMobile ? 'h-[300px] sm:h-[380px]' : ''}`}
+          />
           {!ready && (
             <div className="absolute inset-0 flex items-center justify-center text-[10px] text-muted-foreground bg-wolf-surface/60 rounded-xl">
               Loading terminal…
