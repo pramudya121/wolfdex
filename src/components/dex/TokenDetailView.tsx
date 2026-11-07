@@ -285,7 +285,7 @@ export default function TokenDetailView({ address: rawAddress }: { address: stri
 
       {/* Chart + swap */}
       <div className="grid min-w-0 lg:grid-cols-3 gap-4 sm:gap-5 items-start">
-        <div className="min-w-0 lg:col-span-2 wolf-card rounded-3xl p-4 sm:p-5">
+        <div className="order-2 min-w-0 lg:order-1 lg:col-span-2 wolf-card rounded-3xl p-4 sm:p-5">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-bold">Price chart · {symbol}/{CHAIN_CONFIG.symbol}</h2>
             <span className="text-[10px] text-muted-foreground">🕯 candlestick · live</span>
@@ -314,7 +314,7 @@ export default function TokenDetailView({ address: rawAddress }: { address: stri
           )}
         </div>
 
-        <div className="space-y-3">
+        <div className="order-1 min-w-0 space-y-3 lg:order-2">
           <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">Trade {symbol}</div>
           <SwapCard
             swap={swap}

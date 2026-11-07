@@ -12,6 +12,7 @@ import { WolfSkeleton, WolfSkeletonOrb, WolfSpinner } from './ui/WolfSkeleton';
 
 const NAV_ITEMS = [
   { path: '/', label: 'Home' },
+  { path: '/market', label: 'Market' },
   { path: '/swap', label: 'Swap' },
   { path: '/liquidity', label: 'Liquidity' },
   { path: '/pools', label: 'Pools' },
@@ -21,8 +22,6 @@ const NAV_ITEMS = [
   { path: '/portfolio', label: 'Portfolio' },
   { path: '/faucet', label: 'Faucet' },
   { path: '/ecosystem', label: 'Ecosystem' },
-  { path: '/market', label: 'Market' },
-
   { path: '/domains', label: 'Domains' },
   { path: '/docs', label: 'Docs' },
 ] as const;
