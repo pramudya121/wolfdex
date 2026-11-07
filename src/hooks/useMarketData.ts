@@ -70,7 +70,11 @@ const CONCURRENCY = 2;
 export function useMarketData() {
   const { tokens: registry, loading: registryLoading, refresh: refreshRegistry } = useLaunchpadRegistry();
   /** Metric entry stored per token; `fromDb` marks rows seeded from the cache. */
-  type MetricEntry = Omit<MarketToken, keyof IdentityFields | 'priceUsd' | 'liquidityUsd'> & { fromDb?: boolean };
+  type MetricEntry = Omit<MarketToken, keyof IdentityFields | 'priceUsd' | 'liquidityUsd'> & {
+    priceUsd?: number;
+    liquidityUsd?: number;
+    fromDb?: boolean;
+  };
   const [metrics, setMetrics] = useState<Record<string, MetricEntry | undefined>>({});
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
@@ -236,7 +240,7 @@ export function useMarketData() {
         setMetrics(prev => ({ ...prev, ...batch }));
         setLastUpdated(Date.now());
         // Publish this batch's snapshot to the shared metrics cache (throttled).
-        queueSnapshotUpsert(Object.entries(batch).map(([addr, m]) => ({
+        queueSnapshotUpsert(Object.entries(batch).filter(([, m]) => m.pair && m.price > 0).map(([addr, m]) => ({
           token_address: addr,
           pair_address: m.pair,
           price: m.price,
@@ -317,6 +321,8 @@ export function useMarketData() {
           hints[addr] = {
             price: row.price,
             liquidity: row.liquidity,
+            priceUsd: row.price_usd,
+            liquidityUsd: row.liquidity_usd,
             totalSupply: 0,
             change: row.change_24h,
             history: [],
@@ -343,6 +349,8 @@ export function useMarketData() {
           next[addr] = {
             price: row.price,
             liquidity: row.liquidity,
+            priceUsd: row.price_usd,
+            liquidityUsd: row.liquidity_usd,
             totalSupply: cur?.totalSupply ?? 0,
             change: row.change_24h,
             history: cur?.history ?? [],
@@ -376,6 +384,17 @@ export function useMarketData() {
         for (let i = 0; i < pooled.length; i += BATCH_SIZE) {
           const batch = await loadBatch(pooled.slice(i, i + BATCH_SIZE));
           setMetrics(prev => ({ ...prev, ...batch }));
+          queueSnapshotUpsert(Object.entries(batch)
+            .filter(([, m]) => m.pair && m.price > 0)
+            .map(([addr, m]) => ({
+              token_address: addr,
+              pair_address: m.pair,
+              price: m.price,
+              price_usd: m.price * nativeUsdRef.current,
+              liquidity: m.liquidity,
+              liquidity_usd: m.liquidity * nativeUsdRef.current,
+              change_24h: m.change,
+            })));
           if (usdcAddr && batch[usdcAddr]?.price > 0) setNativeUsd(1 / batch[usdcAddr].price);
         }
         setLastUpdated(Date.now());
@@ -392,9 +411,9 @@ export function useMarketData() {
       return {
         ...id,
         price,
-        priceUsd: nativeUsd > 0 ? price * nativeUsd : 0,
+        priceUsd: nativeUsd > 0 ? price * nativeUsd : m?.priceUsd ?? 0,
         liquidity,
-        liquidityUsd: nativeUsd > 0 ? liquidity * nativeUsd : 0,
+        liquidityUsd: nativeUsd > 0 ? liquidity * nativeUsd : m?.liquidityUsd ?? 0,
         totalSupply: m?.totalSupply ?? 0,
         change: m?.change ?? 0,
         history: m?.history ?? [],
