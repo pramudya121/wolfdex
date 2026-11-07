@@ -1,7 +1,5 @@
-# WolfDex Global UX & QA
+# WolfDex Market and Token Detail
 
-- [x] Add global route safety, wallet-action wiring, safe formatters, and friendly error handling.
-- [ ] Standardize shared loading, empty, error, network, and transaction states.
-- [ ] Audit and improve Home, Swap, Limit, Liquidity, Pools, Farming, Market, and Token Detail.
-- [ ] Audit and improve Portfolio, Faucet, Domains, Ecosystem, Casino, Admin, Analytics, Docs, and Launchpad.
-- [ ] Verify every route on desktop and mobile; run type/build checks and document owner-wallet blockers.
+- [ ] Move Market immediately beside Home in the main navigation.
+- [ ] Finish and verify the pending mobile token-detail, swap-cache refresh, and shared cache behavior.
+- [ ] Update the BNB cache snapshot and verify Market and token detail display it.
