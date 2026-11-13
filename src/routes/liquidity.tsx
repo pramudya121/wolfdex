@@ -15,10 +15,10 @@ export const Route = createFileRoute("/liquidity")({
   }),
   head: () => ({
     meta: [
-      { title: "Provide Liquidity & Earn Fees — WolfDex" },
-      { name: "description", content: "Add liquidity to WolfDex pools on LitVM LiteForge and earn 0.3% on every swap routed through your position. Withdraw any time." },
-      { property: "og:title", content: "Earn 0.3% Fees on Every Swap — WolfDex Liquidity" },
-      { property: "og:description", content: "Provide liquidity to WolfDex pools and earn trading fees auto-compounded into your LP position." },
+      { title: "Provide Liquidity — WolfDex" },
+      { name: "description", content: "Add or remove liquidity from WolfDex pools on LitVM LiteForge and manage LP tokens. Fee income depends on pool activity." },
+      { property: "og:title", content: "Provide Liquidity — WolfDex" },
+      { property: "og:description", content: "Add or remove liquidity from WolfDex pools and manage your LP tokens on LitVM." },
       { property: "og:url", content: "https://wolfdex.lovable.app/liquidity" },
     ],
     links: [{ rel: "canonical", href: "https://wolfdex.lovable.app/liquidity" }],

@@ -118,7 +118,7 @@ function FarmCard({ pool, farming, allPools }: { pool: FarmPool; farming: Farmin
         <div className="grid grid-cols-2 gap-2 mb-3">
           <div className="bg-gradient-to-br from-wolf-green/15 to-wolf-green/5 rounded-lg p-2.5 border border-wolf-green/30 relative overflow-hidden">
             <div className="text-[9px] uppercase text-muted-foreground tracking-wider flex items-center gap-1">
-              APR
+              Estimated APR
               <span className="relative flex h-1.5 w-1.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-wolf-green opacity-60"></span>
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-wolf-green"></span>
