@@ -8,14 +8,14 @@ export const CHAIN_CONFIG = {
   chainId: 4441,
   chainIdHex: '0x1159',
   chainName: 'LitVM LiteForge',
-  rpcUrl: 'https://rpc.testnet.liteforge.zeeve.net/',
+  rpcUrl: 'https://rpc.testnet.liteforge.zeeve.net',
   rpcUrls: [
-    'https://rpc.testnet.liteforge.zeeve.net/',
+    'https://rpc.testnet.liteforge.zeeve.net',
     // add additional mirrors here, e.g. 'https://rpc2.liteforge…'
   ],
   symbol: 'zkLTC',
   decimals: 18,
-  blockExplorer: ' https://explorer.testnet.liteforge.zeeve.net',
+  blockExplorer: 'https://explorer.testnet.liteforge.zeeve.net',
 };
 
 export const CONTRACTS = {
