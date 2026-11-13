@@ -93,12 +93,36 @@ export default function GlobalTxNotifier() {
           pendingBySummary.current.set(t.summary, id);
         }
       } else if (t.status === 'success') {
-        toast.success(`${icon} ${t.summary}`, {
-          id: `tx-${t.hash}`,
-          description: explorerUrl ? `Confirmed • ${shortHash(t.hash)}` : 'Confirmed',
-          action,
-          duration: 6000,
-        });
+        const id = `tx-${t.hash}`;
+        if (explorerUrl) {
+          toast.custom(
+            () => (
+              <a
+                href={explorerUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Open transaction ${shortHash(t.hash)} on the block explorer`}
+                className="flex w-full items-center gap-3 rounded-lg border border-border bg-background px-4 py-3 text-foreground shadow-lg transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <span aria-hidden="true">{icon}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{t.summary}</span>
+                  <span className="block text-sm text-muted-foreground">
+                    Confirmed · {shortHash(t.hash)}
+                  </span>
+                </span>
+                <span className="shrink-0 text-sm text-muted-foreground">Explorer ↗</span>
+              </a>
+            ),
+            { id, duration: 6000 },
+          );
+        } else {
+          toast.success(`${icon} ${t.summary}`, {
+            id,
+            description: 'Confirmed',
+            duration: 6000,
+          });
+        }
       } else if (t.status === 'failed') {
         toast.error(`${icon} ${t.summary}`, {
           id: `tx-${t.hash}`,

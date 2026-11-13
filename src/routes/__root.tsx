@@ -10,6 +10,7 @@ import PageTransition from "@/components/dex/PageTransition";
 import RegistryHydrator from "@/components/dex/RegistryHydrator";
 import ScrollToTop from "@/components/dex/ScrollToTop";
 import RouteProgressBar from "@/components/dex/RouteProgressBar";
+import { CHAIN_CONFIG } from "@/config/contracts";
 
 import { DexProvider, useDexContext } from "@/context/DexContext";
 import { Toaster } from "sonner";
@@ -119,7 +120,7 @@ function AppLayout() {
         <div className="pointer-events-none absolute inset-0 opacity-40 wolf-footer-shine" />
         <p className="relative">WOLFDEX © 2026 — Built on LitVM LiteForge Testnet (Chain ID: 4441)</p>
         <div className="relative flex flex-wrap justify-center gap-x-4 gap-y-2 mt-3">
-          <a href={`https://liteforge.explorer.caldera.xyz`} target="_blank" rel="noopener noreferrer" className="story-link hover:text-wolf-gold transition-colors">Block Explorer</a>
+          <a href={CHAIN_CONFIG.blockExplorer} target="_blank" rel="noopener noreferrer" className="story-link hover:text-wolf-gold transition-colors">Block Explorer</a>
           <span className="opacity-50">•</span>
           <span className="font-mono opacity-80">Factory: 0x5687…cA873</span>
           <span className="opacity-50">•</span>
