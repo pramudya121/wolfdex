@@ -134,9 +134,13 @@ export default function TokenDetailView({ address: rawAddress }: { address: stri
     ]);
   };
 
-  const copy = () => {
-    navigator.clipboard.writeText(address);
-    toast.success('Address copied');
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(address);
+      toast.success('Address copied');
+    } catch {
+      toast.error('Could not copy the token address');
+    }
   };
 
   return (
@@ -191,6 +195,7 @@ export default function TokenDetailView({ address: rawAddress }: { address: stri
               >🔗 Explorer</a>
               <button
                 onClick={() => social.vote(address)}
+                aria-pressed={social.hasVoted(address)}
                 className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
                   social.hasVoted(address)
                     ? 'bg-wolf-pink/15 border-wolf-pink/50 text-wolf-pink'
@@ -199,6 +204,7 @@ export default function TokenDetailView({ address: rawAddress }: { address: stri
               >▲ Upvote {social.voteCount(address)}</button>
               <button
                 onClick={() => social.toggleWatch(address)}
+                aria-pressed={social.isWatched(address)}
                 className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
                   social.isWatched(address)
                     ? 'bg-wolf-gold/15 border-wolf-gold/50 text-wolf-gold'

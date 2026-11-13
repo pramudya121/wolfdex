@@ -284,7 +284,7 @@ export default function MarketView() {
       ) : (
         <>
           {view === 'table' ? (
-            <MarketTable tokens={filtered.slice(0, visible)} social={social} />
+            <MarketTable tokens={filtered} visible={visible} social={social} />
           ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filtered.slice(0, visible).map(t => (
@@ -363,7 +363,7 @@ function SortableTh({ id, col, setCol, dir, setDir, label, align = 'right', widt
   );
 }
 
-function MarketTable({ tokens, social }: { tokens: ReturnType<typeof useMarketData>['tokens']; social: Social }) {
+function MarketTable({ tokens, visible, social }: { tokens: ReturnType<typeof useMarketData>['tokens']; visible: number; social: Social }) {
   const [col, setCol] = useState<SortCol | null>(null);
   const [dir, setDir] = useState<'asc' | 'desc'>('desc');
 
@@ -372,7 +372,11 @@ function MarketTable({ tokens, social }: { tokens: ReturnType<typeof useMarketDa
     const val = sortValue[col];
     const copy = [...tokens];
     copy.sort((a, b) => {
-      const cmp = String(val(a)).localeCompare(String(val(b)), undefined, { numeric: true });
+      const left = val(a);
+      const right = val(b);
+      const cmp = typeof left === 'number' && typeof right === 'number'
+        ? left - right
+        : String(left).localeCompare(String(right), undefined, { numeric: true, sensitivity: 'base' });
       return dir === 'desc' ? -cmp : cmp;
     });
     return copy;
@@ -393,13 +397,15 @@ function MarketTable({ tokens, social }: { tokens: ReturnType<typeof useMarketDa
           </tr>
         </thead>
         <tbody>
-          {sorted.map(t => {
+          {sorted.slice(0, visible).map(t => {
             const hasTrend = t.history.length > 1;
             const up = t.change >= 0;
             return (
               <tr key={t.address} className="border-b border-wolf-border/20 last:border-0 hover:bg-wolf-surface/50 transition-colors">
                 <td className="p-3">
-                  <button onClick={() => social.toggleWatch(t.address)} aria-label="Toggle watchlist"
+                  <button onClick={() => social.toggleWatch(t.address)}
+                    aria-label={social.isWatched(t.address) ? `Remove ${t.symbol} from watchlist` : `Add ${t.symbol} to watchlist`}
+                    aria-pressed={social.isWatched(t.address)}
                     className={social.isWatched(t.address) ? 'text-wolf-gold' : 'text-muted-foreground'}>
                     {social.isWatched(t.address) ? '★' : '☆'}
                   </button>
