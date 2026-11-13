@@ -12,7 +12,6 @@ import { WolfSkeleton, WolfSkeletonOrb, WolfSpinner } from './ui/WolfSkeleton';
 
 const NAV_ITEMS = [
   { path: '/', label: 'Home' },
-  { path: '/market', label: 'Market' },
   { path: '/swap', label: 'Swap' },
   { path: '/liquidity', label: 'Liquidity' },
   { path: '/pools', label: 'Pools' },
@@ -20,6 +19,7 @@ const NAV_ITEMS = [
   { path: '/casino', label: 'Casino' },
   { path: '/analytics', label: 'Analytics' },
   { path: '/portfolio', label: 'Portfolio' },
+  { path: '/market', label: 'Market' },
   { path: '/faucet', label: 'Faucet' },
   { path: '/ecosystem', label: 'Ecosystem' },
   { path: '/domains', label: 'Domains' },
