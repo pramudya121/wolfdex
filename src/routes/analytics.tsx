@@ -8,10 +8,10 @@ const AnalyticsView = lazyWithRetry(() => import("@/components/dex/AnalyticsView
 export const Route = createFileRoute("/analytics")({
   head: () => ({
     meta: [
-      { title: "Analytics — On-chain TVL, Volume & Price Charts | WolfDex" },
-      { name: "description", content: "Real-time on-chain analytics for every WolfDex pair on LitVM LiteForge: TVL, 24h volume, reserves, LP supply, and live price charts." },
-      { property: "og:title", content: "WolfDex Analytics — Live DEX Metrics on LitVM" },
-      { property: "og:description", content: "Track TVL, trading volume, and pair price action across every WolfDex pool in real time." },
+      { title: "Analytics — On-chain Swap Activity & Reserves | WolfDex" },
+      { name: "description", content: "LitVM testnet analytics for discovered pairs, indexed swap events, token reserves, and per-pair charts." },
+      { property: "og:title", content: "WolfDex Analytics — On-chain Activity on LitVM" },
+      { property: "og:description", content: "Review discovered pairs, indexed swap events, and token reserves from LitVM." },
       { property: "og:url", content: "https://wolfdex.lovable.app/analytics" },
     ],
     links: [{ rel: "canonical", href: "https://wolfdex.lovable.app/analytics" }],

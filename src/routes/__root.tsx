@@ -141,7 +141,7 @@ function RootComponent() {
       "@context": "https://schema.org",
       "@graph": [
         { "@type": "Organization", "@id": "https://wolfdex.lovable.app/#organization", name: "WolfDex", url: "https://wolfdex.lovable.app", logo: "https://wolfdex.lovable.app/images/wdex-logo.png" },
-        { "@type": "WebSite", "@id": "https://wolfdex.lovable.app/#website", url: "https://wolfdex.lovable.app", name: "WolfDex", description: "Premium multichain decentralized exchange on LitVM LiteForge Testnet.", publisher: { "@id": "https://wolfdex.lovable.app/#organization" } },
+        { "@type": "WebSite", "@id": "https://wolfdex.lovable.app/#website", url: "https://wolfdex.lovable.app", name: "WolfDex", description: "On-chain decentralized exchange for the LitVM LiteForge Testnet.", publisher: { "@id": "https://wolfdex.lovable.app/#organization" } },
       ],
     });
     document.head.appendChild(s);

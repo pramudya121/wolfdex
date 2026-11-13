@@ -10,29 +10,28 @@ import ShimmerButton from "@/components/dex/ui/ShimmerButton";
 import NumberTicker from "@/components/dex/ui/NumberTicker";
 import BorderBeam from "@/components/dex/ui/BorderBeam";
 import { useDexContext } from "@/context/DexContext";
+import { CHAIN_CONFIG, TOKENS } from "@/config/contracts";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "WolfDex — Trade with the Pack on LitVM" },
-      { name: "description", content: "The premier multichain DEX on LitVM. Swap, provide liquidity, and ride the wolf." },
+      { name: "description", content: "The on-chain DEX on LitVM. Swap tokens, provide liquidity, and explore the ecosystem." },
       { property: "og:title", content: "WolfDex — Trade with the Pack" },
-      { property: "og:description", content: "The premier multichain DEX on LitVM. Swap, provide liquidity, earn fees." },
+      { property: "og:description", content: "WOLFDEX is an on-chain exchange on the LitVM testnet. Swap tokens and manage liquidity." }
     ],
   }),
   component: HomePage,
 });
 
 interface OnChainStats {
-  poolCount: number;
-  tvl: number;        // sum of reserves (token-units, naive)
-  totalLP: number;    // total LP supply across pools
+  poolCount: number | null;
   loaded: boolean;
 }
 
 function HomePage() {
   const { getCachedPairsWithInfo } = useDexContext();
-  const [stats, setStats] = useState<OnChainStats>({ poolCount: 0, tvl: 0, totalLP: 0, loaded: false });
+  const [stats, setStats] = useState<OnChainStats>({ poolCount: null, loaded: false });
 
   // Fetch on-chain stats via cached aggregator (no refetch on nav-back within TTL)
   useEffect(() => {
@@ -41,28 +40,15 @@ function HomePage() {
       try {
         const cache = await getCachedPairsWithInfo();
         if (cancelled) return;
-        let tvl = 0;
-        let totalLP = 0;
-        for (const p of cache.pairs) {
-          const info = cache.infos[p];
-          if (!info) continue;
-          tvl += parseFloat(info.reserve0) + parseFloat(info.reserve1);
-          totalLP += parseFloat(info.totalSupply);
-        }
         if (!cancelled) {
-          setStats({ poolCount: cache.pairs.length, tvl, totalLP, loaded: true });
+          setStats({ poolCount: cache.pairs.length, loaded: true });
         }
       } catch {
-        if (!cancelled) setStats(s => ({ ...s, loaded: true }));
+        if (!cancelled) setStats({ poolCount: null, loaded: true });
       }
     })();
     return () => { cancelled = true; };
   }, [getCachedPairsWithInfo]);
-
-  // Volume is not tracked on-chain by the factory directly; estimate as TVL * activity factor
-  // (kept transparent: shows on-chain TVL & pool count as primary truth, volume as derived hint)
-  const estimatedVolume = stats.tvl * 0.42;
-  const totalTrades = stats.poolCount * 350; // proxy: ~350 trades per active pool
 
   return (
     <>
@@ -118,7 +104,7 @@ function HomePage() {
             </h1>
             <p className="text-base text-muted-foreground max-w-md mb-6">
               <TextGenerateEffect
-                text="The premier multichain DEX on LitVM. Swap, provide liquidity, and ride the wolf."
+                text="The on-chain DEX on LitVM. Swap tokens, provide liquidity, and explore the ecosystem."
                 delay={0.4}
               />
             </p>
@@ -153,39 +139,29 @@ function HomePage() {
         </div>
       </section>
 
-      {/* Stats strip — REAL on-chain data */}
       <section className="max-w-7xl mx-auto px-4 mb-12">
         <div className="flex items-center justify-between mb-3 px-1">
           <h2 className="text-xs uppercase tracking-[0.2em] text-muted-foreground font-semibold">
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-wolf-green animate-pulse mr-2" />
-            On-chain stats {stats.loaded ? '· Live' : '· Loading…'}
+            <span className={`inline-block w-1.5 h-1.5 rounded-full mr-2 ${stats.poolCount === null ? 'bg-muted-foreground' : 'bg-wolf-green animate-pulse'}`} />
+            Network snapshot {stats.poolCount !== null ? '· On-chain' : stats.loaded ? '· Unavailable' : '· Loading…'}
           </h2>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
-            { label: 'Total TVL', value: stats.tvl, prefix: '', suffix: '', decimals: 2 },
-            { label: 'Active Pools', value: stats.poolCount, decimals: 0 },
-            { label: 'Total LP Supply', value: stats.totalLP, decimals: 2 },
-            { label: 'Est. Volume', value: estimatedVolume, decimals: 2 },
-          ].map((s, i) => (
+            { label: 'Pair contracts', value: stats.poolCount === null ? '—' : stats.poolCount.toLocaleString() },
+            { label: 'Curated assets', value: TOKENS.filter(token => !token.isNative).length.toLocaleString() },
+            { label: 'Configured chain ID', value: CHAIN_CONFIG.chainId.toLocaleString() },
+          ].map(s => (
             <BorderBeam key={s.label} rounded="rounded-xl">
               <div className="wolf-stat-card rounded-xl p-4">
                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{s.label}</div>
-                <div className="text-2xl font-black wolf-gradient-text">
-                  <NumberTicker
-                    value={s.value}
-                    prefix={s.prefix || ''}
-                    suffix={s.suffix || ''}
-                    decimals={s.decimals}
-                    duration={1500 + i * 200}
-                  />
-                </div>
+                <div className="text-2xl font-black wolf-gradient-text">{s.value}</div>
               </div>
             </BorderBeam>
           ))}
         </div>
         <p className="text-[10px] text-muted-foreground/60 mt-2 text-center">
-          TVL = sum of token reserves across {stats.poolCount} on-chain pair{stats.poolCount === 1 ? '' : 's'} on LitVM. Trades shown: {totalTrades.toLocaleString()}+
+          Pair count is read from the LitVM factory. Asset count and chain ID reflect the app configuration.
         </p>
       </section>
 
@@ -197,9 +173,9 @@ function HomePage() {
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[
-            { icon: '⚡', title: 'Lightning Swaps', desc: 'Instant execution on LitVM with 0.3% fee. MEV-protected by default.', to: '/swap' },
-            { icon: '🌊', title: 'Deep Liquidity', desc: 'Add liquidity to earn fees. Auto-compounded rewards directly to your wallet.', to: '/liquidity' },
-            { icon: '📊', title: 'Live Analytics', desc: 'On-chain TVL, volume & price charts updated in real-time across all pairs.', to: '/analytics' },
+            { icon: '⚡', title: 'Token Swaps', desc: 'Review on-chain quotes and confirm token swaps on LitVM.', to: '/swap' },
+            { icon: '🌊', title: 'Deep Liquidity', desc: 'Add or remove liquidity and manage LP tokens directly from your wallet.', to: '/liquidity' },
+            { icon: '📊', title: 'On-chain Analytics', desc: 'Review discovered pairs, recent swap events, and token reserves from LitVM.', to: '/analytics' },
             { icon: '🐺', title: 'Wolf Pack Pools', desc: 'Permissionless pool creation. Launch your own pair with one click.', to: '/pools' },
             { icon: '💼', title: 'Smart Portfolio', desc: 'Track tokens, LP positions & farming yields in a single dashboard.', to: '/portfolio' },
             { icon: '🚀', title: 'Token Launchpad', desc: 'Deploy your own ERC20 in one click. Auto-listed across WolfDex with logo & name.', to: '/launchpad' },

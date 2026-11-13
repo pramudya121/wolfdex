@@ -66,8 +66,8 @@ const NAV: NavGroup[] = [
 
 const FEATURES = [
   { icon: '🔄', title: 'Token Swap', desc: 'Instantly trade tokens with AMM pricing' },
-  { icon: '💧', title: 'Liquidity Pools', desc: 'Provide liquidity and earn 0.3% fees' },
-  { icon: '📊', title: 'Analytics', desc: 'Real-time charts, TVL, volume, pair data' },
+  { icon: '💧', title: 'Liquidity Pools', desc: 'Add or remove liquidity and manage LP shares' },
+  { icon: '📊', title: 'Analytics', desc: 'Indexed swap events, discovered pairs, and token reserves' },
   { icon: '📁', title: 'Portfolio', desc: 'Track holdings, LP positions, send tokens' },
   { icon: '🐺', title: 'WOLFDEX Token', desc: 'Native governance & utility token (WDEX)' },
   { icon: '📜', title: 'History', desc: 'Complete transaction history with details' },
@@ -102,7 +102,7 @@ const ROADMAP = [
     summary: 'Production-grade UX with real-time data, MEV defense and global tx history.',
     items: [
       'Portfolio dashboard: live balances, LP positions, unrealized fees',
-      'Pool explorer with TVL ranking, search, sort & one-click create-pair',
+      'Pair explorer with verified reserves, search, sort, and create-pair controls',
       'On-chain analytics with cached aggregator for instant page transitions',
       'MEV-aware liquidity removal (slippage floor on amountAMin/amountBMin)',
       'Global tx history popover with localStorage persistence + per-wallet scope',
@@ -573,14 +573,14 @@ function AnalyticsPairsSection() {
   return (
     <div>
       <SectionTitle>Analytics & Pairs</SectionTitle>
-      <SectionDesc>Monitor real-time DEX metrics including TVL, volume, and pair performance.</SectionDesc>
+      <SectionDesc>Review discovered pairs, indexed swap events, and individual token reserves.</SectionDesc>
       <h2 className="text-lg font-bold mb-3">Available Metrics</h2>
       <div className="space-y-2 mb-6">
         {[
-          { label: 'Total Value Locked (TVL)', desc: 'Total liquidity across all pools' },
-          { label: '24h Trading Volume', desc: 'Total swap volume in the last 24 hours' },
-          { label: 'Total Pairs', desc: 'Number of active trading pairs' },
-          { label: 'Total Transactions', desc: 'Cumulative swap count' },
+          { label: 'Recent swap events', desc: 'Count of on-chain Swap events returned for the current RPC block window.' },
+          { label: 'Pair contracts', desc: 'Pair contracts discovered from the configured factory.' },
+          { label: 'Latest indexed block', desc: 'Most recent block included in the swap-event scan.' },
+          { label: 'Token reserves', desc: 'Displayed in each token’s own units; values across assets are not directly comparable.' },
         ].map(m => (
           <DocCard key={m.label}>
             <div className="flex justify-between items-center">

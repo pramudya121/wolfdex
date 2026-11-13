@@ -1,326 +1,227 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { motion } from 'framer-motion';
-import { getTokenByAddress, TOKENS, CONTRACTS } from '@/config/contracts';
-import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { CONTRACTS, getTokenByAddress, TOKENS } from '@/config/contracts';
 import { useDexContext } from '@/context/DexContext';
-import PairChart from './PairChart';
-import { AnimatePresence } from 'framer-motion';
 import { useHistoricalAnalytics, type Bucket } from '@/hooks/useHistoricalAnalytics';
+import PairChart from './PairChart';
 
 interface PoolData {
-  symbol0: string; symbol1: string; reserve0: string; reserve1: string;
-  logo0: string; logo1: string; tvl: number; address: string;
-  token0: string; token1: string;
+  symbol0: string;
+  symbol1: string;
+  reserve0: string;
+  reserve1: string;
+  logo0: string;
+  logo1: string;
+  address: string;
+  token0: string;
+  token1: string;
 }
+
+const formatReserve = (value: string | number) => {
+  const amount = Number(value);
+  return Number.isFinite(amount)
+    ? new Intl.NumberFormat('en-US', { maximumSignificantDigits: 6 }).format(amount)
+    : '—';
+};
 
 export default function AnalyticsView() {
   const { getCachedPairsWithInfo, invalidatePairsCache } = useDexContext();
   const [pools, setPools] = useState<PoolData[]>([]);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'trending' | 'staking'>('trending');
-  const [chartPeriod, setChartPeriod] = useState<'7d' | '30d' | '90d'>('30d');
+  const [pairError, setPairError] = useState<string | null>(null);
   const [chartBucket, setChartBucket] = useState<Bucket>('day');
   const [selectedPair, setSelectedPair] = useState<PoolData | null>(null);
-
-  const windowDays = chartPeriod === '7d' ? 7 : chartPeriod === '30d' ? 30 : 90;
-  const { series: historySeries, stats: historyStats, loading: historyLoading, refresh: refreshHistory } =
-    useHistoricalAnalytics({ bucket: chartBucket, windowDays });
+  const { series, stats, loading: historyLoading, error: historyError, latestBlock, refresh: refreshHistory } =
+    useHistoricalAnalytics({ bucket: chartBucket, windowDays: 1 });
 
   const load = useCallback(async (force = false) => {
-    setLoading(prev => prev || pools.length === 0);
+    setLoading(true);
+    setPairError(null);
     try {
       const cache = await getCachedPairsWithInfo(force);
-      const out: PoolData[] = [];
-      for (const addr of cache.pairs) {
-        const info = cache.infos[addr];
+      const nextPools: PoolData[] = [];
+      for (const address of cache.pairs) {
+        const info = cache.infos[address];
         if (!info) continue;
-        const tok0 = getTokenByAddress(info.token0);
-        const tok1 = getTokenByAddress(info.token1);
-        const r0 = parseFloat(info.reserve0);
-        const r1 = parseFloat(info.reserve1);
-        out.push({
-          symbol0: tok0?.symbol || info.token0.slice(0, 6),
-          symbol1: tok1?.symbol || info.token1.slice(0, 6),
-          reserve0: r0.toString(),
-          reserve1: r1.toString(),
-          logo0: tok0?.logo || '/images/wdex-logo.png',
-          logo1: tok1?.logo || '/images/wdex-logo.png',
-          tvl: r0 + r1,
-          address: addr,
+        const token0 = getTokenByAddress(info.token0);
+        const token1 = getTokenByAddress(info.token1);
+        nextPools.push({
+          symbol0: token0?.symbol || info.token0.slice(0, 6),
+          symbol1: token1?.symbol || info.token1.slice(0, 6),
+          reserve0: info.reserve0,
+          reserve1: info.reserve1,
+          logo0: token0?.logo || '/images/wdex-logo.png',
+          logo1: token1?.logo || '/images/wdex-logo.png',
+          address,
           token0: info.token0,
           token1: info.token1,
         });
       }
-      setPools(out);
-    } catch {} finally { setLoading(false); }
-  }, [getCachedPairsWithInfo, pools.length]);
-
-  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const totalTVL = useMemo(() => pools.reduce((s, p) => s + p.tvl, 0), [pools]);
-  const totalVolume = historyStats.volume24h;
-  const totalFees = totalVolume * 0.003;
-  const volumeChange = historyStats.volumeChangePct;
-  const chartData = historySeries;
-
-  /** Top tokens ranked by real on-chain liquidity; price quoted against the
-   *  native/wrapped-native side of the deepest pool that contains the token. */
-  const topTokens = useMemo(() => {
-    const liq = new Map<string, number>();
-    const priced = new Map<string, number>();
-    const wrapped = CONTRACTS.WETH.toLowerCase();
-    for (const p of pools) {
-      const a0 = p.token0.toLowerCase(), a1 = p.token1.toLowerCase();
-      const r0 = parseFloat(p.reserve0) || 0, r1 = parseFloat(p.reserve1) || 0;
-      liq.set(a0, (liq.get(a0) || 0) + r0);
-      liq.set(a1, (liq.get(a1) || 0) + r1);
-      if (a1 === wrapped && r0 > 0) priced.set(a0, r1 / r0);
-      if (a0 === wrapped && r1 > 0) priced.set(a1, r0 / r1);
+      setPools(nextPools);
+    } catch (cause) {
+      setPairError(cause instanceof Error ? cause.message : 'Could not load on-chain pools.');
+    } finally {
+      setLoading(false);
     }
-    return TOKENS.filter(t => !t.isNative)
-      .map(t => {
-        const key = t.address.toLowerCase();
-        return { ...t, liquidity: liq.get(key) || 0, price: priced.get(key) ?? null };
-      })
-      .sort((a, b) => b.liquidity - a.liquidity)
-      .slice(0, 6);
+  }, [getCachedPairsWithInfo]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const tokenReserves = useMemo(() => {
+    const reserves = new Map<string, number>();
+    const wrappedPrices = new Map<string, number>();
+    const wrappedAddress = CONTRACTS.WETH.toLowerCase();
+    for (const pool of pools) {
+      const token0 = pool.token0.toLowerCase();
+      const token1 = pool.token1.toLowerCase();
+      const reserve0 = Number(pool.reserve0) || 0;
+      const reserve1 = Number(pool.reserve1) || 0;
+      reserves.set(token0, (reserves.get(token0) ?? 0) + reserve0);
+      reserves.set(token1, (reserves.get(token1) ?? 0) + reserve1);
+      if (token1 === wrappedAddress && reserve0 > 0) wrappedPrices.set(token0, reserve1 / reserve0);
+      if (token0 === wrappedAddress && reserve1 > 0) wrappedPrices.set(token1, reserve0 / reserve1);
+    }
+    return TOKENS.filter(token => !token.isNative)
+      .map(token => ({
+        ...token,
+        reserve: reserves.get(token.address.toLowerCase()) ?? 0,
+        spotQuote: wrappedPrices.get(token.address.toLowerCase()) ?? null,
+      }))
+      .sort((a, b) => a.symbol.localeCompare(b.symbol));
   }, [pools]);
 
-  const showSkeleton = loading && pools.length === 0;
+  const statsCards = [
+    { label: 'Pair contracts', value: pools.length.toLocaleString('en-US'), detail: 'Discovered from the factory' },
+    { label: 'Recent swap events', value: stats.swaps24h.toLocaleString('en-US'), detail: 'Count from the current RPC block window' },
+    { label: 'Latest indexed block', value: latestBlock ? latestBlock.toLocaleString('en-US') : '—', detail: 'LitVM testnet' },
+    { label: 'Curated tokens', value: TOKENS.filter(token => !token.isNative).length.toLocaleString('en-US'), detail: 'Configured token list' },
+  ];
 
-  // Sparkline data for top stat cards (deterministic, lightweight)
-  const sparkData = useMemo(() => Array.from({ length: 20 }, (_, i) => ({
-    v: 50 + Math.sin(i / 2) * 18 + (i % 3) * 4,
-  })), []);
+  const refresh = () => {
+    invalidatePairsCache();
+    void load(true);
+    void refreshHistory();
+  };
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-6xl mx-auto">
-      {/* Title */}
-      <div className="text-center mb-8 relative">
+      <header className="text-center mb-8 relative">
         <div className="spotlight w-[520px] h-[280px] -top-10 left-1/2 -translate-x-1/2" />
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-wolf-pink/10 border border-wolf-pink/30 text-[10px] font-bold text-wolf-pink uppercase tracking-widest mb-3 relative">
-          <span className="w-1.5 h-1.5 rounded-full bg-wolf-green animate-pulse" /> Live · LitVM
+          <span className="w-1.5 h-1.5 rounded-full bg-wolf-green animate-pulse" /> LitVM testnet
         </div>
         <h1 className="text-3xl sm:text-4xl font-black wolf-gradient-text mb-1 relative">Protocol Analytics</h1>
-        <p className="text-muted-foreground text-sm relative">Real-time on-chain insights for WOLFDEX</p>
-      </div>
+        <p className="text-muted-foreground text-sm relative">Factory pairs, indexed swap events, and on-chain reserve balances.</p>
+      </header>
 
-      {/* Tabs */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex gap-2">
-          {(['trending', 'staking'] as const).map(t => (
-            <button key={t} onClick={() => setActiveTab(t)}
-              className={`relative px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === t ? 'text-wolf-pink' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              {activeTab === t && (
-                <motion.span layoutId="analytics-tab" className="absolute inset-0 rounded-lg bg-wolf-pink/15 border border-wolf-pink/40" transition={{ type: 'spring', stiffness: 400, damping: 30 }} />
-              )}
-              <span className="relative">{t === 'trending' ? '📈 Trending' : '💎 Staking'}</span>
+      <div className="flex flex-wrap items-center justify-end gap-2 mb-6">
+        <div className="flex gap-1 p-1 rounded-lg bg-wolf-surface border border-wolf-border/30" aria-label="Chart bucket size">
+          {(['day', 'week'] as const).map(bucket => (
+            <button key={bucket} type="button" onClick={() => setChartBucket(bucket)} aria-pressed={chartBucket === bucket}
+              className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-all ${chartBucket === bucket ? 'bg-wolf-pink/20 text-wolf-pink' : 'text-muted-foreground hover:text-foreground'}`}>
+              {bucket === 'day' ? 'Daily' : 'Weekly'}
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex gap-1 p-1 rounded-lg bg-wolf-surface border border-wolf-border/30">
-            {(['day', 'week'] as const).map(b => (
-              <button key={b} onClick={() => setChartBucket(b)}
-                className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-all ${chartBucket === b ? 'bg-wolf-pink/20 text-wolf-pink' : 'text-muted-foreground hover:text-foreground'}`}
-              >{b === 'day' ? '1D' : '1W'}</button>
-            ))}
-          </div>
-          <button onClick={() => { invalidatePairsCache(); load(true); refreshHistory(); }} className="px-3 py-2 rounded-lg text-xs font-medium bg-wolf-surface border border-wolf-border/30 hover:border-wolf-pink/40 transition-all">
-            {historyLoading ? '⏳ Indexing…' : '🔄 Refresh'}
-          </button>
-        </div>
+        <button type="button" onClick={refresh} disabled={historyLoading || loading}
+          className="px-3 py-2 rounded-lg text-xs font-medium bg-wolf-surface border border-wolf-border/30 hover:border-wolf-pink/40 transition-all disabled:opacity-50">
+          {historyLoading || loading ? 'Refreshing…' : 'Refresh data'}
+        </button>
       </div>
 
-      {showSkeleton ? (
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="wolf-stat-card rounded-xl p-4 animate-pulse h-28" />
-            ))}
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="wolf-card rounded-xl p-4 animate-pulse h-[240px]" />
-            <div className="wolf-card rounded-xl p-4 animate-pulse h-[240px]" />
-          </div>
+      {(pairError || historyError || stats.incomplete) && (
+        <div role="status" className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+          {pairError || historyError || 'Some RPC requests failed; swap activity may be incomplete.'}
         </div>
-      ) : (
-        <>
-          {/* Stat cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-            {[
-              { icon: '🔒', label: 'Total Value Locked', value: `$${totalTVL.toFixed(2)}`, change: '+0.5%', positive: true },
-              { icon: '📊', label: 'Volume (24h)',       value: `${totalVolume.toFixed(4)}`, change: `${volumeChange >= 0 ? '+' : ''}${volumeChange.toFixed(1)}%`, positive: volumeChange >= 0 },
-              { icon: '💸', label: 'Fees (24h)',         value: `${totalFees.toFixed(4)}`, change: `${historyStats.swaps24h} swaps`, positive: true },
-              { icon: '🏊', label: 'Total Pools',        value: pools.length.toString(),    change: '',      positive: true },
-            ].map((s, i) => (
-              <motion.div key={s.label}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.06 }}
-                className="analytics-stat rounded-xl p-4"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xl">{s.icon}</span>
-                  {s.change && (
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${s.positive ? 'bg-wolf-green/15 text-wolf-green' : 'bg-destructive/15 text-destructive'}`}>
-                      {s.positive ? '▲' : '▼'} {s.change}
-                    </span>
-                  )}
-                </div>
-                <div className="text-xl font-black analytics-num">{s.value}</div>
-                <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">{s.label}</div>
-                {/* mini sparkline */}
-                <svg viewBox="0 0 100 24" className="w-full h-6 mt-2 opacity-70">
-                  <polyline
-                    fill="none"
-                    stroke="oklch(0.65 0.25 330)"
-                    strokeWidth="1.4"
-                    points={sparkData.map((d, idx) => `${(idx / (sparkData.length - 1)) * 100},${24 - (d.v / 100) * 22}`).join(' ')}
-                  />
-                </svg>
-              </motion.div>
-            ))}
-          </div>
-
-          {/* Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-            {/* TVL Chart */}
-            <div className="wolf-card rounded-xl p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-bold text-sm">Total Value Locked</h2>
-                <div className="flex gap-1">
-                  {(['7d', '30d', '90d'] as const).map(p => (
-                    <button key={p} onClick={() => setChartPeriod(p)}
-                      className={`px-2 py-1 rounded text-[10px] font-medium transition-all ${chartPeriod === p ? 'bg-wolf-pink/20 text-wolf-pink' : 'text-muted-foreground hover:text-foreground'}`}
-                    >{p}</button>
-                  ))}
-                </div>
-              </div>
-              <ResponsiveContainer width="100%" height={200}>
-                <AreaChart data={chartData}>
-                  <defs>
-                    <linearGradient id="tvlGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#e040a0" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#e040a0" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#888' }} />
-                  <YAxis tick={{ fontSize: 10, fill: '#888' }} />
-                  <Tooltip contentStyle={{ background: '#1a1a2e', border: '1px solid #333', borderRadius: 8, fontSize: 12 }} />
-                  <Area type="monotone" dataKey="tvl" stroke="#e040a0" fill="url(#tvlGrad)" strokeWidth={2} isAnimationActive={false} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Volume Chart */}
-            <div className="wolf-card rounded-xl p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-bold text-sm">Trading Volume</h2>
-              </div>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#888' }} />
-                  <YAxis tick={{ fontSize: 10, fill: '#888' }} />
-                  <Tooltip contentStyle={{ background: '#1a1a2e', border: '1px solid #333', borderRadius: 8, fontSize: 12 }} />
-                  <Bar dataKey="volume" fill="#e040a0" radius={[4, 4, 0, 0]} isAnimationActive={false} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Top tokens & pools */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Top Tokens */}
-            <div className="wolf-card rounded-xl p-4">
-              <h2 className="font-bold text-sm mb-4">🔥 Top Tokens</h2>
-              <div className="space-y-2">
-                {topTokens.map((t, i) => (
-                  <div key={t.address} className="flex items-center justify-between py-2 px-2 rounded-lg hover:bg-wolf-surface/50 transition-all">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-muted-foreground w-4">{i + 1}</span>
-                      <img src={t.logo} alt="" className="w-6 h-6 rounded-full" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
-                      <div>
-                        <span className="font-medium text-sm">{t.symbol}</span>
-                        <span className="text-[10px] text-muted-foreground ml-1">{t.name}</span>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-medium text-sm">
-                        {t.price !== null ? `${t.price.toFixed(6)} zkLTC` : '—'}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground">
-                        Liq {t.liquidity.toLocaleString('en-US', { maximumFractionDigits: 2 })}
-                      </div>
-
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Top Pools */}
-            <div className="wolf-card rounded-xl p-4">
-              <h2 className="font-bold text-sm mb-4">🏊 Top Pools</h2>
-              <div className="space-y-2">
-                {pools.slice().sort((a, b) => b.tvl - a.tvl).slice(0, 6).map((p, i) => (
-                  <button key={p.address} onClick={() => setSelectedPair(p)} className="w-full flex items-center justify-between py-2 px-2 rounded-lg hover:bg-wolf-surface/50 transition-all text-left group">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-muted-foreground w-4">{i + 1}</span>
-                      <div className="flex -space-x-1.5">
-                        <img src={p.logo0} alt="" className="w-5 h-5 rounded-full ring-1 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
-                        <img src={p.logo1} alt="" className="w-5 h-5 rounded-full ring-1 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
-                      </div>
-                      <span className="font-medium text-sm group-hover:text-wolf-gold transition-colors">{p.symbol0}/{p.symbol1}</span>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-medium text-sm">${p.tvl.toFixed(2)}</div>
-                      <div className="text-[10px] text-muted-foreground group-hover:text-wolf-gold transition-colors">📊 Chart</div>
-                    </div>
-                  </button>
-                ))}
-                {pools.length === 0 && <p className="text-center text-muted-foreground text-sm py-4">No pools yet</p>}
-              </div>
-            </div>
-          </div>
-        </>
       )}
 
-      {/* Pair OHLC Chart Modal */}
-      <AnimatePresence>
-        {selectedPair && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
-            onClick={() => setSelectedPair(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-              className="wolf-card rounded-2xl p-5 w-full max-w-4xl max-h-[90vh] overflow-y-auto"
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex -space-x-2">
-                    <img src={selectedPair.logo0} alt="" className="w-8 h-8 rounded-full ring-2 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
-                    <img src={selectedPair.logo1} alt="" className="w-8 h-8 rounded-full ring-2 ring-wolf-dark" onError={e => { (e.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
-                  </div>
-                  <div>
-                    <h2 className="font-bold text-lg">{selectedPair.symbol0}/{selectedPair.symbol1}</h2>
-                    <p className="text-[10px] font-mono text-muted-foreground">{selectedPair.address.slice(0, 10)}…{selectedPair.address.slice(-8)}</p>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        {statsCards.map((card, index) => (
+          <motion.div key={card.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.06 }} className="analytics-stat rounded-xl p-4">
+            <div className="text-xl font-black analytics-num">{loading && index === 0 ? '…' : card.value}</div>
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">{card.label}</div>
+            <div className="text-[10px] text-muted-foreground mt-2">{card.detail}</div>
+          </motion.div>
+        ))}
+      </div>
+
+      <section className="wolf-card rounded-xl p-4 mb-6" aria-labelledby="swap-events-title">
+        <div className="flex items-center justify-between gap-4 mb-4">
+          <div>
+            <h2 id="swap-events-title" className="font-bold text-sm">Recent on-chain swap events</h2>
+            <p className="text-xs text-muted-foreground mt-1">Activity indexed from recent LitVM blocks; no token values are combined into a synthetic dollar volume.</p>
+          </div>
+          {historyLoading && <span className="text-xs text-muted-foreground">Indexing…</span>}
+        </div>
+        {series.length === 0 && !historyLoading ? (
+          <p className="py-12 text-center text-sm text-muted-foreground">No recent swap events were returned by the RPC.</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={series}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#888' }} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: '#888' }} />
+              <Tooltip contentStyle={{ background: '#1a1a2e', border: '1px solid #333', borderRadius: 8, fontSize: 12 }} />
+              <Bar dataKey="swaps" name="Swap events" fill="#e040a0" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </section>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <section className="wolf-card rounded-xl p-4" aria-labelledby="token-reserves-title">
+          <h2 id="token-reserves-title" className="font-bold text-sm mb-4">Curated token reserves</h2>
+          <div className="flex flex-col gap-2">
+            {tokenReserves.map(token => (
+              <div key={token.address} className="flex items-center justify-between gap-4 py-2 px-2 rounded-lg hover:bg-wolf-surface/50">
+                <div className="flex items-center gap-3 min-w-0">
+                  <img src={token.logo} alt="" className="w-6 h-6 rounded-full" onError={event => { (event.target as HTMLImageElement).src = '/images/wdex-logo.png'; }} />
+                  <div className="min-w-0">
+                    <span className="font-medium text-sm">{token.symbol}</span>
+                    <span className="text-[10px] text-muted-foreground ml-1">{token.name}</span>
                   </div>
                 </div>
-                <button onClick={() => setSelectedPair(null)} className="text-muted-foreground hover:text-foreground text-2xl leading-none">&times;</button>
+                <div className="text-right shrink-0">
+                  <div className="font-medium text-sm">{formatReserve(token.reserve)} {token.symbol}</div>
+                  <div className="text-[10px] text-muted-foreground">Spot quote: {token.spotQuote === null ? 'Unavailable' : `${token.spotQuote.toFixed(6)} zkLTC`}</div>
+                </div>
               </div>
-              <PairChart
-                pairAddress={selectedPair.address}
-                baseSymbol={selectedPair.symbol0}
-                quoteSymbol={selectedPair.symbol1}
-                height={380}
-              />
+            ))}
+          </div>
+        </section>
+
+        <section className="wolf-card rounded-xl p-4" aria-labelledby="discovered-pools-title">
+          <h2 id="discovered-pools-title" className="font-bold text-sm mb-4">Discovered pools</h2>
+          <div className="flex flex-col gap-2">
+            {pools.slice(0, 8).map(pool => (
+              <button key={pool.address} type="button" onClick={() => setSelectedPair(pool)} aria-label={`Open chart for ${pool.symbol0} and ${pool.symbol1}`}
+                className="w-full flex items-center justify-between gap-3 py-2 px-2 rounded-lg hover:bg-wolf-surface/50 transition-all text-left group">
+                <span className="font-medium text-sm group-hover:text-wolf-gold">{pool.symbol0}/{pool.symbol1}</span>
+                <span className="text-right text-[10px] text-muted-foreground">
+                  {formatReserve(pool.reserve0)} {pool.symbol0} · {formatReserve(pool.reserve1)} {pool.symbol1}
+                </span>
+              </button>
+            ))}
+            {pools.length === 0 && !loading && <p className="text-center text-muted-foreground text-sm py-4">No pools returned by the factory.</p>}
+          </div>
+        </section>
+      </div>
+
+      <AnimatePresence>
+        {selectedPair && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setSelectedPair(null)}>
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} role="dialog" aria-modal="true" aria-label={`${selectedPair.symbol0}/${selectedPair.symbol1} price chart`} className="wolf-card rounded-2xl p-5 w-full max-w-4xl max-h-[90vh] overflow-y-auto" onClick={event => event.stopPropagation()}>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="font-bold text-lg">{selectedPair.symbol0}/{selectedPair.symbol1}</h2>
+                  <p className="text-[10px] font-mono text-muted-foreground">{selectedPair.address.slice(0, 10)}…{selectedPair.address.slice(-8)}</p>
+                </div>
+                <button type="button" onClick={() => setSelectedPair(null)} aria-label="Close chart" className="text-muted-foreground hover:text-foreground text-2xl leading-none">&times;</button>
+              </div>
+              <PairChart pairAddress={selectedPair.address} baseSymbol={selectedPair.symbol0} quoteSymbol={selectedPair.symbol1} height={380} />
             </motion.div>
           </motion.div>
         )}

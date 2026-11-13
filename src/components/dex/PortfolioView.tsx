@@ -432,7 +432,7 @@ export default function PortfolioView({
                         </div>
                         <div>
                           <div className="font-bold text-xs">{pool.stakingSymbol} → {pool.rewardSymbol}</div>
-                          <div className="text-[9px] text-muted-foreground">Pool #{pool.pid} · APR {pool.apr > 999_999 ? '∞' : pool.apr.toFixed(2)}%</div>
+                          <div className="text-[9px] text-muted-foreground">Pool #{pool.pid} · Est. APR {Number.isFinite(pool.apr) && pool.apr >= 0 && pool.apr <= 999_999 ? `${pool.apr.toFixed(2)}%` : '—'}</div>
                         </div>
                       </div>
                       <span className="px-2 py-0.5 rounded-md bg-wolf-green/15 text-wolf-green text-[9px] font-bold uppercase">Active</span>

@@ -8,7 +8,6 @@ interface PriceItem {
   symbol: string;
   logo: string;
   price: string;
-  change: number;
 }
 
 export default function LivePriceTicker() {
@@ -26,14 +25,14 @@ export default function LivePriceTicker() {
           try {
             const out = await router.getAmountsOut(ethers.utils.parseEther('1'), [tok.address, CONTRACTS.WETH]);
             const price = parseFloat(ethers.utils.formatEther(out[1]));
-            items.push({
-              symbol: tok.symbol,
-              logo: tok.logo,
-              price: price > 0 ? price.toFixed(price < 0.01 ? 8 : 4) : '—',
-              change: (Math.random() * 12 - 4),
-            });
-          } catch {
-            items.push({ symbol: tok.symbol, logo: tok.logo, price: '—', change: 0 });
+          items.push({
+            symbol: tok.symbol,
+            logo: tok.logo,
+            price: price > 0 ? price.toFixed(price < 0.01 ? 8 : 4) : '—',
+          });
+        } catch {
+          items.push({ symbol: tok.symbol, logo: tok.logo, price: '—' });
+
           }
         }
         if (mounted) setPrices(items);
@@ -52,11 +51,11 @@ export default function LivePriceTicker() {
         {prices.map((p, i) => (
           <div key={`${p.symbol}-${i}`} className="flex items-center gap-2 px-3 text-sm whitespace-nowrap">
             <img src={p.logo} alt={p.symbol} className="w-5 h-5 rounded-full" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-            <span className="font-semibold">{p.symbol}</span>
-            <span className="text-foreground/90">{p.price} zkLTC</span>
-            <span className={`text-xs font-medium ${p.change >= 0 ? 'text-wolf-green' : 'text-destructive'}`}>
-              {p.change >= 0 ? '▲' : '▼'} {Math.abs(p.change).toFixed(2)}%
-            </span>
+        <span className="font-semibold">{p.symbol}</span>
+        <span className="text-foreground/90">
+          {p.price === '—' ? 'Price unavailable' : `1 ${p.symbol} = ${p.price} zkLTC`}
+        </span>
+
             <span className="text-wolf-border">•</span>
           </div>
         ))}
